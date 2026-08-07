@@ -4,7 +4,15 @@ import { TrackBuilder } from "./TrackBuilder.js";
 import { SceneryInstancer } from "./SceneryInstancer.js";
 import { SpawnDirector } from "./SpawnDirector.js";
 import { ObstacleFactory } from "../entities/Obstacles.js";
-import { PLAYER_PHYSICS, REACTION_BASE_SPEED, POWER_UPS, FEATURE_SPACING_DISTANCE } from "../config/GameConfig.js";
+import {
+  PLAYER_PHYSICS,
+  REACTION_BASE_SPEED,
+  POWER_UPS,
+  FEATURE_SPACING_DISTANCE,
+  TUTORIAL_SPEED_MULTIPLIER,
+  TUTORIAL_DISTANCE,
+  TUTORIAL_MECHANIC_BY_PATTERN,
+} from "../config/GameConfig.js";
 
 // Replaces WorldGenerator. Same public API (constructor(scene, textures,
 // models), setLevel(), update(delta), .trackPool, .speed) so Engine.js and
@@ -89,6 +97,12 @@ export class WorldStreamer {
     // Paces NEW feature dealing across the level's real run length instead
     // of the bag draining in the first ~15s -- see FEATURE_SPACING_DISTANCE.
     this._distanceSinceLastFeature = 0;
+
+    // Interactive tutorial (Milestone 9) -- see startTutorial(). Inactive
+    // (tutorialActive false, tutorialMechanic null) until Engine.js opts in.
+    this._tutorialDistanceRemaining = 0;
+    this.tutorialActive = false;
+    this.tutorialMechanic = null;
 
     this.chunkCoins = []; // [chunkIndex][slotIndex]
     this.chunkObstacles = []; // [chunkIndex][slotIndex] -> { activeType, variants: { TYPE: instance } }
@@ -179,6 +193,22 @@ export class WorldStreamer {
     for (let i = 0; i < this.poolSize; i++) {
       const manifest = this.sceneryInstancer.registerChunkSlots(i);
       this.chunkManifests.push(manifest);
+      // registerChunkSlots() only assigns each slot's FIXED pool/instance
+      // index -- the actual per-instance placement (tree x/z within its
+      // side's range, tree scale, building visibility/z) is inert
+      // placeholder data (x=0, i.e. the exact center of the road) until
+      // rerollChunk() rolls real values. Every chunk normally gets that
+      // roll on its first natural recycle (see update() below), but the
+      // INITIAL 15 chunks built here never recycle before the player sees
+      // them -- without this call, every tree in view at game start renders
+      // glued to the road's centerline until its chunk individually
+      // recycles for the first time (visibly fixing itself lane-by-lane a
+      // few seconds in, exactly the reported symptom). Passing the
+      // manifest's own already-decided `hasScenery` (the deliberate
+      // alternating-chunk density pattern from registerChunkSlots) as the
+      // override keeps that initial density design unchanged -- this only
+      // fixes position/visibility jitter, not the density roll.
+      this.sceneryInstancer.rerollChunk(manifest, manifest.hasScenery);
       // Sync immediately so scenery appears this frame rather than waiting
       // for the next update() tick.
       this.sceneryInstancer.syncChunk(manifest, this.trackPool[i].position.z);
@@ -210,6 +240,24 @@ export class WorldStreamer {
     }
   }
 
+  // Milestone 9 interactive tutorial. Seeds 3 chunks DIRECTLY (bypassing
+  // the normal wait-for-natural-recycle path) with one scripted pattern
+  // per mechanic -- see GameConfig.js's long comment on why: every pooled
+  // chunk starts empty until its OWN first recycle, and for anything but
+  // the nearest few chunks that's hundreds of units away, far more than a
+  // "~15 second" opening tutorial can wait for. Also engages the slowdown
+  // (see update()) for TUTORIAL_DISTANCE units of travel from right now.
+  startTutorial(patternIds, chunkIndices) {
+    this.tutorialActive = true;
+    this._tutorialDistanceRemaining = TUTORIAL_DISTANCE;
+    this.tutorialMechanic = TUTORIAL_MECHANIC_BY_PATTERN[patternIds[0]] || null;
+    patternIds.forEach((id, idx) => {
+      const chunkIndex = chunkIndices[idx];
+      if (chunkIndex === undefined) return;
+      this._refreshChunkContent(chunkIndex, true, id);
+    });
+  }
+
   _shuffledFeatureBag() {
     const bag = [...this.levelFeatures];
     for (let i = bag.length - 1; i > 0; i--) {
@@ -237,7 +285,12 @@ export class WorldStreamer {
   // "empty breather" doesn't leave stale obstacles visible. Gated on
   // `hasScenery` so interactable density follows the same ramped pacing as
   // scenery (see update()).
-  _refreshChunkContent(i, hasScenery) {
+  // `forcedId` (Milestone 9): dealt straight to SpawnDirector.selectPattern(),
+  // which resolves that SPECIFIC pattern instead of a random one -- see its
+  // own comment. Also marks every obstacle this pattern places as
+  // isTutorial, which App.vue's blocker-hit handling reads to skip the
+  // life cost for a miss during the tutorial's first-ever-controls window.
+  _refreshChunkContent(i, hasScenery, forcedId = null) {
     const coinSlots = this.chunkCoins[i];
     const obstacleSlots = this.chunkObstacles[i];
 
@@ -249,7 +302,7 @@ export class WorldStreamer {
 
     if (!hasScenery) return;
 
-    const pattern = this.spawnDirector.selectPattern(this.spawnDirector.getMaxDifficulty(), this.speed);
+    const pattern = this.spawnDirector.selectPattern(this.spawnDirector.getMaxDifficulty(), this.speed, forcedId);
 
     pattern.obstacles.forEach((obs, idx) => {
       if (idx >= obstacleSlots.length) return; // safety net; no authored pattern exceeds MAX_OBSTACLE_SLOTS
@@ -278,6 +331,17 @@ export class WorldStreamer {
         name: painPoint ? painPoint.id : obs.type,
         text: painPoint ? painPoint.text : "",
         consequence: painPoint ? painPoint.consequence : "",
+        // Real obstacle shape (e.g. "BARRICADE_LOW") and lane span --
+        // `name`/`text` above are the PAIN-POINT identity, independent of
+        // shape (any of the 4 types can carry any pain point), so the
+        // actual OBSTACLE_TYPES key would otherwise be lost once a pain
+        // point is assigned. Milestone 9's near-miss detection
+        // (CollisionSystem) needs both: which lane(s) this occupies, and
+        // whether its escape is jump/slide (a genuine close call) or
+        // switch (just normal lateral avoidance, not a "near" miss).
+        obstacleType: obs.type,
+        lanes: obs.lanes,
+        isTutorial: !!forcedId,
       };
       instance.group.visible = true;
     });
@@ -316,6 +380,7 @@ export class WorldStreamer {
         name: featureData.name,
         category: featureData.category,
         isExclusive: featureData.isExclusive || false,
+        exclusiveLine: featureData.exclusiveLine || null,
         bobOffset: coin.bobOffset,
         powerUp: powerUpDef ? powerUpDef.type : null,
         powerUpDurationMs: powerUpDef?.durationMs,
@@ -329,10 +394,23 @@ export class WorldStreamer {
     // ramp tracker by however far that ramped speed just moved the world
     // this frame -- speed and the distance that drives it stay consistent
     // within the same frame rather than one frame lagging the other.
-    this.speed = this.spawnDirector.getRampedSpeed(this.levelBaseSpeed);
+    // While the tutorial is active, a flat slowdown REPLACES the ramped
+    // speed entirely (see GameConfig.js's TUTORIAL_SPEED_MULTIPLIER
+    // comment for why this is a slowdown, not a hard freeze).
+    this.speed = this.tutorialActive
+      ? this.levelBaseSpeed * TUTORIAL_SPEED_MULTIPLIER
+      : this.spawnDirector.getRampedSpeed(this.levelBaseSpeed);
     const moveDist = this.speed * delta;
     this.spawnDirector.advance(moveDist);
     this._distanceSinceLastFeature += moveDist;
+
+    if (this.tutorialActive) {
+      this._tutorialDistanceRemaining -= moveDist;
+      if (this._tutorialDistanceRemaining <= 0) {
+        this.tutorialActive = false;
+        this.tutorialMechanic = null;
+      }
+    }
 
     const sceneryReady = this.sceneryInstancer.ready;
     const time = Date.now() * 0.005;
@@ -365,16 +443,26 @@ export class WorldStreamer {
         }
         chunk.position.z = minZ - this.trackLength;
 
-        // Base ~50% density, scaled toward 0.5*densityRampMultiplier as the
-        // level progresses, capped well under 1.0 so "breather" chunks with
-        // no content never disappear entirely even at max ramp.
-        const sceneryChance = Math.min(0.9, 0.5 * this.spawnDirector.getDensityFactor());
-        let hasScenery = Math.random() < sceneryChance;
-        if (sceneryReady) {
-          this.sceneryInstancer.rerollChunk(this.chunkManifests[i], hasScenery);
-          hasScenery = this.chunkManifests[i].hasScenery;
+        if (this.tutorialActive) {
+          // Any OTHER chunk reaching its natural recycle threshold during
+          // the tutorial window must never get a normal random pattern --
+          // a stray obstacle appearing while the player is still learning
+          // the 3 seeded ones would be confusing and unfair. Scenery still
+          // rerolls normally (background dressing, not gameplay content).
+          if (sceneryReady) this.sceneryInstancer.rerollChunk(this.chunkManifests[i], true);
+          this._refreshChunkContent(i, true, "empty-coin-trail");
+        } else {
+          // Base ~50% density, scaled toward 0.5*densityRampMultiplier as the
+          // level progresses, capped well under 1.0 so "breather" chunks with
+          // no content never disappear entirely even at max ramp.
+          const sceneryChance = Math.min(0.9, 0.5 * this.spawnDirector.getDensityFactor());
+          let hasScenery = Math.random() < sceneryChance;
+          if (sceneryReady) {
+            this.sceneryInstancer.rerollChunk(this.chunkManifests[i], hasScenery);
+            hasScenery = this.chunkManifests[i].hasScenery;
+          }
+          this._refreshChunkContent(i, hasScenery);
         }
-        this._refreshChunkContent(i, hasScenery);
       }
 
       // Sync exactly once per chunk per frame, using whatever the final Z

@@ -306,12 +306,15 @@ async function processTexture(job) {
 }
 
 // ---------------------------------------------------------------------------
-// Deterministic seeded value noise -> tangent-space normal map. Replaces the
-// broken public/textures/grass_normal.jpg (previously 14 bytes containing
-// the literal text "404: Not Found" -- see docs/IMPLEMENTATION_PLAN.md).
-// Fixed seed so `npm run assets:optimize` is fully reproducible.
+// Deterministic seeded value noise -> tangent-space normal map. Originally
+// written to replace the broken public/textures/grass_normal.jpg (was 14
+// bytes containing the literal text "404: Not Found" -- see
+// docs/IMPLEMENTATION_PLAN.md); now shared by asphalt_normal.jpg too (see
+// below) via the `octaves`/`strength` params, since both are "a subtle,
+// tileable bump field," just at different scales. Fixed seed so
+// `npm run assets:optimize` is fully reproducible.
 // ---------------------------------------------------------------------------
-function generateGrassNormalMap(outPath, size = 512, seed = 1337) {
+function generateNoiseNormalMap(outPath, { size = 512, seed = 1337, octaves: octaveDefs, strength = 2.2 } = {}) {
   // Small deterministic PRNG (mulberry32) so output is identical every run.
   let s = seed >>> 0;
   const rand = () => {
@@ -324,12 +327,7 @@ function generateGrassNormalMap(outPath, size = 512, seed = 1337) {
 
   // A handful of random gradient octaves, each tiled to an integer number of
   // periods across the image so the result wraps seamlessly at the edges.
-  const octaves = [
-    { periods: 6, amp: 1.0 },
-    { periods: 13, amp: 0.5 },
-    { periods: 27, amp: 0.25 },
-    { periods: 53, amp: 0.12 },
-  ].map((o) => ({
+  const octaves = octaveDefs.map((o) => ({
     ...o,
     phaseX: rand() * Math.PI * 2,
     phaseY: rand() * Math.PI * 2,
@@ -359,7 +357,6 @@ function generateGrassNormalMap(outPath, size = 512, seed = 1337) {
   // Sobel-ish gradient -> tangent-space normal (Y-up convention: R=X, G=Y, B=Z)
   const pixels = Buffer.alloc(size * size * 3);
   const at = (x, y) => height[((y + size) % size) * size + ((x + size) % size)];
-  const strength = 2.2; // bump intensity; grass should read as subtle, not spiky
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const dx = (at(x + 1, y) - at(x - 1, y)) * strength;
@@ -378,6 +375,43 @@ function generateGrassNormalMap(outPath, size = 512, seed = 1337) {
   return sharp(pixels, { raw: { width: size, height: size, channels: 3 } })
     .jpeg({ quality: 90 })
     .toFile(outPath);
+}
+
+function generateGrassNormalMap(outPath, size = 512, seed = 1337) {
+  return generateNoiseNormalMap(outPath, {
+    size,
+    seed,
+    strength: 2.2, // grass should read as subtle, not spiky
+    octaves: [
+      { periods: 6, amp: 1.0 },
+      { periods: 13, amp: 0.5 },
+      { periods: 27, amp: 0.25 },
+      { periods: 53, amp: 0.12 },
+    ],
+  });
+}
+
+// Replaces public/textures/asphalt_normal.jpg, which downloadAssets.js used
+// to source from three.js's own examples/textures/waternormals.jpg (a
+// literal water-ripple normal map, per that script's own since-removed
+// comment "we'll tile this heavily for road grit") -- a directional,
+// flowing ripple pattern reads as WATER regardless of how it's tiled or
+// what material properties sit on top of it, which is exactly the "shiny
+// wet road" look flagged during manual playtesting. Much higher spatial
+// frequency (period counts 40-160 vs grass's 6-53) and lower strength than
+// grass_normal.jpg: real asphalt grain is fine and directionless, not a
+// few big rolling bumps.
+function generateAsphaltNormalMap(outPath, size = 512, seed = 4242) {
+  return generateNoiseNormalMap(outPath, {
+    size,
+    seed,
+    strength: 1.1,
+    octaves: [
+      { periods: 40, amp: 1.0 },
+      { periods: 90, amp: 0.6 },
+      { periods: 160, amp: 0.3 },
+    ],
+  });
 }
 
 async function main() {
@@ -440,6 +474,22 @@ async function main() {
     if (!(meta.width > 0 && meta.height > 0)) {
       anyFailed = true;
       console.error("    ERROR: generated grass_normal.jpg failed to decode");
+    }
+  } catch (err) {
+    anyFailed = true;
+    console.error(`FAILED\n    ${err.message}`);
+  }
+
+  process.stdout.write(`  textures/asphalt_normal.jpg (procedural, replaces the water-ripple texture) ... `);
+  try {
+    const outPath = path.join(PUBLIC, "textures", "asphalt_normal.jpg");
+    await generateAsphaltNormalMap(outPath);
+    const size = fs.statSync(outPath).size;
+    console.log(`generated, ${fmtBytes(size)}`);
+    const meta = await sharp(outPath).metadata();
+    if (!(meta.width > 0 && meta.height > 0)) {
+      anyFailed = true;
+      console.error("    ERROR: generated asphalt_normal.jpg failed to decode");
     }
   } catch (err) {
     anyFailed = true;

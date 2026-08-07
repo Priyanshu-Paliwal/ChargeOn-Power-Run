@@ -112,7 +112,31 @@ export class SpawnDirector {
   // authored internal spacing is too tight to stay fair at that speed
   // (see MIN_OBSTACLE_GAP_SECONDS) -- naturally biasing toward simpler
   // patterns as the game accelerates rather than an outright ban.
-  selectPattern(maxDifficulty, currentSpeed) {
+  //
+  // `forcedId` (Milestone 9's interactive tutorial): bypasses the random/
+  // variety/gap logic entirely and resolves that ONE specific pattern --
+  // still through the same build() + checkSolvability() path everything
+  // else uses, so a forced pattern gets the identical safety guarantee as
+  // a randomly-selected one, not a special unverified shortcut. Every
+  // existing call site omits this argument, so default behavior is
+  // byte-for-byte unchanged.
+  selectPattern(maxDifficulty, currentSpeed, forcedId = null) {
+    if (forcedId) {
+      const forced = PATTERNS.find((p) => p.id === forcedId);
+      if (forced) {
+        const built = forced.build();
+        const solvability = checkSolvability(built.obstacles);
+        if (solvability.solvable) {
+          this._recordSelection(forced.id);
+          return { id: forced.id, obstacles: built.obstacles, coins: built.coins };
+        }
+        // Falls through to normal selection below only if a forced pattern
+        // somehow failed solvability -- shouldn't happen for the tutorial's
+        // single-obstacle solo patterns (always 1 blocked lane, 2 free),
+        // but a forced call is not exempt from the same safety net.
+      }
+    }
+
     const eligible = PATTERNS.filter((p) => p.difficulty <= maxDifficulty);
     const pool = eligible.length > 0 ? eligible : PATTERNS;
     const gapRequired = MIN_OBSTACLE_GAP_SECONDS * currentSpeed;

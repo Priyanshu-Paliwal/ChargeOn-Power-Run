@@ -17,7 +17,16 @@ const emit = defineEmits(['next'])
         </div>
         <div class="item">
           <div class="icon">⬇️</div>
-          <p>Swipe down to slide under drones (Level 2 onward)</p>
+          <!-- Corrected Milestone 9: the approved content script
+               contradicted itself on drones (this control line said "slide
+               under drones" while the Level 2 intro card said "only a lane
+               switch saves you"). Milestone 5 implemented the mixed system
+               the user chose -- low drones (gap underneath) are cleared by
+               sliding, high drones (no gap) need a lane switch -- and this
+               line now describes that instead of either half of the
+               original contradiction. See GameContent.js's Level 2 subtext
+               for the matching correction. -->
+          <p>Drones: slide under low ones, switch lanes for high ones (Level 2 onward)</p>
         </div>
       </div>
       <div class="instructions">

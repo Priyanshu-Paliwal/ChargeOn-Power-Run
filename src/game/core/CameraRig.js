@@ -92,6 +92,40 @@ export class CameraRig {
 
     this._targetPos = new THREE.Vector3();
     this._targetLookAt = new THREE.Vector3();
+
+    // Decaying shake impulse (Milestone 9 hit juice). Applied to the
+    // CAMERA directly, after the spring-settled this.position/this.lookAt
+    // are written to it each frame -- never fed back into the spring's own
+    // `current` state, or the jitter would compound instead of decay away.
+    this._shakeMagnitude = 0;
+    this._shakeDuration = 0;
+    this._shakeElapsed = 0;
+
+    // Decaying FOV kick (Milestone 9 speed-up juice, triggered once per
+    // level start). _baseFov is the framing solver's own answer from
+    // updateFraming() -- the kick adds on top of it each frame in update()
+    // rather than fighting it, and settles back to exactly this value
+    // (not just "whatever fov happened to be") once the kick ends.
+    this._baseFov = this.camera.fov;
+    this._fovKickMagnitude = 0;
+    this._fovKickDuration = 0;
+    this._fovKickElapsed = 0;
+  }
+
+  // magnitude in world units, duration in seconds. Retriggerable -- a new
+  // call always restarts the decay from full magnitude, so a rapid second
+  // hit doesn't fight a still-decaying earlier shake.
+  triggerShake(magnitude, duration) {
+    this._shakeMagnitude = magnitude;
+    this._shakeDuration = duration;
+    this._shakeElapsed = 0;
+  }
+
+  // degrees, seconds. Same retrigger semantics as triggerShake().
+  triggerFovKick(magnitude, duration) {
+    this._fovKickMagnitude = magnitude;
+    this._fovKickDuration = duration;
+    this._fovKickElapsed = 0;
   }
 
   // Called whenever ViewportManager reports a change (resize, rotation,
@@ -123,6 +157,7 @@ export class CameraRig {
 
     this.camera.aspect = aspect;
     this.camera.fov = fov;
+    this._baseFov = fov; // update()'s FOV kick adds on top of this, and settles back to it
     this.camera.updateProjectionMatrix();
   }
 
@@ -149,5 +184,26 @@ export class CameraRig {
 
     this.camera.position.copy(this.position);
     this.camera.lookAt(this.lookAt);
+
+    if (this._shakeElapsed < this._shakeDuration) {
+      this._shakeElapsed += delta;
+      const decay = Math.max(0, 1 - this._shakeElapsed / this._shakeDuration);
+      const mag = this._shakeMagnitude * decay;
+      this.camera.position.x += (Math.random() * 2 - 1) * mag;
+      this.camera.position.y += (Math.random() * 2 - 1) * mag;
+    }
+
+    if (this._fovKickElapsed < this._fovKickDuration) {
+      this._fovKickElapsed += delta;
+      const decay = Math.max(0, 1 - this._fovKickElapsed / this._fovKickDuration);
+      this.camera.fov = this._baseFov + this._fovKickMagnitude * decay;
+      this.camera.updateProjectionMatrix();
+    } else if (this.camera.fov !== this._baseFov) {
+      // Settle back to EXACTLY the solved value once the kick ends, then
+      // stop touching the projection matrix every frame -- this branch
+      // only runs on the one frame the kick just finished.
+      this.camera.fov = this._baseFov;
+      this.camera.updateProjectionMatrix();
+    }
   }
 }

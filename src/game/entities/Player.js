@@ -1,11 +1,12 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { characterLoader } from "./CharacterLoader.js";
 import {
   PLAYER_PHYSICS,
   PLAYER_HITBOX,
   SLIDE_DURATION_MS,
   SLIDE_RECOVERY_MS,
   HIT_REACTION_MS,
+  CHARACTERS,
 } from "../config/GameConfig.js";
 
 export const PlayerMovementState = {
@@ -46,44 +47,27 @@ export class Player {
     this.model = new THREE.Mesh(placeholderGeo, placeholderMat);
     this.model.position.y = 1;
     this.mesh.add(this.model);
+    this._isPlaceholder = true;
 
     // Animation Setup
     this.mixer = null;
     this.animations = {};
     this.currentAction = null;
     this.currentActionName = "Idle";
-    this.characterVariant = 0; // 0: Navy, 1: Grey, 2: Black, 3: Beige
+    this.characterId = CHARACTERS[0].id;
+    this._loadToken = 0;
+    // Which way the model should face (0 = down the track, Math.PI =
+    // toward the camera for the Lobby). Owned by Player (via setFacing()),
+    // not poked directly onto `this.model` by Engine.js, because `this.model`
+    // gets swapped out on every character change -- see setFacing()'s comment.
+    this._facingY = 0;
 
-    // Load the AAA Character Asset (Soldier.glb)
-    const loader = new GLTFLoader();
-    loader.load("/models/Soldier.glb", (gltf) => {
-      if (this.model) this.mesh.remove(this.model);
-
-      this.model = gltf.scene;
-      this.model.scale.set(1.5, 1.5, 1.5); // Adjust size for track
-      this.model.rotation.y = 0; // Face forward down the track
-
-      this.model.traverse((child) => {
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        }
-      });
-
-      this.setCharacterVariant(this.characterVariant);
-      this.mesh.add(this.model);
-
-      this.mixer = new THREE.AnimationMixer(this.model);
-      gltf.animations.forEach((clip) => {
-        this.animations[clip.name] = this.mixer.clipAction(clip);
-      });
-
-      if (this.animations["Idle"]) {
-        this.currentActionName = "Idle";
-        this.currentAction = this.animations["Idle"];
-        this.currentAction.play();
-      }
-    });
+    // Load the selected character (Milestone 7: CharacterLoader replaces the
+    // old single hardcoded Soldier.glb load). Engine.js kicks off
+    // characterLoader.prefetchAll() independently, so by the time a visitor
+    // actually picks a character on the Lobby screen this has usually
+    // already resolved from cache.
+    this._loadCharacterModel(this.characterId);
 
     // Lane logic (never blocked by movement state -- lateral movement is
     // independent of jump/slide, matching the original).
@@ -110,6 +94,7 @@ export class Player {
     // wired from CollisionSystem/Engine.js, not from anything in here.
     this.hasMagnet = false;
     this._magnetTimer = 0;
+    this._magnetDurationMs = 0; // total duration of the CURRENT activation, for getPowerUpStatus()'s remaining/total ratio
     this.hasShield = false;
 
     // Simple always-present aura meshes (hidden when inactive, so zero
@@ -153,10 +138,25 @@ export class Player {
   activateMagnet(durationMs) {
     this.hasMagnet = true;
     this._magnetTimer = durationMs;
+    this._magnetDurationMs = durationMs;
   }
 
   activateShield() {
     this.hasShield = true;
+  }
+
+  // Small public read-only getter (Milestone 8's HUD radial timer) so the
+  // Vue layer polls this instead of reaching for underscore-prefixed
+  // "private" fields directly. Shield has no remaining/duration pair --
+  // it's a one-hit absorb, not a countdown -- so the HUD only ever shows a
+  // static icon for it, never a ring.
+  getPowerUpStatus() {
+    return {
+      magnetActive: this.hasMagnet,
+      magnetRemainingMs: this._magnetTimer,
+      magnetDurationMs: this._magnetDurationMs,
+      shieldActive: this.hasShield,
+    };
   }
 
   update(delta, enabled) {
@@ -180,9 +180,7 @@ export class Player {
         this.mesh.position.y = this.baseY;
         this.movementState = PlayerMovementState.RUNNING;
         this._jumpElapsed = 0;
-        if (this.animations["Run"]) {
-          this.animations["Run"].paused = false;
-        }
+        this.setAnimation("Run");
       } else {
         this.mesh.position.y =
           this.baseY +
@@ -212,6 +210,15 @@ export class Player {
       if (this._hitTimer <= 0) {
         this.isHit = false;
         this._clearHitFlash();
+        // Stumble's own authored duration (0.5s) is shorter than
+        // HIT_REACTION_MS (1s), so clampWhenFinished has been holding its
+        // end pose since Stumble finished playing -- without this, a
+        // player hit while just running would stay stuck in that pose
+        // indefinitely (nothing else calls setAnimation("Run") until the
+        // next lane switch/jump/slide). Only recover to Run if the state
+        // machine is genuinely idle-running -- a hit taken mid-jump/slide
+        // must NOT stomp that in-progress action's own animation.
+        if (this.movementState === PlayerMovementState.RUNNING) this.setAnimation("Run");
       }
     }
 
@@ -258,31 +265,34 @@ export class Player {
     this.movementState = PlayerMovementState.JUMPING;
     this._jumpElapsed = 0;
 
-    // Pause run animation to fake a jump pose (Soldier.glb has no explicit
-    // jump clip -- freezing the run mid-cycle reads as an airborne pose).
-    if (this.currentAction) this.currentAction.paused = true;
+    // Real Jump clip now that every character carries one (Milestone 7) --
+    // replaces the old "pause Run mid-cycle" fake-airborne-pose hack that
+    // Soldier.glb's lack of a jump clip forced. setDuration() stretches the
+    // clip's authored 0.6s to whatever _jumpAirtime actually is, so the
+    // animation always matches PLAYER_PHYSICS even if jumpForce/gravity are
+    // retuned later.
+    const jumpAction = this.animations["Jump"];
+    if (jumpAction) jumpAction.setDuration(this._jumpAirtime);
+    this._playOneShot("Jump");
   }
 
   _startSlide() {
     this.movementState = PlayerMovementState.SLIDING;
     this._slideTimer = SLIDE_DURATION_MS;
 
-    if (this.model) {
-      this.model.rotation.x = -Math.PI / 2;
-      this.model.position.y = 0.5;
-      this.model.position.z = 1;
-    }
+    // Real Slide clip now that every character carries one (Milestone 7) --
+    // replaces the old hack of rotating/translating the whole model
+    // transform directly, which existed only because there was no slide
+    // animation to play instead.
+    const slideAction = this.animations["Slide"];
+    if (slideAction) slideAction.setDuration(SLIDE_DURATION_MS / 1000);
+    this._playOneShot("Slide");
   }
 
   _endSlide() {
     this.movementState = PlayerMovementState.RUNNING;
     this._slideCooldown = SLIDE_RECOVERY_MS;
-
-    if (this.model) {
-      this.model.rotation.x = 0;
-      this.model.position.y = 0;
-      this.model.position.z = 0;
-    }
+    this.setAnimation("Run");
   }
 
   // Fills `target` (a reused THREE.Box3, avoiding per-call allocation) with
@@ -317,6 +327,14 @@ export class Player {
     this.isHit = true;
     this.lives--;
     this._hitTimer = HIT_REACTION_MS;
+
+    // Real Stumble clip now that every character carries one (Milestone 7
+    // authored it; Milestone 9 is what actually wires it in, as flagged in
+    // docs/PROCESS_TRACKER.md's M7 notes). Fires regardless of
+    // movementState -- isHit is a pure overlay, independent of
+    // RUNNING/JUMPING/SLIDING by design (see this class's header comment),
+    // so a hit taken mid-jump still gets a stumble reaction layered on top.
+    this._playOneShot("Stumble");
 
     this.model.traverse((child) => {
       if (child.isMesh && child.material) {
@@ -355,29 +373,90 @@ export class Player {
     this.currentAction = newAction;
   }
 
-  // NOTE: this destructively flattens every material to one flat color,
-  // discarding the model's own textures. Left as-is deliberately --
-  // Milestone 7's CharacterLoader replaces this with proper per-slot brand
-  // tinting across 4 real characters; fixing it here would just be
-  // reworked again in a few milestones.
-  setCharacterVariant(index) {
-    this.characterVariant = index;
-    if (!this.model) return;
-    const colors = [
-      0xffd164, // Gold Standard
-      0x00b0ff, // ChargeOn Blue
-      0xffffff, // Clean White
-      0xd2b48c, // Beige Suit
-    ];
+  // Cuts straight into a short one-shot action (Jump, Slide) instead of
+  // going through setAnimation()'s crossFadeFrom(..., warp=true). Warping
+  // is exactly right for two looping, cycle-based clips of different
+  // lengths (Idle<->Run) -- three.js stretches the fade window to line up
+  // their cycles -- but Jump/Slide are ~0.6-0.7s one-shots whose duration
+  // was JUST precisely set via setDuration() to match real physics timing;
+  // spending half a second of that warping playback speed during the
+  // crossfade would visibly distort the very timing setDuration() exists to
+  // guarantee. A quick independent fade-in/fade-out reads as an instant,
+  // reactive cut -- the right feel for a jump/slide trigger anyway.
+  _playOneShot(name) {
+    const action = this.animations[name];
+    if (!action) return;
+    const previous = this.currentAction;
+    action.setLoop(THREE.LoopOnce, 1);
+    action.clampWhenFinished = true;
+    action.reset().fadeIn(0.1).play();
+    if (previous && previous !== action) previous.fadeOut(0.1);
+    this.currentActionName = name;
+    this.currentAction = action;
+  }
 
-    const selectedColor = colors[index % colors.length];
+  // Owns the facing rotation instead of letting Engine.js poke
+  // `model.rotation.y` directly -- `this.model` gets replaced wholesale on
+  // every character swap, so anything written straight onto the old model
+  // would silently vanish the next time setCharacter() resolves. Storing it
+  // here means it's automatically reapplied in _loadCharacterModel().
+  setFacing(rotationY) {
+    this._facingY = rotationY;
+    if (this.model) this.model.rotation.y = rotationY;
+  }
+
+  // Swaps the visible character model (id from GameConfig.js's CHARACTERS).
+  // Safe to call at any time, including mid-Lobby-orbit while the previous
+  // model is still loaded -- CharacterLoader's cache means every character
+  // after the first is normally already resolved by the time this runs.
+  setCharacter(id) {
+    if (id === this.characterId && this.model && !this._isPlaceholder) return;
+    this.characterId = id;
+    this._loadCharacterModel(id);
+  }
+
+  async _loadCharacterModel(id) {
+    const requestId = ++this._loadToken;
+    const [gltf, clips] = await Promise.all([characterLoader.loadCharacter(id), characterLoader.loadAnimations()]);
+
+    // Another setCharacter() call landed after this one started -- drop
+    // this (now stale) result instead of racing it onto the mesh.
+    if (requestId !== this._loadToken) return;
+
+    if (this.model) this.mesh.remove(this.model);
+
+    this.model = gltf.scene;
+    this._isPlaceholder = false;
+    // Contract (see GameConfig.js's CHARACTERS comment): every character is
+    // already authored ~1.8 units tall at the origin, so no rescaling hack
+    // is needed here the way Soldier.glb (1.5x) used to require.
+    this.model.rotation.y = this._facingY;
 
     this.model.traverse((child) => {
-      if (child.isMesh && child.material) {
-        child.material.color.setHex(selectedColor);
-        child.material.metalness = 0.3;
-        child.material.roughness = 0.7;
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
       }
     });
+
+    this.mesh.add(this.model);
+
+    this.mixer = new THREE.AnimationMixer(this.model);
+    this.animations = {};
+    clips.forEach((clip) => {
+      this.animations[clip.name] = this.mixer.clipAction(clip);
+    });
+
+    // Resume whatever was already playing (Idle on first load; Idle/Run on
+    // a mid-Lobby character swap) on the new model -- hard cut, not a
+    // crossfade, since the OLD mixer/model this would fade from is being
+    // torn down this same frame.
+    const resumeName = this.animations[this.currentActionName] ? this.currentActionName : "Idle";
+    const action = this.animations[resumeName];
+    if (action) {
+      action.reset().play();
+      this.currentActionName = resumeName;
+      this.currentAction = action;
+    }
   }
 }

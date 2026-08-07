@@ -340,6 +340,44 @@ export const SCORE_POINTS = {
   exclusiveBonus: 50,
 };
 
+// -----------------------------------------------------------------------
+// Characters (Milestone 7). Every character shares ONE skeleton (real
+// Mixamo bone names, e.g. "mixamorigHips") and ONE animation library
+// (CHARACTER_ANIMATIONS_URL) -- this is what lets four completely
+// different meshes play the exact same Idle/Run/Jump/... clips via
+// AnimationMixer.clipAction(clip, characterRoot), which three.js resolves
+// by matching each track's bone NAME against whatever root the mixer was
+// built with, independent of which file the clip data came from.
+//
+// The four .glb files these urls point to are procedurally generated
+// placeholders (see scripts/generateCharacterAssets.js), not sourced or
+// licensed art -- see docs/PROCESS_TRACKER.md's Milestone 7 notes. A real
+// (licensed) Mixamo-rigged model can replace any one of them later by
+// dropping in a new .glb at the same url with ZERO code changes, provided
+// it satisfies the same contract: same bone names, Y-up, -Z forward,
+// standing ~1.8 world units tall at the local origin, and (per the shared-
+// animation-library design) no animations embedded in the character file
+// itself -- all clips live only in CHARACTER_ANIMATIONS_URL.
+// -----------------------------------------------------------------------
+export const CHARACTERS = [
+  { id: 0, key: "male_suit", name: "Alex Rivera", role: "Enterprise AE", url: "/assets/characters/male_suit.glb" },
+  { id: 1, key: "female_suit", name: "Maya Chen", role: "Solutions Engineer", url: "/assets/characters/female_suit.glb" },
+  { id: 2, key: "anime_tech", name: "Kito", role: "Tech Explorer", url: "/assets/characters/anime_tech.glb" },
+  { id: 3, key: "anime_wizard", name: "Luna", role: "Digital Wizard", url: "/assets/characters/anime_wizard.glb" },
+];
+
+export const CHARACTER_ANIMATIONS_URL = "/assets/characters/animations.glb";
+
+// Every clip a character model is expected to be able to play. Only Idle,
+// Run, Jump and Slide are actually triggered by Player.js today (Jump and
+// Slide replace M4's "no real clip exists yet" hacks -- pausing Run mid-
+// cycle to fake a jump pose, and rotating the whole model transform for a
+// slide -- now that real clips exist). Fall, Land, Stumble and Celebrate
+// are authored into animations.glb for Milestone 8 (victory screens) and
+// Milestone 9 (juice/hit-reactions) to wire up later without touching the
+// animation asset again.
+export const CHARACTER_CLIP_NAMES = ["Idle", "Run", "Jump", "Fall", "Land", "Slide", "Stumble", "Celebrate"];
+
 // Minimum world-distance between two NEW features being dealt from the
 // bag. Without this, WorldStreamer's dense per-recycle coin-slot
 // population (up to 3 slots, most chunks, every ~0.667s at level-1 speed)
@@ -352,3 +390,146 @@ export const SCORE_POINTS = {
 // Milestone 6 simulation, not just derived on paper -- see
 // docs/PROCESS_TRACKER.md.
 export const FEATURE_SPACING_DISTANCE = 90;
+
+// -----------------------------------------------------------------------
+// Audio (Milestone 9, real audio added post-launch-review). AudioManager.js
+// loads ONE sprite-sheet file for every SFX cue (far fewer requests than
+// one file per cue) plus one separate looping music file. Both files are
+// now procedurally SYNTHESIZED (see scripts/generateAudioAssets.js) --
+// simple original waveform compositions (sine/triangle tones, envelopes,
+// filtered noise), not sourced/licensed recordings, so there's zero
+// licensing exposure while still being genuinely audible or a booth
+// tablet. Real licensed/commissioned audio can replace these two files
+// later with no code changes elsewhere, same swap-in promise as the
+// procedural assets used throughout this project.
+//
+// SFX_DURATIONS is the single source of truth both the generator script
+// AND AudioManager.js's buildSpriteManifest() compute sprite offsets from,
+// so the two can never drift out of sync with each other.
+// -----------------------------------------------------------------------
+export const SFX_SPRITE_URL = "/audio/sfx-sprite.wav";
+export const MUSIC_LOOP_URL = "/audio/music-loop.wav";
+export const SFX_GAP_SECONDS = 0.05; // silent buffer between sprite segments, avoids any bleed between cues
+export const SFX_DURATIONS = {
+  coin: 0.25,
+  hit: 0.3,
+  shield: 0.3,
+  powerup: 0.4,
+  nearmiss: 0.3,
+  levelComplete: 0.9,
+  gameOver: 0.9,
+};
+
+export const MUSIC_BASE_VOLUME = 0.5;
+// 24s (12 bars at 120bpm, a 4-bar chord progression repeated 3x) -- long
+// enough that the loop point isn't distractingly obvious during a ~2-3
+// minute run, short enough to stay a small file. See generateAudioAssets.js.
+export const MUSIC_LOOP_DURATION_SECONDS = 24;
+
+// -----------------------------------------------------------------------
+// Juice (Milestone 9). A real blocker hit gets: a brief hitstop (the whole
+// simulation freezes for HIT_STOP_MS -- Engine.animate() clamps delta to 0
+// during this window, same trick as the existing frame-time clamp, so nothing
+// needs its own pause-awareness), a decaying camera shake (CameraRig's
+// impulse, applied after the spring-follow position so it never feeds back
+// into the spring's own state), and a red screen-edge vignette pulse (see
+// GameHUD.vue's edge-vignette element, reused with a different color for
+// power-up pickups).
+// -----------------------------------------------------------------------
+export const HIT_STOP_MS = 80;
+export const HIT_SHAKE_MAGNITUDE = 0.18;
+export const HIT_SHAKE_DURATION = 0.35;
+export const HIT_VIBRATE_MS = 100;
+export const HIT_VIGNETTE_COLOR = "#ff3b3b";
+export const HIT_VIGNETTE_INTENSITY = 1.0;
+export const HIT_VIGNETTE_DECAY_S = 0.45;
+
+// Power-up activation reuses the same edge-vignette element as a hit, in
+// the power-up's own color, at a gentler intensity (a pickup is good news,
+// not an impact).
+export const POWERUP_VIGNETTE_COLORS = {
+  magnet: "#ffd700",
+  shield: "#00e5ff",
+};
+export const POWERUP_VIGNETTE_INTENSITY = 0.7;
+
+// Near-miss: awarded when the player clears a same-lane jump/slide-escape
+// obstacle (BARRICADE_LOW, DRONE_LOW) without a real hit -- a genuine close
+// call, unlike simply being in a different lane from a switch-escape
+// obstacle the whole time. Small score bonus, distinct from a coin's.
+export const NEAR_MISS_SCORE_BONUS = 25;
+
+// Speed-up: a brief extra FOV widening (decays back to the framing solver's
+// normal value) plus a speed-lines overlay, triggered once per level start
+// (WorldStreamer.setLevel()) -- "at level transitions" per the plan, not a
+// continuous per-frame effect tied to the difficulty ramp.
+export const SPEED_KICK_FOV_BOOST = 6; // degrees, decays back to 0
+export const SPEED_KICK_DURATION = 0.6;
+export const SPEED_LINES_DURATION_MS = 700;
+
+// -----------------------------------------------------------------------
+// Onboarding / booth behaviour (Milestone 9). Idle timeout is explicitly
+// "(tablet only)" per the content script -- gated to the tablet-portrait/
+// tablet-landscape size classes (the booth device), not phones (a
+// visitor's OWN phone shouldn't get reset out from under them) or desktop.
+// Never applies on the Lobby itself (gameState 'LANDING') -- that's already
+// the reset state; TV attract mode (below) is the Lobby's own idle
+// treatment instead.
+// -----------------------------------------------------------------------
+export const IDLE_PROMPT_MS = 30000; // no interaction for this long -> show "Still there?"
+export const IDLE_RESET_MS = 15000; // additional idle time after the prompt -> auto-reset to Lobby
+
+// TV attract mode: shown on Landing.vue when ViewportManager's size class
+// is 'tv' (big screen, no fine pointer -- the booth's attract-mode
+// display). Caption lines are exact content-script text.
+export const TV_ATTRACT_LINE_1 = "Someone's outrunning payment problems right now.";
+export const TV_ATTRACT_LINE_2 = "Try it yourself. Tap the tablet.";
+
+// -----------------------------------------------------------------------
+// Interactive tutorial (Milestone 9), Level 1 only, once per run.
+//
+// A real constraint of the chunk-pool architecture shaped this design:
+// verified empirically (not assumed) that ALL 15 pooled chunks start
+// completely empty and only ever get real content once EACH one
+// individually reaches the recycle threshold -- for the pool's farther
+// chunks that's hundreds of world units away. A pattern dealt through the
+// NORMAL recycle path always starts ~poolSize*trackLength (~270 units)
+// from the player, which even at this tutorial's slowed pace takes far
+// longer than "~15 seconds" to arrive. So the tutorial does NOT wait for
+// natural recycles -- WorldStreamer.startTutorial() seeds 3 already-close,
+// evenly-spaced chunks (TUTORIAL_CHUNK_INDICES) DIRECTLY, which is what
+// actually makes a fast opening sequence possible under this architecture.
+//
+// "Waits for the correct input" is satisfied by a generous slowdown
+// (TUTORIAL_SPEED_MULTIPLIER) rather than a literal world-freeze -- a hard
+// freeze would need to suspend chunk recycling, the difficulty ramp, and
+// re-synchronize cleanly on release, real added risk to already-verified
+// systems (Milestones 3/5/6) for a booth demo tutorial. The slowdown gives
+// several real seconds of reaction time per obstacle, which is the
+// practical goal "waits for input" is actually after.
+export const TUTORIAL_LEVEL_ID = 1;
+export const TUTORIAL_SPEED_MULTIPLIER = 0.45;
+export const TUTORIAL_DISTANCE = 200; // world units the slowdown + random-pattern suppression lasts, from tutorial start
+// Chunk 3 sits at world z=-50 at tutorial start (activeZ=10, trackLength=20
+// -> chunk i starts at 10-20*i) -- close to FRAMING.lookAheadZ (45), the
+// same "nothing spawns closer than this" fairness distance normal
+// gameplay guarantees, so the very first tutorial obstacle gets a fair,
+// familiar amount of approach time rather than appearing right on top of
+// the player. Chunks 6 and 9 (z=-110, -170) space the next two ~60 units
+// apart -- several real seconds apiece at the slowed pace.
+export const TUTORIAL_CHUNK_INDICES = [3, 6, 9];
+export const TUTORIAL_PATTERN_SEQUENCE = ["solo-barricade-low", "solo-drone-low", "solo-barricade-wide"]; // jump, slide, switch
+export const TUTORIAL_MECHANIC_BY_PATTERN = {
+  "solo-barricade-low": "jump",
+  "solo-drone-low": "slide",
+  "solo-barricade-wide": "switch",
+};
+// A single combined banner (not 3 sequential prompts, which would need
+// precisely tracking which specific seeded obstacle the player is nearest
+// to) -- shown for the whole slowed opening stretch.
+export const TUTORIAL_BANNER = "First run: jump the low barricade, slide under the drone, switch lanes around the wide one.";
+// A miss on one of the 3 seeded tutorial obstacles never costs a life --
+// this is a first-ever-controls practice window, not a fair test yet, and
+// 3 unlucky misses in a row shouldn't be able to end the run before it
+// really starts. isTutorial flows through userData -> CollisionSystem's
+// blocker payload -> App.vue's life-decrement check.

@@ -8,7 +8,9 @@
     "build": "node scripts/checkAssetBudget.js && vite build",
     "preview": "vite preview",
     "assets:optimize": "node scripts/optimizeAssets.js",
-    "assets:check": "node scripts/checkAssetBudget.js"
+    "assets:check": "node scripts/checkAssetBudget.js",
+    "characters:generate": "node scripts/generateCharacterAssets.js",
+    "audio:generate": "node scripts/generateAudioAssets.js"
   },
   "dependencies": {
     "gsap": "^3.12.5",

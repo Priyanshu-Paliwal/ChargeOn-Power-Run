@@ -24,12 +24,21 @@ export class TrackBuilder {
       asphaltNormal.repeat.set(4, 20); // Scale the normal map to look like grit
     }
 
+    // roughness/metalness retuned during manual playtesting -- the original
+    // 0.3-0.4 metalness (explicitly "for a nice sheen reflecting the
+    // sunset") combined with a normal map that was, at the time, literally
+    // three.js's own water-ripple texture made the whole road visibly read
+    // as WATER rather than asphalt. asphalt_normal.jpg is now a proper
+    // procedural grain texture (see optimizeAssets.js), but real asphalt is
+    // still a matte, non-metallic surface -- near-zero metalness and high
+    // roughness is what actually sells "road," independent of which normal
+    // map sits on top.
     this.trackBaseGeo = new THREE.BoxGeometry(10, 0.5, trackLength);
     this.trackBaseMat = new THREE.MeshStandardMaterial({
       map: asphaltTex,
       normalMap: asphaltNormal,
-      roughness: 0.5,
-      metalness: 0.3, // Gives a nice sheen reflecting the sunset
+      roughness: 0.9,
+      metalness: 0.03,
       color: 0x444444,
     });
 
@@ -37,8 +46,8 @@ export class TrackBuilder {
     this.laneMat = new THREE.MeshStandardMaterial({
       map: asphaltTex,
       normalMap: asphaltNormal,
-      roughness: 0.4,
-      metalness: 0.4,
+      roughness: 0.85,
+      metalness: 0.03,
       color: 0x555555,
     });
 

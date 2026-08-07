@@ -7,12 +7,28 @@ import { WorldStreamer } from "../world/WorldStreamer.js";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { viewportManager } from "./ViewportManager.js";
 import { CameraRig } from "./CameraRig.js";
 import { QualityManager } from "./QualityManager.js";
 import { InputManager } from "../systems/InputManager.js";
 import { CollisionSystem } from "../systems/CollisionSystem.js";
 import { ScoreSystem } from "../systems/ScoreSystem.js";
+import { EffectsSystem } from "../systems/EffectsSystem.js";
+import { characterLoader } from "../entities/CharacterLoader.js";
+import { audioManager } from "../systems/AudioManager.js";
+import {
+  HIT_STOP_MS,
+  HIT_SHAKE_MAGNITUDE,
+  HIT_SHAKE_DURATION,
+  HIT_VIBRATE_MS,
+  SPEED_KICK_FOV_BOOST,
+  SPEED_KICK_DURATION,
+  SPEED_LINES_DURATION_MS,
+  TUTORIAL_LEVEL_ID,
+  TUTORIAL_PATTERN_SEQUENCE,
+  TUTORIAL_CHUNK_INDICES,
+} from "../config/GameConfig.js";
 
 export class Engine {
   constructor(canvasContainer, onCollide) {
@@ -106,6 +122,14 @@ export class Engine {
 
     // Game Entities
     this.player = new Player(this.scene, this.inputManager);
+
+    // Warms CharacterLoader's cache for all 4 characters up front (Milestone
+    // 7) -- fire-and-forget, deliberately not awaited. The Player construction
+    // above already kicked off the DEFAULT character's own load against the
+    // same cache, so this only adds the other three; by the time a visitor
+    // picks a character on the Lobby screen (which they spend real time on,
+    // per the plan), every option is normally already resolved.
+    characterLoader.prefetchAll();
     // Load Textures and setup World
     const texLoader = new THREE.TextureLoader();
     const textures = {
@@ -151,14 +175,63 @@ export class Engine {
     // persists across level transitions the same way gameStats.featuresCollected
     // does on the Vue side, reset only by resetRun().
     this.scoreSystem = new ScoreSystem();
+
+    // Coin-pickup particle bursts (Milestone 9 juice) -- one shared
+    // InstancedMesh pool, see EffectsSystem.js.
+    this.effectsSystem = new EffectsSystem(this.scene);
+
+    // Hitstop (Milestone 9): a real blocker hit sets this to a near-future
+    // timestamp; animate() clamps delta to 0 for every frame until then,
+    // freezing the whole simulation for a brief, punchy impact beat without
+    // any system needing its own pause-awareness.
+    this._hitStopUntil = 0;
+
+    // Speed-lines overlay window (Milestone 9), set by startLevel() --
+    // GameHUD.vue polls isSpeedLinesActive the same way it polls power-up
+    // state, since this is also a transient timed visual, not
+    // event-driven gameStats.
+    this._speedLinesUntil = 0;
+
+    // Interactive tutorial (Milestone 9): once per RUN, not once per
+    // Level-1 visit -- a mid-run "Restart Level" from PauseMenu on Level 1
+    // must not re-trigger it (already shown moments ago in this same run).
+    // Only resetRun() (called from App.vue's quitToLobby(), i.e. a
+    // genuinely fresh run) clears this back to false.
+    this._tutorialShownThisRun = false;
   }
 
-  // Called by App.vue's restartGame() -- resets everything the engine owns
-  // that would otherwise silently carry over into a fresh run (score, and
-  // the pre-existing but otherwise-unused player.lives counter).
+  // Wraps World.setLevel() with the speed-up juice that belongs at every
+  // level transition (FOV kick + speed lines) -- App.vue calls this
+  // instead of reaching into gameEngine.world.setLevel() directly, so
+  // every call site (a fresh level start AND a Pause-menu level restart)
+  // gets the juice automatically instead of each caller remembering to
+  // trigger it separately. Also the sole trigger point for the Level-1
+  // interactive tutorial, for the same "one call site, never forgotten"
+  // reason.
+  startLevel(levelId) {
+    this.world.setLevel(levelId);
+    this.cameraRig.triggerFovKick(SPEED_KICK_FOV_BOOST, SPEED_KICK_DURATION);
+    this._speedLinesUntil = performance.now() + SPEED_LINES_DURATION_MS;
+
+    if (levelId === TUTORIAL_LEVEL_ID && !this._tutorialShownThisRun) {
+      this._tutorialShownThisRun = true;
+      this.world.startTutorial(TUTORIAL_PATTERN_SEQUENCE, TUTORIAL_CHUNK_INDICES);
+    }
+  }
+
+  get isSpeedLinesActive() {
+    return performance.now() < this._speedLinesUntil;
+  }
+
+  // Called by App.vue's quitToLobby() (renamed from restartGame() in
+  // Milestone 8) -- resets everything the engine owns that would
+  // otherwise silently carry over into a fresh run (score, the pre-
+  // existing but otherwise-unused player.lives counter, and whether the
+  // Level 1 tutorial has already been shown this run).
   resetRun() {
     this.scoreSystem.reset();
     this.player.lives = 3;
+    this._tutorialShownThisRun = false;
   }
 
   // Wraps CollisionSystem's raw onHit payload: activates power-ups and
@@ -170,6 +243,32 @@ export class Engine {
       const result = this.scoreSystem.registerCoin(hit);
       if (hit.powerUp === "magnet") this.player.activateMagnet(hit.powerUpDurationMs);
       else if (hit.powerUp === "shield") this.player.activateShield();
+      audioManager.playSFX(hit.powerUp ? "powerup" : "coin");
+      if (hit.worldPosition) {
+        this.effectsSystem.burst(hit.worldPosition, hit.powerUp === "shield" ? 0x00e5ff : 0xffd700);
+      }
+      // worldPosition is a shared mutable scratch vector (see
+      // CollisionSystem's comment) -- must NOT reach Vue's reactive
+      // gameStats, which is why it's excluded here rather than spread
+      // through along with everything else.
+      const { worldPosition, ...vueHit } = hit;
+      this.onCollide({ ...vueHit, score: result.total, points: result.points });
+    } else if (hit.type === "shielded") {
+      audioManager.playSFX("shield");
+      this.onCollide(hit);
+    } else if (hit.type === "blocker") {
+      audioManager.playSFX("hit");
+      // Hitstop + camera shake + haptics -- the "impact" side of hit juice.
+      // The stumble animation and red flash are Player.js's own job
+      // (already existed / see takeHit()), triggered independently by
+      // CollisionSystem calling player.takeHit() before this ever runs.
+      this._hitStopUntil = performance.now() + HIT_STOP_MS;
+      this.cameraRig.triggerShake(HIT_SHAKE_MAGNITUDE, HIT_SHAKE_DURATION);
+      if (navigator.vibrate) navigator.vibrate(HIT_VIBRATE_MS);
+      this.onCollide(hit);
+    } else if (hit.type === "nearmiss") {
+      const result = this.scoreSystem.registerNearMiss();
+      audioManager.playSFX("nearmiss");
       this.onCollide({ ...hit, score: result.total, points: result.points });
     } else {
       this.onCollide(hit);
@@ -211,6 +310,24 @@ export class Engine {
 
   async loadAssets() {
     const gltfLoader = new GLTFLoader();
+    // Milestone 1's optimizeAssets.js Draco-compresses every environment/
+    // tree/building GLB (trees, railings, streetlights, buildings, the
+    // desert ground) -- without a DRACOLoader attached, GLTFLoader throws
+    // "No DRACOLoader instance provided" and silently fails to parse EVERY
+    // one of them (caught by each loadModel/loadBuilding call's own
+    // try/catch below, which only console.error()s -- nothing ever
+    // surfaced this visually, so the scene just rendered with none of them
+    // ever added). The Milestone 7 character models load fine without this
+    // because they were exported directly via three.js's GLTFExporter with
+    // no Draco compression at all -- a different pipeline, which is why
+    // only the player character was ever visible. Decoder files are served
+    // locally from public/draco/ (copied from three's own node_modules)
+    // rather than three's default gstatic.com CDN path, consistent with
+    // this project's "never depend on a remote resource the booth wifi
+    // might not reach" rule (see the SoundHelix removal in Milestone 9).
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    gltfLoader.setDRACOLoader(dracoLoader);
     const texLoader = new THREE.TextureLoader();
 
     const setupModel = (model) => {
@@ -414,10 +531,10 @@ export class Engine {
     this.mode = newMode;
     if (this.mode === "LOBBY") {
       this.player.setAnimation("Idle");
-      if (this.player.model) this.player.model.rotation.y = Math.PI; // Face the camera
+      this.player.setFacing(Math.PI); // Face the camera
     } else if (this.mode === "PLAYING") {
       this.player.setAnimation("Run");
-      if (this.player.model) this.player.model.rotation.y = 0; // Face the track
+      this.player.setFacing(0); // Face the track
     }
   }
 
@@ -433,8 +550,18 @@ export class Engine {
   }
 
   animate() {
-    const delta = Math.min(this.clock.getDelta(), 0.1);
+    const rawDelta = Math.min(this.clock.getDelta(), 0.1);
     const time = this.clock.getElapsedTime();
+
+    // Hitstop (Milestone 9): clamp the SIMULATION delta to 0 for a brief
+    // window after a real blocker hit, freezing player/world/collision on
+    // that exact frame for a punchy impact beat. The camera keeps using
+    // rawDelta below (not this clamped delta) so its shake decay and
+    // spring-follow math keep animating smoothly straight through the
+    // freeze -- it's specifically the gameplay simulation that stops, not
+    // every visual, which is what actually reads as "impact" rather than
+    // "the game glitched."
+    const delta = performance.now() < this._hitStopUntil ? 0 : rawDelta;
 
     // Update game objects. Input is only ACTED on while PLAYING (during
     // LOBBY etc. InputManager still listens, but Player ignores it) --
@@ -447,15 +574,25 @@ export class Engine {
       this.world.update(delta);
     }
 
-    this.cameraRig.update(delta, time, this.player.mesh.position.x, this.mode);
+    this.cameraRig.update(rawDelta, time, this.player.mesh.position.x, this.mode);
 
-    if (this.quality.recordFrame(delta)) {
+    if (this.quality.recordFrame(rawDelta)) {
       this._applyQualityTier();
     }
 
     if (this.mode === "PLAYING") {
       this.collisionSystem.update(delta, this.player, this.world, (hit) => this._handleHit(hit));
     }
+
+    // Runs AFTER collisionSystem, not before: a coin hit THIS frame calls
+    // effectsSystem.burst() synchronously from within collisionSystem's
+    // onHit callback, and burst() only records the new particles' state --
+    // it doesn't itself write any matrices. If this ran before
+    // collisionSystem, a burst triggered this frame wouldn't get its first
+    // real position/scale until NEXT frame's update(), rendering one frame
+    // late (caught by this milestone's own verification script, not
+    // assumed).
+    this.effectsSystem.update(delta);
 
     this.composer.render();
   }

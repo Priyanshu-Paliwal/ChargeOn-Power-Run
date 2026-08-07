@@ -4,6 +4,7 @@ import {
   COLLISION_MAX_STEPS_PER_FRAME,
   COLLISION_Z_BAND,
   MAGNET_HALF_WIDTH,
+  OBSTACLE_TYPES,
 } from "../config/GameConfig.js";
 
 const _worldPos = new THREE.Vector3();
@@ -84,7 +85,7 @@ export class CollisionSystem {
   _checkItem(item, steps, player, onHit) {
     let entry = this._track.get(item);
     if (!entry) {
-      entry = { prevZ: 0, wasVisible: false };
+      entry = { prevZ: 0, wasVisible: false, nearMissChecked: false };
       this._track.set(item, entry);
     }
 
@@ -99,9 +100,13 @@ export class CollisionSystem {
     if (!entry.wasVisible) {
       // Freshly activated (spawned/recycled this item) -- establish the
       // baseline without sweeping from a stale, possibly-unrelated
-      // position it happened to be at before.
+      // position it happened to be at before. Also resets nearMissChecked
+      // for THIS activation -- the same pooled obstacle slot gets reused
+      // many times over a run, and each activation deserves its own
+      // near-miss opportunity.
       entry.prevZ = curZ;
       entry.wasVisible = true;
+      entry.nearMissChecked = false;
       return;
     }
 
@@ -112,23 +117,41 @@ export class CollisionSystem {
     // fixed steps we're processing) even reach the collision band at all?
     const spanLo = Math.min(prevZ, curZ);
     const spanHi = Math.max(prevZ, curZ);
-    if (spanHi < -this.zBand || spanLo > this.zBand) return;
+    if (spanHi >= -this.zBand && spanLo <= this.zBand) {
+      // Subdivide the span into `steps` equal sub-intervals -- each is
+      // checked against the player's CURRENT hitbox (see class comment for
+      // why the player side isn't also interpolated).
+      for (let k = 1; k <= steps; k++) {
+        const subPrevZ = lerp(prevZ, curZ, (k - 1) / steps);
+        const subCurZ = lerp(prevZ, curZ, k / steps);
+        const lo = Math.min(subPrevZ, subCurZ);
+        const hi = Math.max(subPrevZ, subCurZ);
+        if (hi < -this.zBand || lo > this.zBand) continue;
 
-    // Subdivide the span into `steps` equal sub-intervals -- each is
-    // checked against the player's CURRENT hitbox (see class comment for
-    // why the player side isn't also interpolated).
-    for (let k = 1; k <= steps; k++) {
-      const subPrevZ = lerp(prevZ, curZ, (k - 1) / steps);
-      const subCurZ = lerp(prevZ, curZ, k / steps);
-      const lo = Math.min(subPrevZ, subCurZ);
-      const hi = Math.max(subPrevZ, subCurZ);
-      if (hi < -this.zBand || lo > this.zBand) continue;
-
-      if (this._overlapsPlayer(item, subCurZ, player)) {
-        this._reportHit(item, player, onHit);
-        return; // item is now hidden by _reportHit; no need to check further sub-steps
+        if (this._overlapsPlayer(item, subCurZ, player)) {
+          this._reportHit(item, player, onHit);
+          return; // a real hit -- never a near-miss for this crossing, and the item is now hidden
+        }
       }
     }
+
+    // No hit was registered above. The instant this obstacle finishes
+    // crossing from at-or-ahead-of the back band edge to fully behind it,
+    // check whether it was a genuine close call (Milestone 9) -- by
+    // construction, "was in the player's lane, is now behind, was never
+    // hit" can only mean a jump/slide-escape obstacle was successfully
+    // cleared with correct timing, not just avoided from a different lane.
+    if (item.userData.type === "blocker" && !entry.nearMissChecked && curZ < -this.zBand && prevZ >= -this.zBand) {
+      entry.nearMissChecked = true;
+      this._checkNearMiss(item, player, onHit);
+    }
+  }
+
+  _checkNearMiss(item, player, onHit) {
+    const def = OBSTACLE_TYPES[item.userData.obstacleType];
+    if (!def || (def.escape !== "jump" && def.escape !== "slide")) return; // switch-escape obstacles: being in a different lane the whole time isn't a "near" miss
+    if (!item.userData.lanes || !item.userData.lanes.includes(player.currentLane)) return;
+    onHit({ type: "nearmiss" });
   }
 
   // Full 3D box test at the item's actual current transform (not a
@@ -168,8 +191,18 @@ export class CollisionSystem {
         name: item.userData.name,
         category: item.userData.category,
         isExclusive: item.userData.isExclusive,
+        exclusiveLine: item.userData.exclusiveLine || null,
         powerUp: item.userData.powerUp || null,
         powerUpDurationMs: item.userData.powerUpDurationMs,
+        // Shared scratch vector, NOT a fresh allocation -- safe here only
+        // because Engine._handleHit() (the sole onHit consumer) reads/
+        // copies it synchronously, in the same call stack, before the next
+        // loop iteration's item.getWorldPosition(_worldPos) overwrites it.
+        // Milestone 9's coin-burst particle effect is the reader; it must
+        // NOT be forwarded past Engine.js (e.g. into the Vue-facing
+        // onCollide payload) since by the time Vue observes it later it
+        // would be stale/overwritten.
+        worldPosition: _worldPos,
       });
     } else if (item.userData.type === "blocker") {
       // takeHit() returns false if a shield absorbed it -- App.vue's
@@ -181,6 +214,10 @@ export class CollisionSystem {
         name: item.userData.name,
         text: item.userData.text,
         consequence: item.userData.consequence,
+        // Milestone 9 interactive tutorial: App.vue skips the life cost
+        // (but still shows the normal feedback) for a miss on one of the
+        // 3 seeded practice obstacles -- see WorldStreamer.startTutorial().
+        isTutorial: item.userData.isTutorial || false,
       });
     }
   }

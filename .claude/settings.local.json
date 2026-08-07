@@ -36,7 +36,11 @@
       "Bash(node --experimental-vm-modules -e ' *)",
       "Bash(node \"C:\\\\Users\\\\priya\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Cyntexa-ChargeOn-Power-Run-Game\\\\e6d8b6ef-6069-45e0-924d-0f45c03e7170\\\\scratchpad\\\\verify_m6_all_levels.mjs\")",
       "Bash(node \"C:\\\\Users\\\\priya\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Cyntexa-ChargeOn-Power-Run-Game\\\\e6d8b6ef-6069-45e0-924d-0f45c03e7170\\\\scratchpad\\\\verify_m5.mjs\")",
-      "Bash(node \"C:\\\\Users\\\\priya\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Cyntexa-ChargeOn-Power-Run-Game\\\\e6d8b6ef-6069-45e0-924d-0f45c03e7170\\\\scratchpad\\\\verify_worldstreamer.mjs\")"
+      "Bash(node \"C:\\\\Users\\\\priya\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Cyntexa-ChargeOn-Power-Run-Game\\\\e6d8b6ef-6069-45e0-924d-0f45c03e7170\\\\scratchpad\\\\verify_worldstreamer.mjs\")",
+      "Bash(node scripts/generateCharacterAssets.js)",
+      "Bash(cp \"/c/Users/priya/AppData/Local/Temp/claude/D--Cyntexa-ChargeOn-Power-Run-Game/c76ddc24-04a4-4f97-b793-913f9b5cd6fb/scratchpad/verifyM7.mjs\" \"D:/Cyntexa/ChargeOn Power Run Game/_verify_m7_tmp.mjs\")",
+      "Bash(node _verify_m7_tmp.mjs)",
+      "Bash(node _verify_m9_nearmiss.mjs)"
     ]
   }
 }

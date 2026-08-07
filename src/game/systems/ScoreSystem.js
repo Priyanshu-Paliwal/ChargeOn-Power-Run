@@ -1,4 +1,4 @@
-import { SCORE_POINTS } from "../config/GameConfig.js";
+import { SCORE_POINTS, NEAR_MISS_SCORE_BONUS } from "../config/GameConfig.js";
 
 // Owned by Engine.js, fed purely by discrete coin-collection events from
 // CollisionSystem's onHit payload -- Vue never computes score itself, it
@@ -23,6 +23,15 @@ export class ScoreSystem {
     this.score += points;
     this.coinsCollected++;
     return { points, total: this.score };
+  }
+
+  // Milestone 9: a small bonus for clearing a same-lane jump/slide-escape
+  // obstacle without a hit (CollisionSystem._checkNearMiss). Same
+  // total-tracking shape as registerCoin() so Engine._handleHit can treat
+  // both uniformly.
+  registerNearMiss() {
+    this.score += NEAR_MISS_SCORE_BONUS;
+    return { points: NEAR_MISS_SCORE_BONUS, total: this.score };
   }
 
   reset() {

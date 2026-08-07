@@ -1,10 +1,17 @@
 <script setup>
-import { ref, computed, onMounted, inject } from "vue";
+import { ref, onMounted, inject } from "vue";
+import { gsap } from "gsap";
+import CharacterSelect from "./CharacterSelect.vue";
+import { TV_ATTRACT_LINE_1, TV_ATTRACT_LINE_2 } from "../game/config/GameConfig.js";
 
 const props = defineProps({
   userData: {
     type: Object,
     default: () => ({ name: "Unknown", company: "" }),
+  },
+  selectedCharacterId: {
+    type: Number,
+    default: null,
   },
 });
 
@@ -12,21 +19,19 @@ const emit = defineEmits(["start", "character-selected"]);
 
 const musicState = inject('musicState');
 
-const selectedVariant = ref(3); // Default to Beige Suit
-const variants = [
-  { id: 0, name: "Gold Standard", color: "#ffd164" },
-  { id: 1, name: "ChargeOn Blue", color: "#00B0FF" },
-  { id: 2, name: "Clean White", color: "#FFFFFF" },
-  { id: 3, name: "Beige Suit", color: "#D2B48C" },
-];
-
-const selectCharacter = (id) => {
-  selectedVariant.value = id;
-  emit("character-selected", id);
-};
-
 // Dynamic leaderboard
 const leaderboard = ref([]);
+
+// Entrance-animation targets (Milestone 8). A GSAP timeline staggers these
+// in on mount instead of everything just appearing at once; the leaderboard
+// rows get their own separate stagger since they don't exist until the
+// localStorage read above resolves.
+const logoEl = ref(null);
+const topStatsEl = ref(null);
+const leftPanelEl = ref(null);
+const rightPanelEl = ref(null);
+const bottomBarEl = ref(null);
+const leaderboardListEl = ref(null);
 
 onMounted(() => {
   const stored = localStorage.getItem("chargeon_leaderboard");
@@ -56,6 +61,24 @@ onMounted(() => {
       rank: idx + 1,
     }));
   }
+
+  const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+  tl.from(logoEl.value, { opacity: 0, y: -16, scale: 0.85, duration: 0.5 })
+    .from(topStatsEl.value, { opacity: 0, y: -12, duration: 0.4 }, "-=0.3")
+    .from(leftPanelEl.value, { opacity: 0, x: -30, duration: 0.5 }, "-=0.2")
+    .from(rightPanelEl.value, { opacity: 0, x: 30, duration: 0.5 }, "<")
+    .from(bottomBarEl.value, { opacity: 0, y: 20, duration: 0.4 }, "-=0.2");
+
+  if (leaderboardListEl.value) {
+    gsap.from(leaderboardListEl.value.children, {
+      opacity: 0,
+      x: -15,
+      duration: 0.35,
+      stagger: 0.08,
+      delay: 0.65,
+      ease: "power2.out",
+    });
+  }
 });
 </script>
 
@@ -63,7 +86,7 @@ onMounted(() => {
   <div class="lobby-dashboard">
     <!-- Top Bar -->
     <header class="top-bar">
-      <div class="logo-container">
+      <div class="logo-container" ref="logoEl">
         <img
           src="/img/chargeon-Logo.webp"
           alt="ChargeOn Logo"
@@ -71,7 +94,7 @@ onMounted(() => {
         />
       </div>
       <div class="profile-container">
-        <div class="top-stats">
+        <div class="top-stats" ref="topStatsEl">
           <button v-if="musicState" class="music-toggle-btn" @click="musicState.toggleMusic()" :title="musicState.isMusicPlaying.value ? 'Pause Music' : 'Play Music'">
             {{ musicState.isMusicPlaying.value ? '🔊' : '🔇' }}
           </button>
@@ -83,7 +106,7 @@ onMounted(() => {
     <!-- Main Content -->
     <main class="dashboard-grid">
       <!-- Left Panel: Info & Leaderboard -->
-      <section class="left-panel">
+      <section class="left-panel" ref="leftPanelEl">
         <h3 class="panel-subtitle">SALESFORCE NATIVE</h3>
         <h1 class="panel-title">CHARGEON POWER RUN</h1>
         <p class="panel-desc">
@@ -93,7 +116,7 @@ onMounted(() => {
 
         <div class="leaderboard">
           <h4 class="text-dim">TOP AGENTS</h4>
-          <ul>
+          <ul ref="leaderboardListEl">
             <li
               v-for="(entry, index) in leaderboard"
               :key="index"
@@ -111,30 +134,13 @@ onMounted(() => {
       </section>
 
       <!-- Right Panel: Character Selector -->
-      <section class="right-panel">
-        <div class="character-selector">
-          <h3>SELECT AGENT</h3>
-          <div class="char-options">
-            <button
-              v-for="variant in variants"
-              :key="variant.id"
-              class="char-btn"
-              :class="{ active: selectedVariant === variant.id }"
-              @click="selectCharacter(variant.id)"
-            >
-              <div
-                class="color-swatch"
-                :style="{ backgroundColor: variant.color }"
-              ></div>
-              <span>{{ variant.name }}</span>
-            </button>
-          </div>
-        </div>
+      <section class="right-panel" ref="rightPanelEl">
+        <CharacterSelect :modelValue="selectedCharacterId" @select="(id) => emit('character-selected', id)" />
       </section>
     </main>
 
     <!-- Bottom Actions -->
-    <footer class="bottom-bar">
+    <footer class="bottom-bar" ref="bottomBarEl">
       <div class="compliance-badges">
         <span>● PCI-DSS Compliant</span>
         <span>● AppExchange Listed</span>
@@ -144,6 +150,17 @@ onMounted(() => {
         <button class="btn-primary" @click="emit('start')">START RUN</button>
       </div>
     </footer>
+
+    <!-- TV attract mode: only visible when ViewportManager's size class is
+         'tv' (see the :global() rule below) -- exact content-script
+         caption lines for the idle loop on the booth's attract-mode
+         display. This IS the Lobby screen already looping (per the
+         script's own "also the TV attract-mode idle loop" note), so this
+         is an added caption banner, not a separate screen. -->
+    <div class="tv-attract-caption">
+      <p>{{ TV_ATTRACT_LINE_1 }}</p>
+      <p>{{ TV_ATTRACT_LINE_2 }}</p>
+    </div>
   </div>
 </template>
 
@@ -172,6 +189,11 @@ onMounted(() => {
 .logo-container .logo {
   height: 50px;
   object-fit: contain;
+  transition: transform 0.25s ease;
+}
+
+.logo-container:hover .logo {
+  transform: scale(1.05);
 }
 
 .profile-container {
@@ -243,6 +265,10 @@ onMounted(() => {
 .music-toggle-btn:hover {
   background: #f0f0f0;
   transform: scale(1.05);
+}
+
+.music-toggle-btn:active {
+  transform: scale(0.92);
 }
 
 .stat-box {
@@ -327,6 +353,12 @@ onMounted(() => {
   font-family: "Roboto", sans-serif;
   font-size: 1rem;
   font-weight: 500;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.leaderboard li:hover {
+  background: rgba(13, 45, 64, 0.04);
+  transform: translateX(3px);
 }
 
 .leaderboard .rank-gold {
@@ -360,69 +392,6 @@ onMounted(() => {
   flex-direction: column;
   justify-content: center;
   align-items: flex-end;
-}
-
-.character-selector {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-  padding: 20px;
-  border-radius: 16px;
-  border: 1px solid rgba(13, 45, 64, 0.1);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-  width: 100%;
-  max-width: 300px;
-}
-
-.character-selector h3 {
-  font-family: "Raleway", sans-serif;
-  font-size: 1.2rem;
-  font-weight: 700;
-  margin-bottom: 20px;
-  color: #0d2d40;
-  letter-spacing: 1px;
-}
-
-.char-options {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.char-btn {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  background: #ffffff;
-  border: 2px solid transparent;
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-  font-family: "Roboto", sans-serif;
-  font-weight: 600;
-  font-size: 1rem;
-  color: #1e4860;
-  text-align: left;
-}
-
-.char-btn:hover {
-  transform: translateX(-5px);
-  border-color: rgba(13, 45, 64, 0.2);
-}
-
-.char-btn.active {
-  border-color: #ffd164;
-  background: #f0f4f8;
-  color: #0d2d40;
-}
-
-.color-swatch {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 2px solid #ffffff;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 /* BOTTOM BAR */
@@ -469,6 +438,11 @@ onMounted(() => {
   transform: translateY(-2px);
 }
 
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 10px rgba(255, 209, 100, 0.4);
+}
+
 /* RESPONSIVE DESIGN */
 @media (max-width: 1024px) {
   .dashboard-grid {
@@ -486,7 +460,7 @@ onMounted(() => {
     align-items: center;
   }
 
-  .character-selector {
+  :deep(.character-select) {
     max-width: 100%;
   }
 
@@ -557,8 +531,117 @@ onMounted(() => {
   .bottom-bar {
     margin-top: 10px;
   }
-  .character-selector {
+  :deep(.character-select) {
     padding: 15px;
   }
+}
+
+/* Short-landscape (phone rotated sideways: wide but very short) is its own
+   first-class case per the Milestone 2 responsive strategy, not just an
+   extension of the generic max-height rule above -- a rotated phone is WIDE
+   enough that stacking the two panels vertically (what the max-width:1024px
+   rule above does) would blow out the available height even further. This
+   keeps the grid as a row and collapses everything to its essentials
+   instead: description hidden, leaderboard capped to 3 rows, smaller logo
+   and character picker. Uses ViewportManager's data-size-class attribute
+   (written on <html>, see ViewportManager.js) via :global() since scoped
+   styles can't otherwise reach an ancestor outside this component -- this
+   has higher specificity than the plain-class media-query rules above, so
+   it wins regardless of source order. */
+:global(html[data-size-class="phone-landscape"]) .lobby-dashboard {
+  padding: 8px;
+  overflow-y: auto;
+}
+:global(html[data-size-class="phone-landscape"]) .top-bar {
+  margin-bottom: 6px;
+}
+:global(html[data-size-class="phone-landscape"]) .logo-container .logo {
+  height: 28px;
+}
+:global(html[data-size-class="phone-landscape"]) .dashboard-grid {
+  flex-direction: row;
+  gap: 10px;
+  align-items: stretch;
+}
+:global(html[data-size-class="phone-landscape"]) .left-panel,
+:global(html[data-size-class="phone-landscape"]) .right-panel {
+  width: auto;
+  flex: 1;
+}
+:global(html[data-size-class="phone-landscape"]) .left-panel {
+  padding: 8px 12px;
+  max-height: 100%;
+  overflow-y: auto;
+}
+:global(html[data-size-class="phone-landscape"]) .panel-subtitle {
+  font-size: 0.6rem;
+  margin-bottom: 2px;
+}
+:global(html[data-size-class="phone-landscape"]) .panel-title {
+  font-size: 1.1rem;
+  margin-bottom: 2px;
+}
+:global(html[data-size-class="phone-landscape"]) .panel-desc {
+  display: none;
+}
+:global(html[data-size-class="phone-landscape"]) .leaderboard {
+  margin-top: 4px;
+}
+:global(html[data-size-class="phone-landscape"]) .leaderboard li {
+  padding: 3px 8px;
+  font-size: 0.7rem;
+}
+:global(html[data-size-class="phone-landscape"]) .leaderboard li:nth-child(n + 4) {
+  display: none;
+}
+:global(html[data-size-class="phone-landscape"]) .right-panel {
+  justify-content: flex-start;
+  align-items: stretch;
+}
+:global(html[data-size-class="phone-landscape"] .character-select) {
+  padding: 8px;
+  max-width: 100%;
+}
+:global(html[data-size-class="phone-landscape"]) .bottom-bar {
+  margin-top: 6px;
+}
+:global(html[data-size-class="phone-landscape"]) .btn-primary {
+  padding: 8px 30px;
+  font-size: 0.9rem;
+}
+:global(html[data-size-class="phone-landscape"]) .compliance-badges {
+  font-size: 0.65rem;
+  gap: 10px;
+}
+
+/* TV attract mode -- hidden everywhere except the booth's big-screen idle
+   display (ViewportManager's 'tv' size class: width >= 1920 AND no fine
+   pointer). Sits above everything else in the Lobby as a bottom banner
+   rather than replacing any of the existing content -- nobody is about to
+   tap "Start Run" from the TV itself, but the rest of the Lobby (logo,
+   leaderboard) still reads fine as attract-mode dressing behind it. */
+.tv-attract-caption {
+  display: none;
+}
+:global(html[data-size-class="tv"]) .tv-attract-caption {
+  display: block;
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 30;
+}
+:global(html[data-size-class="tv"]) .tv-attract-caption p {
+  font-family: "Raleway", sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.5rem, 2.5vw, 2.8rem);
+  color: #ffffff;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  margin: 0.2em 0;
+}
+:global(html[data-size-class="tv"]) .tv-attract-caption p:last-child {
+  color: #ffd164;
 }
 </style>
