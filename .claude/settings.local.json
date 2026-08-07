@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm audit *)",
+      "Bash(node -e ' *)",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(node \"C:/Users/priya/AppData/Local/Temp/claude/D--Cyntexa-ChargeOn-Power-Run-Game/e6d8b6ef-6069-45e0-924d-0f45c03e7170/scratchpad/inspect.mjs\")",
+      "Bash(mkdir -p \"D:/Cyntexa/ChargeOn Power Run Game/scripts/_tmp\")",
+      "Bash(cp \"C:/Users/priya/AppData/Local/Temp/claude/D--Cyntexa-ChargeOn-Power-Run-Game/e6d8b6ef-6069-45e0-924d-0f45c03e7170/scratchpad/inspect.mjs\" \"D:/Cyntexa/ChargeOn Power Run Game/scripts/_tmp/inspect.mjs\")",
+      "Bash(node scripts/_tmp/inspect.mjs)",
+      "Bash(node scripts/_tmp/test_pipeline.mjs)",
+      "Bash(node scripts/optimizeAssets.js)",
+      "Bash(node scripts/_tmp_diag.mjs)",
+      "Bash(node scripts/_tmp_prejoin.mjs)",
+      "Bash(node scripts/_tmp_tune.mjs)",
+      "Bash(node scripts/_tmp_attrs.mjs)",
+      "Bash(node scripts/_tmp_tune2.mjs)",
+      "Bash(node scripts/_tmp_tune3.mjs)",
+      "Bash(node scripts/_tmp_tune4.mjs)",
+      "Bash(node scripts/_tmp_tune5.mjs)",
+      "Bash(node scripts/_tmp_debug1.mjs)",
+      "Bash(node scripts/checkAssetBudget.js)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
+      "Bash(curl -s -o /dev/null -w \"still alive, HTTP %{http_code}\\\\n\" http://localhost:5174/)",
+      "Bash(curl -s -o /dev/null -w \"curl says: HTTP %{http_code}\\\\n\" http://localhost:5174/)",
+      "Bash(netstat -ano)",
+      "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 5174,5173 -ErrorAction SilentlyContinue | Select-Object LocalPort,State,OwningProcess\")",
+      "Bash(curl -s -o /dev/null -w \"via 127.0.0.1: HTTP %{http_code}\\\\n\" http://127.0.0.1:5174/)",
+      "Bash(curl -s -o /dev/null -w \"via 127.0.0.1: HTTP %{http_code}\\\\n\" http://127.0.0.1:5173/)",
+      "Bash(powershell -Command \"Stop-Process -Id 15556,13684 -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; Get-NetTCPConnection -LocalPort 5173,5174 -ErrorAction SilentlyContinue\")",
+      "Bash(curl -s -o /dev/null -w \"127.0.0.1:5180 -> HTTP %{http_code}\\\\n\" http://127.0.0.1:5180/)",
+      "Bash(node scripts/_tmp_smoke.mjs)",
+      "Bash(node scripts/_tmp_inspect_scenery.mjs)",
+      "Bash(node \"C:\\\\Users\\\\priya\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Cyntexa-ChargeOn-Power-Run-Game\\\\e6d8b6ef-6069-45e0-924d-0f45c03e7170\\\\scratchpad\\\\verify_m6.mjs\")",
+      "Bash(node --experimental-vm-modules -e ' *)",
+      "Bash(node \"C:\\\\Users\\\\priya\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Cyntexa-ChargeOn-Power-Run-Game\\\\e6d8b6ef-6069-45e0-924d-0f45c03e7170\\\\scratchpad\\\\verify_m6_all_levels.mjs\")",
+      "Bash(node \"C:\\\\Users\\\\priya\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Cyntexa-ChargeOn-Power-Run-Game\\\\e6d8b6ef-6069-45e0-924d-0f45c03e7170\\\\scratchpad\\\\verify_m5.mjs\")",
+      "Bash(node \"C:\\\\Users\\\\priya\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Cyntexa-ChargeOn-Power-Run-Game\\\\e6d8b6ef-6069-45e0-924d-0f45c03e7170\\\\scratchpad\\\\verify_worldstreamer.mjs\")"
+    ]
+  }
+}
