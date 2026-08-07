@@ -73,6 +73,14 @@ h1, h2, h3, h4, h5, h6, .rajdhani {
   display: block;
   width: 100%;
   height: 100%;
+  /* Belt-and-suspenders alongside App.vue's `.app-container { touch-action:
+     none }` (an ancestor) -- InputManager.js's touchstart/touchmove now
+     also call preventDefault() directly, which is the more reliable of the
+     two on a real device: it doesn't depend on every mobile browser's
+     touch-action ancestor-combination being spec-perfect across this
+     canvas's position:absolute boundary. Setting it here too costs
+     nothing and closes the gap if it ever isn't. */
+  touch-action: none;
 }
 
 /* Base button styles */

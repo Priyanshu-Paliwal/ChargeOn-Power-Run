@@ -34,11 +34,29 @@ export class InputManager {
 
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onTouchStart = this._onTouchStart.bind(this);
+    this._onTouchMove = this._onTouchMove.bind(this);
     this._onTouchEnd = this._onTouchEnd.bind(this);
+    this._onTouchCancel = this._onTouchCancel.bind(this);
 
     window.addEventListener("keydown", this._onKeyDown);
-    this.targetElement.addEventListener("touchstart", this._onTouchStart, { passive: true });
-    this.targetElement.addEventListener("touchend", this._onTouchEnd, { passive: true });
+    // NOT passive: found and fixed on real mobile-device testing -- a
+    // passive listener can never call preventDefault(), so on a real phone
+    // (never actually testable from this sandbox) the browser is free to
+    // reinterpret an in-progress touch as its own default gesture (page
+    // scroll, pull-to-refresh, edge-swipe-back) partway through. When that
+    // happens the browser fires `touchcancel` instead of `touchend` -- which
+    // this class didn't even listen for -- so the swipe just vanishes with
+    // no lane-change/jump/slide ever queued and no error anywhere. App.vue's
+    // `touch-action: none` on `.app-container` should already suppress this
+    // by itself per spec (ancestor restrictions apply to descendants too),
+    // but calling preventDefault() directly here is the same defense
+    // browsers themselves recommend for canvas/game surfaces, and doesn't
+    // depend on every mobile browser's touch-action propagation being
+    // spec-perfect across a position:absolute boundary.
+    this.targetElement.addEventListener("touchstart", this._onTouchStart, { passive: false });
+    this.targetElement.addEventListener("touchmove", this._onTouchMove, { passive: false });
+    this.targetElement.addEventListener("touchend", this._onTouchEnd, { passive: false });
+    this.targetElement.addEventListener("touchcancel", this._onTouchCancel, { passive: false });
   }
 
   _onKeyDown(e) {
@@ -76,8 +94,25 @@ export class InputManager {
   }
 
   _onTouchStart(e) {
+    e.preventDefault(); // see the constructor's comment -- stops the browser claiming this gesture as its own
     const t = e.changedTouches[0];
     this._touchStart = { screenX: t.screenX, screenY: t.screenY, clientX: t.clientX, time: performance.now() };
+  }
+
+  // Only preventDefault while a swipe we're actually tracking is underway --
+  // scoped to that so this can't fight any other in-flight touch this
+  // element didn't start tracking.
+  _onTouchMove(e) {
+    if (this._touchStart) e.preventDefault();
+  }
+
+  // Fires instead of touchend if the browser/OS interrupts the gesture
+  // (an incoming call/notification, or -- pre-fix -- exactly the native
+  // gesture takeover this class now prevents). Drop the in-progress swipe
+  // rather than leave stale start data that could pair with a LATER,
+  // unrelated touchend and misfire.
+  _onTouchCancel() {
+    this._touchStart = null;
   }
 
   _onTouchEnd(e) {
@@ -154,7 +189,9 @@ export class InputManager {
   dispose() {
     window.removeEventListener("keydown", this._onKeyDown);
     this.targetElement.removeEventListener("touchstart", this._onTouchStart);
+    this.targetElement.removeEventListener("touchmove", this._onTouchMove);
     this.targetElement.removeEventListener("touchend", this._onTouchEnd);
+    this.targetElement.removeEventListener("touchcancel", this._onTouchCancel);
     this._laneRequests = [];
     this._buffered = [];
   }

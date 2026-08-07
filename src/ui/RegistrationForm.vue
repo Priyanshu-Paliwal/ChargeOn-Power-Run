@@ -368,31 +368,39 @@ const handleSubmit = async (e) => {
 /* Short-landscape: the form must stay fully usable with the on-screen
    keyboard open, which on a rotated phone can cover well over half the
    remaining height -- shrink everything and let the container scroll
-   rather than clip. */
-:global(html[data-size-class="phone-landscape"]) .registration-overlay {
+   rather than clip.
+
+   NOTE ON :global() SYNTAX (found and fixed this session -- see
+   docs/PROCESS_TRACKER.md): :global(A) B compiles to just `A { ... }`,
+   silently DROPPING `B` entirely -- confirmed directly against the real
+   @vue/compiler-sfc, not assumed. Every rule below used that broken form,
+   meaning this whole phone-landscape Registration treatment has been a
+   complete no-op since Milestone 8. The whole selector (ancestor AND
+   descendant together) must go inside ONE :global(...) call instead. */
+:global(html[data-size-class="phone-landscape"] .registration-overlay) {
   align-items: flex-start;
   padding: 10px;
 }
-:global(html[data-size-class="phone-landscape"]) .form-container {
+:global(html[data-size-class="phone-landscape"] .form-container) {
   padding: 14px 18px;
 }
-:global(html[data-size-class="phone-landscape"]) .logo-wrap img {
+:global(html[data-size-class="phone-landscape"] .logo-wrap img) {
   height: 26px;
 }
-:global(html[data-size-class="phone-landscape"]) .header {
+:global(html[data-size-class="phone-landscape"] .header) {
   margin-bottom: 8px;
 }
-:global(html[data-size-class="phone-landscape"]) .header h2 {
+:global(html[data-size-class="phone-landscape"] .header h2) {
   font-size: 1.2rem;
   margin-bottom: 2px;
 }
-:global(html[data-size-class="phone-landscape"]) .header p {
+:global(html[data-size-class="phone-landscape"] .header p) {
   font-size: 0.8rem;
 }
-:global(html[data-size-class="phone-landscape"]) .input-group {
+:global(html[data-size-class="phone-landscape"] .input-group) {
   margin-bottom: 8px;
 }
-:global(html[data-size-class="phone-landscape"]) .input-group input {
+:global(html[data-size-class="phone-landscape"] .input-group input) {
   padding: 8px 12px;
 }
 </style>

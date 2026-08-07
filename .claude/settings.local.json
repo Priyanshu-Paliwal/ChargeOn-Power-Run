@@ -40,7 +40,13 @@
       "Bash(node scripts/generateCharacterAssets.js)",
       "Bash(cp \"/c/Users/priya/AppData/Local/Temp/claude/D--Cyntexa-ChargeOn-Power-Run-Game/c76ddc24-04a4-4f97-b793-913f9b5cd6fb/scratchpad/verifyM7.mjs\" \"D:/Cyntexa/ChargeOn Power Run Game/_verify_m7_tmp.mjs\")",
       "Bash(node _verify_m7_tmp.mjs)",
-      "Bash(node _verify_m9_nearmiss.mjs)"
+      "Bash(node _verify_m9_nearmiss.mjs)",
+      "Bash(cp \"C:\\\\Users\\\\priya\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Cyntexa-ChargeOn-Power-Run-Game\\\\c76ddc24-04a4-4f97-b793-913f9b5cd6fb\\\\scratchpad\\\\_verify_input.mjs\" ./_verify_input.mjs)",
+      "Bash(node ./_verify_input.mjs)",
+      "Bash(rm ./_verify_input.mjs)",
+      "Bash(cd \"D:\\\\Cyntexa\\\\ChargeOn Power Run Game\")",
+      "Bash(ls dist/assets/*.css)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

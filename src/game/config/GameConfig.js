@@ -394,21 +394,30 @@ export const FEATURE_SPACING_DISTANCE = 90;
 // -----------------------------------------------------------------------
 // Audio (Milestone 9, real audio added post-launch-review). AudioManager.js
 // loads ONE sprite-sheet file for every SFX cue (far fewer requests than
-// one file per cue) plus one separate looping music file. Both files are
-// now procedurally SYNTHESIZED (see scripts/generateAudioAssets.js) --
+// one file per cue) plus one separate looping music track. The SFX sprite
+// is procedurally SYNTHESIZED (see scripts/generateAudioAssets.js) --
 // simple original waveform compositions (sine/triangle tones, envelopes,
-// filtered noise), not sourced/licensed recordings, so there's zero
-// licensing exposure while still being genuinely audible or a booth
-// tablet. Real licensed/commissioned audio can replace these two files
-// later with no code changes elsewhere, same swap-in promise as the
-// procedural assets used throughout this project.
+// filtered noise), not a sourced/licensed recording, so there's zero
+// licensing exposure while still being genuinely audible.
 //
 // SFX_DURATIONS is the single source of truth both the generator script
 // AND AudioManager.js's buildSpriteManifest() compute sprite offsets from,
 // so the two can never drift out of sync with each other.
+//
+// MUSIC_LOOP_URL is the ORIGINAL track this project shipped with before
+// Milestone 9 ever touched audio (confirmed via `git show` on the very
+// first commit) -- restored here at the user's explicit request/tradeoff
+// after this session had briefly replaced it with a local synthesized loop
+// out of caution over the booth-wifi/licensing risk a remote dependency
+// carries. That risk is real and un-mitigated by this change: if this URL
+// is unreachable at the venue, the Lobby will be silent. The synthesized
+// alternative is kept on disk (public/audio/music-loop.wav, still built by
+// scripts/generateAudioAssets.js) specifically as a ready fallback -- if
+// this stops working reliably, point this constant back at
+// "/audio/music-loop.wav" and no other code changes are needed.
 // -----------------------------------------------------------------------
 export const SFX_SPRITE_URL = "/audio/sfx-sprite.wav";
-export const MUSIC_LOOP_URL = "/audio/music-loop.wav";
+export const MUSIC_LOOP_URL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3";
 export const SFX_GAP_SECONDS = 0.05; // silent buffer between sprite segments, avoids any bleed between cues
 export const SFX_DURATIONS = {
   coin: 0.25,

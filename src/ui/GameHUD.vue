@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch, onMounted, onUnmounted, nextTick, injec
 import { gsap } from "gsap";
 import { levels } from "../data/GameContent.js";
 import { TUTORIAL_BANNER } from "../game/config/GameConfig.js";
+import { viewportManager } from "../game/core/ViewportManager.js";
 
 // Same provide('musicState', ...) App.vue exposes at the app root for
 // Landing.vue's Lobby toggle (see App.vue) -- injected here too so there's
@@ -131,6 +132,15 @@ watch(progressPct, (pct) => {
 // messages on top of each other with no cap.
 // -----------------------------------------------------------------------
 const MAX_CONCURRENT_TOASTS = 3;
+// On a phone, even small toasts stacked 2-3 deep eat a large fraction of the
+// limited vertical space that shows the road ahead -- capping to 1 at a time
+// (still queued/promoted the same way, just narrower) keeps the play area
+// visible instead of covering it during exactly the moments (rapid pickups)
+// that most need to see incoming obstacles.
+function _maxConcurrentToasts() {
+  const sizeClass = viewportManager.getState()?.sizeClass || "";
+  return sizeClass.startsWith("phone") ? 1 : MAX_CONCURRENT_TOASTS;
+}
 const TOAST_DURATION_MS = 2200;
 const activeToasts = ref([]);
 const _pendingToasts = [];
@@ -138,7 +148,7 @@ const _toastTimeouts = new Set();
 let _consumedToastCount = 0;
 
 function _promoteToasts() {
-  while (activeToasts.value.length < MAX_CONCURRENT_TOASTS && _pendingToasts.length) {
+  while (activeToasts.value.length < _maxConcurrentToasts() && _pendingToasts.length) {
     const toast = _pendingToasts.shift();
     activeToasts.value.push(toast);
     const timeoutId = setTimeout(() => {
@@ -315,7 +325,20 @@ onUnmounted(() => {
 .hud-container {
   width: 100%;
   height: 100%;
-  pointer-events: none;
+  /* !important is load-bearing, not a shortcut: App.vue's `.ui-layer > *
+     { pointer-events: auto }` (every screen's root gets click-through
+     re-enabled by default) and this rule end up with IDENTICAL CSS
+     specificity once Vue's scoped-style attributes are compiled in (both
+     resolve to one class + one attribute selector) -- found by inspecting
+     the actual built CSS, not guessed. A tie is broken by source order in
+     the final bundle, which happened to put App.vue's rule LAST, so this
+     rule was silently losing: .hud-container computed to pointer-events:
+     auto despite this line, meaning the ENTIRE full-screen HUD (not just
+     its buttons) was capturing every touch before it could ever reach the
+     canvas underneath -- the root cause of "mobile swipes do nothing at
+     all." Source order is an implementation detail of how Vite happens to
+     bundle today, not something this rule should depend on to win. */
+  pointer-events: none !important;
 }
 
 .edge-vignette {
@@ -724,18 +747,50 @@ h3 {
 
 /* Short-landscape (phone in landscape): the top bar's 3-section layout is
    too wide to wrap cleanly at very low heights -- collapse to icons/compact
-   text and shrink the side panel so it doesn't eat the whole short screen. */
-:global(html[data-size-class="phone-landscape"]) .top-bar {
+   text and shrink the side panel so it doesn't eat the whole short screen.
+
+   NOTE ON :global() SYNTAX (found and fixed this session -- see
+   docs/PROCESS_TRACKER.md): :global(A) B compiles to just `A { ... }`,
+   silently DROPPING `B` entirely -- confirmed directly against the real
+   @vue/compiler-sfc, not assumed. Every rule below (and the equivalent
+   pattern in Landing.vue/RegistrationForm.vue) previously used that broken
+   form, meaning EVERY phone-landscape/phone-portrait override in this
+   codebase has been a complete no-op since Milestone 8 -- verified by
+   inspecting the actual compiled dist/ CSS, which showed the trailing
+   class missing from all of them. The whole selector (ancestor AND
+   descendant together) must go inside ONE :global(...) call instead. */
+:global(html[data-size-class="phone-landscape"] .top-bar) {
   width: 98%;
   padding: 5px 10px;
   gap: 8px;
 }
-:global(html[data-size-class="phone-landscape"]) .progress-section {
+:global(html[data-size-class="phone-landscape"] .progress-section) {
   margin-left: 6px;
   gap: 6px;
 }
-:global(html[data-size-class="phone-landscape"]) .side-panel {
+:global(html[data-size-class="phone-landscape"] .side-panel) {
   height: 60px;
   bottom: 8px;
+}
+
+/* Pickup/hit toasts on a phone: the generic tablet-oriented rule above
+   (top: 30%, width: 90%) sits squarely in the middle of a phone's much
+   shorter, narrower viewport -- right where the road and incoming obstacles
+   need to be visible. Pushed to hug the very top edge instead, narrower and
+   smaller, so a toast is readable without covering the play area. Paired
+   with _maxConcurrentToasts() (script block) capping to 1 at a time on
+   phones instead of 3, so this doesn't also depend on 2-3 of these ever
+   stacking cleanly in a short vertical space. */
+:global(html[data-size-class="phone-portrait"] .popups-container),
+:global(html[data-size-class="phone-landscape"] .popups-container) {
+  top: 4%;
+  width: 80%;
+  gap: 6px;
+}
+:global(html[data-size-class="phone-portrait"] .popup-message),
+:global(html[data-size-class="phone-landscape"] .popup-message) {
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  max-width: 90%;
 }
 </style>

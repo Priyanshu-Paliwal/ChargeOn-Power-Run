@@ -545,56 +545,66 @@ onMounted(() => {
    instead: description hidden, leaderboard capped to 3 rows, smaller logo
    and character picker. Uses ViewportManager's data-size-class attribute
    (written on <html>, see ViewportManager.js) via :global() since scoped
-   styles can't otherwise reach an ancestor outside this component -- this
-   has higher specificity than the plain-class media-query rules above, so
-   it wins regardless of source order. */
-:global(html[data-size-class="phone-landscape"]) .lobby-dashboard {
+   styles can't otherwise reach an ancestor outside this component.
+
+   NOTE ON :global() SYNTAX (found and fixed this session -- see
+   docs/PROCESS_TRACKER.md): :global(A) B compiles to just `A { ... }`,
+   silently DROPPING `B` entirely -- confirmed directly against the real
+   @vue/compiler-sfc, not assumed (the one exception below,
+   `.character-select`, already used the correct form by coincidence).
+   Every other rule here used the broken partial-wrap form, meaning this
+   entire phone-landscape Lobby treatment has been a complete no-op since
+   Milestone 8 -- verified by inspecting the actual compiled dist/ CSS,
+   which showed the trailing class missing from every one of them. The
+   whole selector (ancestor AND descendant together) must go inside ONE
+   :global(...) call instead. */
+:global(html[data-size-class="phone-landscape"] .lobby-dashboard) {
   padding: 8px;
   overflow-y: auto;
 }
-:global(html[data-size-class="phone-landscape"]) .top-bar {
+:global(html[data-size-class="phone-landscape"] .top-bar) {
   margin-bottom: 6px;
 }
-:global(html[data-size-class="phone-landscape"]) .logo-container .logo {
+:global(html[data-size-class="phone-landscape"] .logo-container .logo) {
   height: 28px;
 }
-:global(html[data-size-class="phone-landscape"]) .dashboard-grid {
+:global(html[data-size-class="phone-landscape"] .dashboard-grid) {
   flex-direction: row;
   gap: 10px;
   align-items: stretch;
 }
-:global(html[data-size-class="phone-landscape"]) .left-panel,
-:global(html[data-size-class="phone-landscape"]) .right-panel {
+:global(html[data-size-class="phone-landscape"] .left-panel),
+:global(html[data-size-class="phone-landscape"] .right-panel) {
   width: auto;
   flex: 1;
 }
-:global(html[data-size-class="phone-landscape"]) .left-panel {
+:global(html[data-size-class="phone-landscape"] .left-panel) {
   padding: 8px 12px;
   max-height: 100%;
   overflow-y: auto;
 }
-:global(html[data-size-class="phone-landscape"]) .panel-subtitle {
+:global(html[data-size-class="phone-landscape"] .panel-subtitle) {
   font-size: 0.6rem;
   margin-bottom: 2px;
 }
-:global(html[data-size-class="phone-landscape"]) .panel-title {
+:global(html[data-size-class="phone-landscape"] .panel-title) {
   font-size: 1.1rem;
   margin-bottom: 2px;
 }
-:global(html[data-size-class="phone-landscape"]) .panel-desc {
+:global(html[data-size-class="phone-landscape"] .panel-desc) {
   display: none;
 }
-:global(html[data-size-class="phone-landscape"]) .leaderboard {
+:global(html[data-size-class="phone-landscape"] .leaderboard) {
   margin-top: 4px;
 }
-:global(html[data-size-class="phone-landscape"]) .leaderboard li {
+:global(html[data-size-class="phone-landscape"] .leaderboard li) {
   padding: 3px 8px;
   font-size: 0.7rem;
 }
-:global(html[data-size-class="phone-landscape"]) .leaderboard li:nth-child(n + 4) {
+:global(html[data-size-class="phone-landscape"] .leaderboard li:nth-child(n + 4)) {
   display: none;
 }
-:global(html[data-size-class="phone-landscape"]) .right-panel {
+:global(html[data-size-class="phone-landscape"] .right-panel) {
   justify-content: flex-start;
   align-items: stretch;
 }
@@ -602,14 +612,14 @@ onMounted(() => {
   padding: 8px;
   max-width: 100%;
 }
-:global(html[data-size-class="phone-landscape"]) .bottom-bar {
+:global(html[data-size-class="phone-landscape"] .bottom-bar) {
   margin-top: 6px;
 }
-:global(html[data-size-class="phone-landscape"]) .btn-primary {
+:global(html[data-size-class="phone-landscape"] .btn-primary) {
   padding: 8px 30px;
   font-size: 0.9rem;
 }
-:global(html[data-size-class="phone-landscape"]) .compliance-badges {
+:global(html[data-size-class="phone-landscape"] .compliance-badges) {
   font-size: 0.65rem;
   gap: 10px;
 }
@@ -623,7 +633,7 @@ onMounted(() => {
 .tv-attract-caption {
   display: none;
 }
-:global(html[data-size-class="tv"]) .tv-attract-caption {
+:global(html[data-size-class="tv"] .tv-attract-caption) {
   display: block;
   position: absolute;
   left: 50%;
@@ -633,7 +643,7 @@ onMounted(() => {
   pointer-events: none;
   z-index: 30;
 }
-:global(html[data-size-class="tv"]) .tv-attract-caption p {
+:global(html[data-size-class="tv"] .tv-attract-caption p) {
   font-family: "Raleway", sans-serif;
   font-weight: 700;
   font-size: clamp(1.5rem, 2.5vw, 2.8rem);
@@ -641,7 +651,7 @@ onMounted(() => {
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
   margin: 0.2em 0;
 }
-:global(html[data-size-class="tv"]) .tv-attract-caption p:last-child {
+:global(html[data-size-class="tv"] .tv-attract-caption p:last-child) {
   color: #ffd164;
 }
 </style>
