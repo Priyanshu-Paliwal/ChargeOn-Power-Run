@@ -1,6 +1,6 @@
 # ChargeOn Power Run — Process Tracker
 
-**Last updated:** 2026-08-07 (session: Sonnet 5, post-Milestone-9 escalation in progress — see that section before trusting anything below it)
+**Last updated:** 2026-08-10 (session: Sonnet 5 — repo-size cleanup performed, see "Repo size cleanup" section near the end; post-Milestone-9 escalation section below is otherwise unchanged and still the source of truth for Milestone 1-9 gaps)
 
 > This file tracks progress across all 10 milestones in `docs/IMPLEMENTATION_PLAN.md`. Update it after every completed task or milestone. If starting a new session, read this file first to know exactly where things left off, then cross-check against the actual repo state (file existence, `git log` if applicable) before trusting any "Done" marker. **As of this update, read the "Post-Milestone-9 Escalation" section first** — live browser testing found real gaps behind several milestones' "Done" markers above; that section is the current source of truth on what's actually confirmed working versus code-complete-but-unconfirmed.
 
@@ -415,6 +415,24 @@ This fix depended on the `:global()` syntax bug above being fixed first (the ori
 
 ## Milestone 10 — Device QA, perf validation, docs
 Not started. Scope: full responsiveness matrix pass, performance gates (≤20MB, ≥55fps mid-range Android, 60fps iPad, ≤120 draw calls), corrected `initial_implementation_documentation.md`.
+
+---
+
+## Repo size cleanup — 2026-08-10
+
+The repo folder was still 900+ MB on disk even though `public/` (what the game actually ships) had been down at ~10 MB since Milestone 1. An audit found the size was coming from `assets-src/` (the ~410 MB pipeline source originals) plus `.git/lfs`'s local object cache (another ~410 MB — the same LFS content stored a second time, standard Git LFS behavior, not history bloat) plus `node_modules/` (112 MB, normal/regenerable). `dist/`, `public/`, and `node_modules/` were already correctly gitignored and not the problem.
+
+**What changed:**
+- **`public/models/Soldier.glb` — already gone.** This was deleted back in Milestone 7 when the 4-character pipeline replaced the single hardcoded character; the `public/models/` directory doesn't exist anymore. Nothing to delete here this session.
+- **The 3 comments in `src/game/entities/Player.js` mentioning "Soldier.glb"** (near the constructor, `_startJump()`, and the character-swap handler) were checked and left as-is — they are NOT dead/commented-out code, they're live explanatory comments attached to currently-active lines, explaining *why* the code does what it does now (e.g. why jump uses a real clip instead of the old fake-pose hack). Removing them would delete that context for no benefit; flagged back to the user rather than deleted unilaterally.
+- **`assets-src/` deleted entirely** (~410 MB: `Desert_field.glb`, `MetalRailing.glb`, the tree/building GLBs, and the 9 building PNGs). Per explicit user decision: no future asset changes will be re-derived from these originals — new assets will be added fresh instead. The content still exists in git history/LFS (this repo's only 2 commits), so it is recoverable via `git checkout` against an old commit if ever needed; nothing was purged from git itself, only the working-tree copy.
+- **`dist/` deleted.** Pure `npm run build` output, already gitignored, regenerates automatically on the next build.
+- **`scripts/optimizeAssets.js` retired**, not deleted — a header comment now says why it's non-functional (its source folder is gone) and that it's kept only as reference documentation of the Milestone 1 optimization pipeline. The `assets:optimize` npm script was removed from `package.json` so nobody runs it against a missing folder. **`scripts/checkAssetBudget.js` was NOT touched** — it only ever measured `public/`, has no dependency on `assets-src/`, and is still wired into `npm run build` exactly as before.
+- `public/audio/music-loop.wav` — left as-is per instruction (intentional local fallback for the SoundHelix remote track, tiny size).
+
+**Result:** total repo folder size (including `.git`) went from ~977 MB to **552 MB**. Of that remaining 552 MB, ~426 MB is `.git` (mostly the LFS object cache still holding the now-deleted originals' history — expected, not cleaned up, since rewriting git history/LFS was out of scope and not requested) and 112 MB is `node_modules` (normal). The actual working tree outside `.git`/`node_modules` is now ~15 MB (`public/` + `docs/` + `src/` + `scripts/`).
+
+**Deletions are unstaged in git** (`git status` shows the 19 `assets-src/*` files as deleted, plus `package.json`/`scripts/optimizeAssets.js` as modified) — nothing has been committed; that's a separate decision for the user to make.
 
 ---
 

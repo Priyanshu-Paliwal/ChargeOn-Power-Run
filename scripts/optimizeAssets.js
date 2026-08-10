@@ -1,4 +1,14 @@
 #!/usr/bin/env node
+// RETIRED as of 2026-08-10 — assets-src/ (the source originals this script
+// reads from) was deleted in a repo-size cleanup; there will be no further
+// asset re-optimization from these originals. Running this script now will
+// fail immediately with ENOENT on the missing assets-src/ directory. Kept
+// on disk as reference documentation of the exact Milestone 1 optimization
+// pipeline (dedup -> weld -> join -> simplify -> prune -> textureCompress ->
+// draco) in case a similar pipeline is ever needed again. See
+// docs/PROCESS_TRACKER.md's cleanup entry for details.
+//
+// Original header, describing what this script did while assets-src/ existed:
 // Regenerates public/assets/** and public/textures/grass_normal.jpg from assets-src/**.
 // Originals in assets-src/ are never modified. Safe to re-run at any time —
 // output is always rebuilt fresh from source, so this script is the single
