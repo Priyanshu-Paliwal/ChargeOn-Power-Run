@@ -309,6 +309,7 @@ export class Engine {
   }
 
   async loadAssets() {
+    console.log("loadAssets called");
     const gltfLoader = new GLTFLoader();
     // Milestone 1's optimizeAssets.js Draco-compresses every environment/
     // tree/building GLB (trees, railings, streetlights, buildings, the
@@ -349,11 +350,13 @@ export class Engine {
     };
 
     const loadModel = async (key, url, customSetup = setupModel) => {
+      console.log(`Loading model ${key} from ${url}`);
       try {
         const gltf = await gltfLoader.loadAsync(url);
         if (gltf && gltf.scene) {
           this.models[key] = customSetup(gltf.scene);
         }
+        console.log(`Successfully loaded model ${key}`);
       } catch (err) {
         console.error(`Failed to load ${url}:`, err);
       }
@@ -420,10 +423,23 @@ export class Engine {
     };
 
     await Promise.all([
-      loadBuilding("build1", "/assets/models/buildings/L_build_1.glb", "/assets/textures/buildings", "L1"),
-      loadBuilding("build2", "/assets/models/buildings/L_build_2.glb", "/assets/textures/buildings", "L2"),
-      loadBuilding("build3", "/assets/models/buildings/L_build_3.glb", "/assets/textures/buildings", "L3"),
-      loadModel("house1", "/assets/models/buildings/old_small_house.glb"),
+      loadModel("PublicBuilding_1", "/assets/models/buildings/PublicBuilding_1.glb"),
+      loadModel("PublicBuilding_2", "/assets/models/buildings/PublicBuilding_2.glb"),
+      loadModel("PublicBuilding_3", "/assets/models/buildings/PublicBuilding_3.glb"),
+      loadModel("PublicBuilding_4", "/assets/models/buildings/PublicBuilding_4.glb"),
+      loadModel("PublicBuilding_5", "/assets/models/buildings/PublicBuilding_5.glb"),
+      loadModel("PublicBuilding_6", "/assets/models/buildings/PublicBuilding_6.glb"),
+      loadModel("PublicBuilding_7", "/assets/models/buildings/PublicBuilding_7.glb"),
+      loadModel("PublicBuilding_8", "/assets/models/buildings/PublicBuilding_8.glb"),
+      loadModel("PublicBuilding_9", "/assets/models/buildings/PublicBuilding_9.glb"),
+      loadModel("PublicBuilding_10", "/assets/models/buildings/PublicBuilding_10.glb"),
+      loadModel("RestaurantBuilding", "/assets/models/buildings/RestaurantBuilding.glb"),
+      loadModel("ShopBuilding", "/assets/models/buildings/ShopBuilding.glb"),
+      loadModel("PizzaBuilding", "/assets/models/buildings/PizzaBuilding.glb"),
+      loadModel("BurgerBuilding", "/assets/models/buildings/BurgerBuilding.glb"),
+      loadModel("CafeBuilding", "/assets/models/buildings/CafeBuilding.glb"),
+      loadModel("ShoppingCenterBuilding", "/assets/models/buildings/ShoppingCenterBuilding.glb"),
+      loadModel("Cinema", "/assets/models/buildings/Cinema.glb"),
       loadModel("railing", "/assets/models/environment/MetalRailing.glb"),
       loadModel("streetlight", "/assets/models/environment/StreetLightPoles.glb", setupStreetlight),
       loadModel("desert", "/assets/models/environment/Desert_field.glb", (m) => {
@@ -457,6 +473,7 @@ export class Engine {
     // assign each chunk's fixed slots -- the world has no scenery at all
     // until this runs (see WorldStreamer/SceneryInstancer), so this is the
     // one moment it all appears at once instead of swapping in per-chunk.
+    console.log("All assets loaded, building scenery");
     if (this.world) {
       this.world.buildScenery();
     }

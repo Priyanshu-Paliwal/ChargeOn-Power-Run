@@ -24,10 +24,21 @@ import * as THREE from "three";
 const NEAR_TREES_PER_SIDE = 6; // fixed from the original 4-7 random range
 const FAR_TREES_PER_SIDE = 14; // fixed from the original 10-18 random range
 const TREE_SPECIES = ["maple", "poplar", "whitePoplar"];
-const BUILDING_VARIANTS = ["build1", "build2", "build3", "house1"];
-const BUILDING_SCALE = { build1: 3, build2: 3, build3: 3, house1: 12 };
+const BUILDING_VARIANTS = [
+  "PublicBuilding_1", "PublicBuilding_2", "PublicBuilding_3", "PublicBuilding_4", "PublicBuilding_5",
+  "PublicBuilding_6", "PublicBuilding_7", "PublicBuilding_8", "PublicBuilding_9", "PublicBuilding_10",
+  "RestaurantBuilding", "ShopBuilding", "PizzaBuilding", "BurgerBuilding", "CafeBuilding", "ShoppingCenterBuilding", "Cinema"
+];
 
 const TREE_HEIGHT_RANGE = [15, 25]; // matches the original spawnTree height normalization
+const BUILDING_SCALE = { 
+  PublicBuilding_1: 350, PublicBuilding_2: 350, PublicBuilding_3: 450, PublicBuilding_4: 450, PublicBuilding_5: 550,
+  PublicBuilding_6: 450, PublicBuilding_7: 500, PublicBuilding_8: 500, PublicBuilding_9: 500, PublicBuilding_10: 500,
+  RestaurantBuilding: 600, ShopBuilding: 550, PizzaBuilding: 450, BurgerBuilding: 400, CafeBuilding: 450, ShoppingCenterBuilding: 700, Cinema: 600
+};
+
+const BUILDING_TRACK_MARGIN = 15; // Distance from center of track to the building's front face
+const BUILDING_ROTATION_OFFSET = Math.PI / 2; // Adjust if buildings face backward
 
 const _m1 = new THREE.Matrix4();
 const _m2 = new THREE.Matrix4();
@@ -90,13 +101,21 @@ function buildBuildingVariant(model) {
 
   lod0.geometry.computeBoundingBox();
   const center = new THREE.Vector3();
+  const size = new THREE.Vector3();
   lod0.geometry.boundingBox.getCenter(center);
+  lod0.geometry.boundingBox.getSize(size);
   center.applyMatrix4(lod0.matrix);
+  // Also transform size to get approximate world-aligned bounds
+  const sizeX = Math.abs(size.x * lod0.matrix.elements[0]) + Math.abs(size.z * lod0.matrix.elements[8]);
+  const sizeZ = Math.abs(size.x * lod0.matrix.elements[2]) + Math.abs(size.z * lod0.matrix.elements[10]);
 
   const centering = new THREE.Matrix4().makeTranslation(-center.x, 0, -center.z);
   const canonical = new THREE.Matrix4().multiplyMatrices(centering, lod0.matrix);
 
-  return { parts: [{ geometry: lod0.geometry, material: lod0.material, matrix: canonical }] };
+  return { 
+    parts: [{ geometry: lod0.geometry, material: lod0.material, matrix: canonical }],
+    size: { x: sizeX, z: sizeZ }
+  };
 }
 
 // One InstancedMesh per (variant, part). Instance transforms are written
@@ -250,9 +269,13 @@ export class SceneryInstancer {
     }
 
     this.availableBuildingVariants = BUILDING_VARIANTS.filter((k) => !!models[k]);
+    this.buildingSizes = {};
     for (const key of this.availableBuildingVariants) {
       const variant = buildBuildingVariant(models[key]);
-      if (variant) this._allocPool(`building_${key}`, variant, Math.ceil((n * 2) / this.availableBuildingVariants.length) + 2);
+      if (variant) {
+        this._allocPool(`building_${key}`, variant, Math.ceil((n * 2) / this.availableBuildingVariants.length) + 2);
+        this.buildingSizes[key] = variant.size;
+      }
     }
 
     this.availableTreeSpecies = TREE_SPECIES.filter((k) => !!models[k]);
@@ -322,23 +345,41 @@ export class SceneryInstancer {
       const leftVariant = this.availableBuildingVariants[chunkIndex % this.availableBuildingVariants.length];
       const rightVariant =
         this.availableBuildingVariants[(chunkIndex + 2) % this.availableBuildingVariants.length];
+      // Left building
+      const leftScale = BUILDING_SCALE[leftVariant] || 1;
+      const leftDepth = this.buildingSizes[leftVariant]?.z || 1; 
+      // If rotated 90 degrees, the original Z becomes the X width facing the track
+      const leftWidth = leftDepth * leftScale;
+      const leftX = -(BUILDING_TRACK_MARGIN + (leftWidth / 2));
+
       manifest.buildingSlots.push({
         pool: `building_${leftVariant}`,
         index: this._take(`building_${leftVariant}`),
         side: "left",
-        baseX: -30,
+        baseX: leftX,
         zRange: [-7.5, 7.5],
-        rotY: 0,
-        scale: BUILDING_SCALE[leftVariant],
+        rotY: 0 + BUILDING_ROTATION_OFFSET,
+        scale: leftScale,
       });
+
+      // Right building
+      const rightScale = BUILDING_SCALE[rightVariant] || 1;
+      const rightDepth = this.buildingSizes[rightVariant]?.z || 1;
+      const rightWidth = rightDepth * rightScale;
+      const rightX = BUILDING_TRACK_MARGIN + (rightWidth / 2);
+
+      if (isNaN(leftX) || isNaN(rightX)) {
+        console.error("NaN detected in SceneryInstancer!", { leftVariant, leftScale, leftDepth, leftWidth, leftX, rightVariant, rightScale, rightDepth, rightWidth, rightX });
+      }
+
       manifest.buildingSlots.push({
         pool: `building_${rightVariant}`,
         index: this._take(`building_${rightVariant}`),
         side: "right",
-        baseX: 30,
+        baseX: rightX,
         zRange: [-7.5, 7.5],
-        rotY: Math.PI,
-        scale: BUILDING_SCALE[rightVariant],
+        rotY: Math.PI + BUILDING_ROTATION_OFFSET,
+        scale: rightScale,
       });
     }
 

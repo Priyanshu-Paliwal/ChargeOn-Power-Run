@@ -69,6 +69,8 @@ export class WorldStreamer {
 
     this.trackBuilder = new TrackBuilder(this.trackLength, textures?.asphaltNormal);
     this.sceneryInstancer = new SceneryInstancer(scene, this.poolSize, this.trackBuilder);
+    window.sceneryInstancer = this.sceneryInstancer;
+    window.scene = scene;
     this.chunkManifests = []; // parallel to trackPool, filled in by buildScenery()
 
     this.obstacleFactory = new ObstacleFactory();
