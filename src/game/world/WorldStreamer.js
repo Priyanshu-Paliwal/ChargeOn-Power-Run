@@ -3,6 +3,7 @@ import { levels } from "../../data/GameContent.js";
 import { TrackBuilder } from "./TrackBuilder.js";
 import { SceneryInstancer } from "./SceneryInstancer.js";
 import { SpawnDirector } from "./SpawnDirector.js";
+import { FootpathPropSystem } from "./FootpathPropSystem.js";
 import { ObstacleFactory } from "../entities/Obstacles.js";
 import {
   PLAYER_PHYSICS,
@@ -69,9 +70,10 @@ export class WorldStreamer {
 
     this.trackBuilder = new TrackBuilder(this.trackLength, textures?.asphaltNormal);
     this.sceneryInstancer = new SceneryInstancer(scene, this.poolSize, this.trackBuilder);
-    window.sceneryInstancer = this.sceneryInstancer;
-    window.scene = scene;
     this.chunkManifests = []; // parallel to trackPool, filled in by buildScenery()
+
+    this.propSystem = new FootpathPropSystem(this.scene, this.models);
+    this.propSystem.generateChunk(0, -800);
 
     this.obstacleFactory = new ObstacleFactory();
     this.spawnDirector = new SpawnDirector();
@@ -405,6 +407,19 @@ export class WorldStreamer {
     const moveDist = this.speed * delta;
     this.spawnDirector.advance(moveDist);
     this._distanceSinceLastFeature += moveDist;
+
+    if (this.propSystem) {
+      this.propSystem.update(this.speed, delta, -800);
+      
+      if (!this.distanceTraveledProps) this.distanceTraveledProps = 0;
+      this.distanceTraveledProps += moveDist;
+      
+      // Generate a new 200 unit chunk every time we travel 200 units
+      if (this.distanceTraveledProps > 200) {
+        this.propSystem.generateChunk(-800, -1000);
+        this.distanceTraveledProps = 0;
+      }
+    }
 
     if (this.tutorialActive) {
       this._tutorialDistanceRemaining -= moveDist;

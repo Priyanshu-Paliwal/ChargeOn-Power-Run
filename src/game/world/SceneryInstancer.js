@@ -22,7 +22,7 @@ import * as THREE from "three";
 // simultaneously. This picks only the highest-detail one (LOD0).
 
 const NEAR_TREES_PER_SIDE = 6; // fixed from the original 4-7 random range
-const FAR_TREES_PER_SIDE = 14; // fixed from the original 10-18 random range
+const FAR_TREES_PER_SIDE = 0; // removed as requested to clear trees behind houses
 const TREE_SPECIES = ["maple", "poplar", "whitePoplar"];
 const BUILDING_VARIANTS = [
   "PublicBuilding_1", "PublicBuilding_2", "PublicBuilding_3", "PublicBuilding_4", "PublicBuilding_5",
@@ -249,6 +249,11 @@ export class SceneryInstancer {
       { parts: [{ geometry: this.trackBuilder.trimGeo, material: this.trackBuilder.trimMat, matrix: new THREE.Matrix4() }] },
       n * 2,
     );
+    this._allocPool(
+      "footpath",
+      { parts: [{ geometry: this.trackBuilder.footpathGeo, material: this.trackBuilder.footpathMat, matrix: new THREE.Matrix4() }] },
+      n * 2,
+    );
 
     const railingVariant = buildVariant(models.railing);
     this.hasRailingModel = !!railingVariant;
@@ -296,6 +301,7 @@ export class SceneryInstancer {
       trackBaseIndex: this._take("trackBase"),
       laneIndices: [this._take("lane"), this._take("lane"), this._take("lane")],
       trimIndices: [this._take("trim"), this._take("trim")],
+      footpathIndices: [this._take("footpath"), this._take("footpath")],
       railingIndices: this.hasRailingModel ? Array.from({ length: 30 }, () => this._take("railing")) : [],
       borderIndices: this.hasRailingModel ? [] : [this._take("border"), this._take("border")],
       streetlightIndices: this.hasStreetlightModel ? [this._take("streetlight"), this._take("streetlight")] : [],
@@ -435,6 +441,11 @@ export class SceneryInstancer {
       this.pools.trim.setTransform(idx, composePlacement(trimX[i], -0.2, chunkZ, 0, 1));
     });
 
+    manifest.footpathIndices.forEach((idx, i) => {
+      const side = i === 0 ? -1 : 1;
+      this.pools.footpath.setTransform(idx, composePlacement(side * 10, 0.5, chunkZ, 0, 1));
+    });
+
     manifest.railingIndices.forEach((idx, i) => {
       const side = i < 15 ? -1 : 1;
       const r = i % 15;
@@ -448,7 +459,9 @@ export class SceneryInstancer {
     });
 
     manifest.streetlightIndices.forEach((idx, i) => {
-      const x = i === 0 ? -5.5 : 5.5;
+      // The pole base is locally offset by ~1.0 in +X. With scale 1.5, that's +1.5 world offset.
+      // To place the pole at +/- 4.9, we need x = 4.9 - 1.5 = 3.4.
+      const x = i === 0 ? -3.4 : 3.4;
       const rotY = i === 0 ? Math.PI : 0;
       this.pools.streetlight.setTransform(idx, composePlacement(x, 0, chunkZ, rotY, 1.5));
     });

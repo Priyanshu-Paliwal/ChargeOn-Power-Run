@@ -309,7 +309,6 @@ export class Engine {
   }
 
   async loadAssets() {
-    console.log("loadAssets called");
     const gltfLoader = new GLTFLoader();
     // Milestone 1's optimizeAssets.js Draco-compresses every environment/
     // tree/building GLB (trees, railings, streetlights, buildings, the
@@ -350,13 +349,11 @@ export class Engine {
     };
 
     const loadModel = async (key, url, customSetup = setupModel) => {
-      console.log(`Loading model ${key} from ${url}`);
       try {
         const gltf = await gltfLoader.loadAsync(url);
         if (gltf && gltf.scene) {
           this.models[key] = customSetup(gltf.scene);
         }
-        console.log(`Successfully loaded model ${key}`);
       } catch (err) {
         console.error(`Failed to load ${url}:`, err);
       }
@@ -460,6 +457,25 @@ export class Engine {
       loadModel("maple", "/assets/models/trees/maple1.glb"),
       loadModel("poplar", "/assets/models/trees/poplar1.glb"),
       loadModel("whitePoplar", "/assets/models/trees/whitePoplar1.glb"),
+
+      // Footpath props (these will log a 404 until uploaded, but won't crash the game)
+      loadModel("atm", "/assets/models/environment/props/atm.glb"),
+      loadModel("utility_box", "/assets/models/environment/props/utility_box.glb"),
+      loadModel("storm_drain", "/assets/models/environment/props/storm_drain.glb"),
+      loadModel("manhole", "/assets/models/environment/props/manhole.glb"),
+      loadModel("pallet", "/assets/models/environment/props/pallet.glb"),
+      loadModel("tarp_crates", "/assets/models/environment/props/tarp_crates.glb"),
+      loadModel("trash_large", "/assets/models/environment/props/trash_large.glb"),
+      loadModel("trash_small", "/assets/models/environment/props/trash_small.glb"),
+      loadModel("bench", "/assets/models/environment/props/bench.glb"),
+      loadModel("postbox", "/assets/models/environment/props/postbox.glb"),
+      loadModel("hydrant", "/assets/models/environment/props/hydrant.glb"),
+      loadModel("old_car", "/assets/models/environment/props/old_car.glb"),
+      loadModel("stop_sign", "/assets/models/environment/props/stop_sign.glb"),
+      loadModel("coffee_food_cart", "/assets/models/environment/props/coffee_food_cart.glb"),
+      loadModel("ice_cream_food_cart", "/assets/models/environment/props/ice_cream_food_cart.glb"),
+      loadModel("bus_stop", "/assets/models/environment/props/bus_stop.glb"),
+      loadModel("abandoned_snow_carraw", "/assets/models/environment/props/abandoned_snow_carraw.glb"),
     ]);
 
     if (this.models.desert) {
@@ -473,7 +489,6 @@ export class Engine {
     // assign each chunk's fixed slots -- the world has no scenery at all
     // until this runs (see WorldStreamer/SceneryInstancer), so this is the
     // one moment it all appears at once instead of swapping in per-chunk.
-    console.log("All assets loaded, building scenery");
     if (this.world) {
       this.world.buildScenery();
     }

@@ -64,6 +64,16 @@ export class TrackBuilder {
       metalness: 0.2,
     }); // Yellow dividing lines
 
+    const footpathTex = this._createFootpathTexture();
+
+    this.footpathGeo = new THREE.BoxGeometry(10, 0.6, trackLength);
+    this.footpathMat = new THREE.MeshStandardMaterial({
+      map: footpathTex,
+      color: 0xffffff, // Use 100% of the texture color
+      roughness: 0.9,
+      metalness: 0.0,
+    }); // Textured rock/grey sidewalk
+
     this.laneX = [-3, 0, 3];
     this.trimX = [-1.5, 1.5];
   }
@@ -89,6 +99,64 @@ export class TrackBuilder {
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(1, 4);
+    return tex;
+  }
+
+  _createFootpathTexture() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+
+    // Base rock/grey color - lighter so lines stand out
+    ctx.fillStyle = "#b0b0b0";
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Add noise for rock texture
+    for (let i = 0; i < 30000; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 512;
+      const intensity = Math.random();
+      if (intensity > 0.8) {
+        ctx.fillStyle = "rgba(255,255,255,0.4)"; // bright specks
+      } else if (intensity < 0.2) {
+        ctx.fillStyle = "rgba(0,0,0,0.4)"; // dark specks
+      } else {
+        ctx.fillStyle = "rgba(100,100,100,0.2)"; // mid tones
+      }
+      const size = Math.random() > 0.8 ? 3 : 1;
+      ctx.fillRect(x, y, size, size);
+    }
+
+    // Draw paving lines (large stone tiles) - HUGE thickness to survive grazing angle mipmapping
+    ctx.strokeStyle = "rgba(20, 20, 20, 1.0)";
+    ctx.lineWidth = 16;
+    
+    // Vertical lines
+    for (let x = 0; x <= 512; x += 256) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 512);
+      ctx.stroke();
+    }
+    
+    // Horizontal lines
+    for (let y = 0; y <= 512; y += 256) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(512, y);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    // Track length is 200, width is 10. To make it square:
+    // width: 10 -> repeat 2 (5 units per tile)
+    // length: 200 -> repeat 40 (5 units per tile)
+    tex.repeat.set(2, 40); 
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
     return tex;
   }
 }
