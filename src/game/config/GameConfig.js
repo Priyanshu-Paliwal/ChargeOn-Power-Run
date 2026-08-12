@@ -265,7 +265,7 @@ export const OBSTACLE_TYPES = {
 // -----------------------------------------------------------------------
 export const DIFFICULTY_RAMP = {
   speedRampMultiplier: 1.25, // in-level speed ramps toward levelBaseSpeed * this
-  densityRampMultiplier: 1.4, // obstacle density (patterns/chunk) ramps toward this factor
+  densityRampMultiplier: 1.05, // Reduced from 1.15 to keep blocker density low
   rampDistance: 1800, // world units of travel for the ramp to fully complete (~60s at level-1 base speed)
 };
 
@@ -293,7 +293,7 @@ export const REACTION_BASE_SPEED = 30;
 // speed climbs high enough that 6 units stops being a fair gap, falling
 // back to simpler/solo patterns -- a difficulty-adaptive safety valve, not
 // a hard per-obstacle-pair requirement most reference runners use anyway.
-export const MIN_OBSTACLE_GAP_SECONDS = 0.15;
+export const MIN_OBSTACLE_GAP_SECONDS = 0.40;
 
 // A pattern can't be selected again until this many chunk-spawns have
 // passed, so the same shape doesn't repeat back-to-back.

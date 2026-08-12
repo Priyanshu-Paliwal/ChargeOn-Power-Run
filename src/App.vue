@@ -25,6 +25,7 @@ import {
   POWERUP_VIGNETTE_INTENSITY,
   IDLE_PROMPT_MS,
   IDLE_RESET_MS,
+  POWER_UPS,
 } from './game/config/GameConfig.js'
 import { audioManager } from './game/systems/AudioManager.js'
 import { viewportManager } from './game/core/ViewportManager.js'
@@ -191,7 +192,24 @@ const handleCollision = (hit) => {
     gameStats.score = hit.score
     gameStats.combo++
 
-    if (!gameStats.featuresCollected.some(f => f.name === hit.name)) {
+    // Find the next sequential uncollected feature for this level
+    const currentLevelData = levels.find(l => l.id === gameStats.currentLevelId)
+    const nextFeature = currentLevelData.features.find(f => !gameStats.featuresCollected.some(fc => fc.name === f.name))
+
+    if (nextFeature) {
+      // Overwrite the hit data with the sequential feature so no features are ever skipped
+      hit.name = nextFeature.name
+      hit.category = nextFeature.category
+      hit.isExclusive = nextFeature.isExclusive || false
+      hit.exclusiveLine = nextFeature.exclusiveLine || null
+      
+      const powerUpDef = POWER_UPS[hit.name]
+      if (powerUpDef) {
+        hit.powerUp = powerUpDef.type
+      } else {
+        delete hit.powerUp
+      }
+
       gameStats.featuresCollected.push(hit)
       gameStats.levelFeaturesCollected++
 
@@ -213,7 +231,6 @@ const handleCollision = (hit) => {
         addFlash(POWERUP_VIGNETTE_COLORS[hit.powerUp], POWERUP_VIGNETTE_INTENSITY)
       }
 
-      const currentLevelData = levels.find(l => l.id === gameStats.currentLevelId)
       if (gameStats.levelFeaturesCollected >= currentLevelData.requiredCount) {
         completeLevel()
       }
@@ -310,6 +327,7 @@ const handleRegistration = (data) => {
 
 const startLevel = () => {
   gameStats.levelFeaturesCollected = 0
+  gameStats.lives = 3
   gameEngine.startLevel(gameStats.currentLevelId)
   gameEngine.setMode('PLAYING')
   gameState.value = 'PLAYING'

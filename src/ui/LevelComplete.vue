@@ -53,7 +53,7 @@ const copy = computed(() => {
       <p class="subtitle">{{ copy.body }}</p>
       
       <div class="prize-reveal">
-        <p>You've won a <span class="prize-name">{{ wonGoodie }}</span>!</p>
+        <p>You have won some cool <span class="prize-name">{{ wonGoodie }}</span>!</p>
       </div>
       
       <button class="btn-primary" @click="emit('next')">{{ copy.button }}</button>

@@ -210,6 +210,7 @@ export class Engine {
   // reason.
   startLevel(levelId) {
     this.world.setLevel(levelId);
+    this.player.lives = 3;
     this.cameraRig.triggerFovKick(SPEED_KICK_FOV_BOOST, SPEED_KICK_DURATION);
     this._speedLinesUntil = performance.now() + SPEED_LINES_DURATION_MS;
 
