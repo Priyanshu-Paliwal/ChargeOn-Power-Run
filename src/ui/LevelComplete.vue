@@ -10,6 +10,10 @@ const emit = defineEmits(['next'])
 const levelData = computed(() => levels.find(l => l.id === props.levelId))
 const wonGoodie = ref('')
 
+const getArticle = (item) => {
+  return item.toLowerCase().endsWith('s') ? 'some cool' : 'a cool'
+}
+
 onMounted(() => {
   if (levelData.value) {
     const pool = levelData.value.goodiesPool
@@ -53,7 +57,7 @@ const copy = computed(() => {
       <p class="subtitle">{{ copy.body }}</p>
       
       <div class="prize-reveal">
-        <p>You have won some cool <span class="prize-name">{{ wonGoodie }}</span>!</p>
+        <p>You have won {{ getArticle(wonGoodie) }} <span class="prize-name">{{ wonGoodie }}</span>!</p>
       </div>
       
       <button class="btn-primary" @click="emit('next')">{{ copy.button }}</button>

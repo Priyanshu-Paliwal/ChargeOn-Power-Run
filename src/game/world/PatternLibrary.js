@@ -64,9 +64,9 @@ export const PATTERNS = [
       return {
         obstacles: [{ type: "BARRICADE_LOW", lanes: [lane], z: 0 }],
         coins: [
-          { lane, z: -2, y: 1.4 },
+          { lane, z: -4, y: 1.4 },
           { lane, z: 0, y: COIN_JUMP_REWARD_HEIGHT },
-          { lane, z: 2, y: 1.4 },
+          { lane, z: 4, y: 1.4 },
         ],
       };
     },
@@ -80,9 +80,9 @@ export const PATTERNS = [
       return {
         obstacles: [{ type: "BARRICADE_WIDE", lanes, z: 0 }],
         coins: [
-          { lane: freeLane, z: -2 },
+          { lane: freeLane, z: -4 },
           { lane: freeLane, z: 0 },
-          { lane: freeLane, z: 2 },
+          { lane: freeLane, z: 4 },
         ],
       };
     },
@@ -98,8 +98,8 @@ export const PATTERNS = [
         // Coins under the drone reward committing to the slide; a couple
         // more in an adjacent lane give a switch-instead option too.
         coins: [
-          { lane, z: -1 },
-          { lane, z: 1 },
+          { lane, z: -3 },
+          { lane, z: 3 },
           { lane: randomLaneExcept([lane]), z: 0 },
         ],
       };
@@ -115,9 +115,9 @@ export const PATTERNS = [
       return {
         obstacles: [{ type: "DRONE_HIGH", lanes: [lane], z: 0 }],
         coins: [
-          { lane: freeLane, z: -2 },
+          { lane: freeLane, z: -4 },
           { lane: freeLane, z: 0 },
-          { lane: freeLane, z: 2 },
+          { lane: freeLane, z: 4 },
         ],
       };
     },
@@ -136,8 +136,8 @@ export const PATTERNS = [
           { type: "BARRICADE_LOW", lanes: [laneB], z: 0 },
         ],
         coins: [
-          { lane: freeLane, z: -2 },
-          { lane: freeLane, z: 2 },
+          { lane: freeLane, z: -4 },
+          { lane: freeLane, z: 4 },
         ],
       };
     },
@@ -156,8 +156,8 @@ export const PATTERNS = [
           { type: "DRONE_LOW", lanes: [laneB], z: 0 },
         ],
         coins: [
-          { lane: freeLane, z: -2 },
-          { lane: freeLane, z: 2 },
+          { lane: freeLane, z: -4 },
+          { lane: freeLane, z: 4 },
         ],
       };
     },
@@ -176,8 +176,8 @@ export const PATTERNS = [
           { type: "DRONE_HIGH", lanes: [laneB], z: 0 },
         ],
         coins: [
-          { lane: freeLane, z: -2 },
-          { lane: freeLane, z: 2 },
+          { lane: freeLane, z: -4 },
+          { lane: freeLane, z: 4 },
         ],
       };
     },
@@ -212,8 +212,8 @@ export const PATTERNS = [
           { type: "BARRICADE_WIDE", lanes: wideLanes, z: 4 },
         ],
         coins: [
-          { lane: lowLane, z: -5, y: COIN_JUMP_REWARD_HEIGHT },
-          { lane: wideFree, z: 4 },
+          { lane: lowLane, z: -7, y: COIN_JUMP_REWARD_HEIGHT },
+          { lane: wideFree, z: 6 },
         ],
       };
     },
@@ -231,8 +231,8 @@ export const PATTERNS = [
           { type: "BARRICADE_LOW", lanes: [lowLane], z: 4 },
         ],
         coins: [
-          { lane: wideFree, z: -5 },
-          { lane: lowLane, z: 4, y: COIN_JUMP_REWARD_HEIGHT },
+          { lane: wideFree, z: -7 },
+          { lane: lowLane, z: 6, y: COIN_JUMP_REWARD_HEIGHT },
         ],
       };
     },
@@ -250,8 +250,8 @@ export const PATTERNS = [
           { type: "DRONE_LOW", lanes: [lowLane], z: 4 },
         ],
         coins: [
-          { lane: randomLaneExcept([highLane]), z: -5 },
-          { lane: lowLane, z: 4 },
+          { lane: randomLaneExcept([highLane]), z: -7 },
+          { lane: lowLane, z: 6 },
         ],
       };
     },
@@ -271,9 +271,9 @@ export const PATTERNS = [
           { type: "DRONE_LOW", lanes: [droneLane], z: 8 },
         ],
         coins: [
-          { lane: lowLane, z: -8, y: COIN_JUMP_REWARD_HEIGHT },
+          { lane: lowLane, z: -10, y: COIN_JUMP_REWARD_HEIGHT },
           { lane: wideFree, z: 0 },
-          { lane: droneLane, z: 8 },
+          { lane: droneLane, z: 10 },
         ],
       };
     },

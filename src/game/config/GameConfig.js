@@ -264,8 +264,8 @@ export const OBSTACLE_TYPES = {
 // "progress" metric for a runner.
 // -----------------------------------------------------------------------
 export const DIFFICULTY_RAMP = {
-  speedRampMultiplier: 1.25, // in-level speed ramps toward levelBaseSpeed * this
-  densityRampMultiplier: 1.05, // Reduced from 1.15 to keep blocker density low
+  speedRampMultiplier: 1.15, // in-level speed ramps toward levelBaseSpeed * this
+  densityRampMultiplier: 1.0, // lowered to reduce obstacle density
   rampDistance: 1800, // world units of travel for the ramp to fully complete (~60s at level-1 base speed)
 };
 
@@ -291,10 +291,8 @@ export const REACTION_BASE_SPEED = 30;
 // authored sequence. This value exists so SpawnDirector can filter out a
 // tightly-spaced combo pattern (e.g. two obstacles 6 units apart) once
 // speed climbs high enough that 6 units stops being a fair gap, falling
-// back to simpler/solo patterns -- a difficulty-adaptive safety valve, not
 // a hard per-obstacle-pair requirement most reference runners use anyway.
-export const MIN_OBSTACLE_GAP_SECONDS = 0.40;
-
+export const MIN_OBSTACLE_GAP_SECONDS = 0.55; // increased to ensure feasible connections
 // A pattern can't be selected again until this many chunk-spawns have
 // passed, so the same shape doesn't repeat back-to-back.
 export const PATTERN_NO_REPEAT_WINDOW = 4;

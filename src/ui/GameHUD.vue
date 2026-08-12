@@ -613,11 +613,10 @@ h3 {
 .popups-container {
   position: absolute;
   top: 15%;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 20px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
   gap: 10px;
   z-index: 100;
   pointer-events: none;
@@ -626,13 +625,13 @@ h3 {
 .popup-message {
   padding: 10px 20px;
   border-radius: 20px;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: bold;
   color: white;
-  text-align: center;
+  text-align: right;
   white-space: pre-wrap;
   box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-  max-width: 400px;
+  max-width: 300px;
   border: 2px solid transparent;
 }
 
@@ -736,7 +735,8 @@ h3 {
 
   .popups-container {
     top: 30%;
-    width: 90%;
+    right: 10px;
+    width: auto;
   }
 
   .popup-message {
@@ -784,8 +784,9 @@ h3 {
 :global(html[data-size-class="phone-portrait"] .popups-container),
 :global(html[data-size-class="phone-landscape"] .popups-container) {
   top: 4%;
-  width: 80%;
+  right: 10px;
   gap: 6px;
+  width: auto;
 }
 :global(html[data-size-class="phone-portrait"] .popup-message),
 :global(html[data-size-class="phone-landscape"] .popup-message) {
