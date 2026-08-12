@@ -182,7 +182,19 @@ const addFlash = (color, intensity = 1) => {
   gameStats.flashFeed.push({ id: Date.now() + Math.random(), color, intensity })
 }
 
+const saveScoreToLeaderboard = () => {
+  const name = userData.name || 'Anonymous'
+  const stored = localStorage.getItem('chargeon_leaderboard')
+  let leaderboard = stored ? JSON.parse(stored) : []
+  leaderboard.push({ name, score: gameStats.score.toString() })
+  // Sort descending by score
+  leaderboard.sort((a, b) => Number(b.score) - Number(a.score))
+  leaderboard = leaderboard.slice(0, 5)
+  localStorage.setItem('chargeon_leaderboard', JSON.stringify(leaderboard))
+}
+
 const handleCollision = (hit) => {
+  // Same logic as before...
   if (gameState.value !== 'PLAYING') return
   
   if (hit.type === 'coin') {
@@ -259,20 +271,7 @@ const handleCollision = (hit) => {
     if (hit.isTutorial) return
     gameStats.lives--
     if (gameStats.lives <= 0) {
-      // Save score to LocalStorage
-      const name = userData.name || 'Anonymous'
-      // Generate a mock time based on features collected (1 feature = 5 seconds deduction from a base time, or just format the collected count as time)
-      const seconds = Math.max(30, 120 - gameStats.featuresCollected.length * 5)
-      const mm = Math.floor(seconds / 60).toString().padStart(2, '0')
-      const ss = (seconds % 60).toString().padStart(2, '0')
-      const timeStr = `${mm}:${ss}`
-
-      const stored = localStorage.getItem('chargeon_leaderboard')
-      let leaderboard = stored ? JSON.parse(stored) : []
-      leaderboard.push({ name, score: timeStr })
-      leaderboard.sort((a, b) => a.score.localeCompare(b.score))
-      leaderboard = leaderboard.slice(0, 5)
-      localStorage.setItem('chargeon_leaderboard', JSON.stringify(leaderboard))
+      saveScoreToLeaderboard()
 
       gameState.value = 'GAME_OVER'
       gameEngine.setMode('LOBBY') // Stop running animation
@@ -335,6 +334,7 @@ const startLevel = () => {
 
 const advanceLevel = () => {
   if (gameStats.currentLevelId === 3) {
+    saveScoreToLeaderboard()
     gameState.value = 'BOSS_BEAT'
   } else {
     gameStats.currentLevelId++

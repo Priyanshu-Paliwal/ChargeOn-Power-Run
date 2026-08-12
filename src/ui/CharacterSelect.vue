@@ -57,7 +57,7 @@ emit("select", selectedId.value);
     @touchstart="onTouchStart"
     @touchend="onTouchEnd"
   >
-    <h3>SELECT AGENT</h3>
+    <h3>SELECT CHARACTER</h3>
     <div class="turntable-card">
       <button class="nav-arrow" @click="step(-1)" aria-label="Previous character">‹</button>
       <div class="character-info">

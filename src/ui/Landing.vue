@@ -44,15 +44,11 @@ onMounted(() => {
   // If empty, supply default mocks
   if (leaderboard.value.length === 0) {
     leaderboard.value = [
-      { rank: 1, name: "S. Smith", score: "01:12" },
-      { rank: 2, name: "A. Johnson", score: "01:15" },
-      {
-        rank: 3,
-        name: props.userData.name !== "Unknown" ? props.userData.name : "You",
-        score: "--:--",
-      },
-      { rank: 4, name: "M. Lee", score: "01:21" },
-      { rank: 5, name: "K. Davis", score: "01:25" },
+      { rank: 1, name: "--", score: "--" },
+      { rank: 2, name: "--", score: "--" },
+      { rank: 3, name: "--", score: "--" },
+      { rank: 4, name: "--", score: "--" },
+      { rank: 5, name: "--", score: "--" },
     ];
   } else {
     // Add rank property based on index
@@ -115,7 +111,7 @@ onMounted(() => {
         </p>
 
         <div class="leaderboard">
-          <h4 class="text-dim">TOP AGENTS</h4>
+          <h4 class="text-dim">TOP PERFORMERS</h4>
           <ul ref="leaderboardListEl">
             <li
               v-for="(entry, index) in leaderboard"
