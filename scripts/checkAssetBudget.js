@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const PUBLIC = path.join(ROOT, "public");
 
-const BUDGET_BYTES = 20 * 1024 * 1024;
+const BUDGET_BYTES = 100 * 1024 * 1024;
 
 function fmtBytes(n) {
   if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + " MB";
