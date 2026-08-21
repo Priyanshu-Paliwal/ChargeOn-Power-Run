@@ -6,7 +6,7 @@ export const levels = [
     speedTag: "Speed: 1.0x — High",
     speedMultiplier: 1.0,
     requiredCount: 22,
-    goodiesPool: ["stickers", "pin badge", "bag tag"],
+    goodiesPool: ["Energy Bars", "Individual Stickers", "Fridge Magnets", "Bag Tags", "Cable Protector"],
     features: [
       { name: "Integration with Multiple Payment Gateways", category: "Admin" },
       { name: "Payment Types and Methods", category: "Business" },
@@ -52,7 +52,7 @@ export const levels = [
     speedTag: "Speed: 1.3x — Faster",
     speedMultiplier: 1.3,
     requiredCount: 22,
-    goodiesPool: ["magnet", "cable protector", "diary & pen"],
+    goodiesPool: ["Energy Bars", "Individual Stickers", "Fridge Magnets", "Bag Tags", "Cable Protector"],
     features: [
       { name: "Refund Reason & Notes Capture", category: "Business", isExclusive: true, exclusiveLine: "Every refund comes with a reason, built right in." },
       { name: "Recurring Payment Summary Preview", category: "Business", isExclusive: true, exclusiveLine: "See every future payment before you confirm a thing." },

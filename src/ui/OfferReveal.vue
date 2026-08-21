@@ -8,7 +8,7 @@ const emit = defineEmits(['next'])
       <h2 class="text-gold">You've Unlocked Something Big</h2>
       
       <div class="offer-box">
-        <h3>25% OFF</h3>
+        <h3>15% OFF</h3>
         <p>your first year.</p>
       </div>
       

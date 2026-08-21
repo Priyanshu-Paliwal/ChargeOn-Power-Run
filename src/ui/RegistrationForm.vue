@@ -17,12 +17,25 @@ const errors = reactive({ name: "", company: "", email: "" });
 const isSubmitting = ref(false);
 
 const VALIDATORS = {
-  name: (v) => (!v.trim() ? "Enter your name to continue." : ""),
-  company: (v) => (!v.trim() ? "Enter your company name to continue." : ""),
+  name: (v) => {
+    const trimmed = v.trim()
+    if (!trimmed) return 'Enter your name to continue.'
+    // Must have at least 2 words separated by a space
+    if (!/^[A-Za-z]+([ '-][A-Za-z]+)+$/.test(trimmed))
+      return 'Please enter your full name (first and last name, letters only).'
+    return ''
+  },
+  company: (v) => {
+    if (!v.trim()) return 'Enter your company name to continue.'
+    return ''
+  },
   email: (v) => {
-    if (!v.trim()) return "Enter your email to continue.";
-    if (!v.includes("@")) return "That email doesn't look right. Check it and try again.";
-    return "";
+    const trimmed = v.trim()
+    if (!trimmed) return 'Enter your email to continue.'
+    // RFC-compliant email: no leading/trailing spaces, no #* etc., must have @domain.tld
+    if (!/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(trimmed))
+      return "That email doesn't look right. Check it and try again."
+    return ''
   },
 };
 
@@ -55,7 +68,11 @@ const handleSubmit = async (e) => {
   isSubmitting.value = true;
   await new Promise((resolve) => setTimeout(resolve, 400));
 
-  emit("submit", { ...formData });
+  emit("submit", {
+    name: formData.name.trim(),
+    company: formData.company.trim(),
+    email: formData.email.trim(),
+  });
 };
 </script>
 

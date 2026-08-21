@@ -387,7 +387,13 @@ export const CHARACTER_CLIP_NAMES = ["Idle", "Run", "Jump", "Fall", "Land", "Sli
 // run instead of the first tenth of it. Verified empirically in the
 // Milestone 6 simulation, not just derived on paper -- see
 // docs/PROCESS_TRACKER.md.
-export const FEATURE_SPACING_DISTANCE = 90;
+export const FEATURE_SPACING_DISTANCE = 45; // Reduced from 90 — coins appear earlier and more frequently
+
+// -----------------------------------------------------------------------
+// Google Sheets Integration (via Apps Script Web App)
+// Replace this URL after deploying the Apps Script (see docs/SHEETS_SETUP.md)
+// -----------------------------------------------------------------------
+export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxc1j5CXFwT_NDBx-0ItJiongPtvrs57J-gAFsCSckzs5GHy4MyZDP5qCjAsFNz62acOA/exec';
 
 // -----------------------------------------------------------------------
 // Audio (Milestone 9, real audio added post-launch-review). AudioManager.js

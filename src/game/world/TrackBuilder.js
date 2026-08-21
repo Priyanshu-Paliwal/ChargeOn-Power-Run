@@ -33,7 +33,7 @@ export class TrackBuilder {
     // still a matte, non-metallic surface -- near-zero metalness and high
     // roughness is what actually sells "road," independent of which normal
     // map sits on top.
-    this.trackBaseGeo = new THREE.BoxGeometry(10, 0.5, trackLength);
+    this.trackBaseGeo = new THREE.BoxGeometry(10, 0.02, trackLength);
     this.trackBaseMat = new THREE.MeshStandardMaterial({
       map: asphaltTex,
       normalMap: asphaltNormal,
@@ -63,6 +63,30 @@ export class TrackBuilder {
       roughness: 0.5,
       metalness: 0.2,
     }); // Yellow dividing lines
+
+    // --- Subway Surfers Railway Track Additions ---
+    // Gravel/Ballast base ground under the tracks
+    this.gravelBaseMat = new THREE.MeshStandardMaterial({
+      color: 0x8c8376,
+      roughness: 1.0,
+      metalness: 0.05,
+    });
+
+    // Wooden Sleepers (Planks) under each track lane
+    this.sleeperGeo = new THREE.BoxGeometry(2.4, 0.1, 0.6);
+    this.sleeperMat = new THREE.MeshStandardMaterial({
+      color: 0x4a3219,
+      roughness: 0.9,
+      metalness: 0.1,
+    });
+
+    // Metallic Steel Rails (2 rails per lane = 6 total rails)
+    this.railGeo = new THREE.BoxGeometry(0.2, 0.2, trackLength);
+    this.railMat = new THREE.MeshStandardMaterial({
+      color: 0xaaaaaa,
+      metalness: 0.9,
+      roughness: 0.2,
+    });
 
     const footpathTex = this._createFootpathTexture();
 
@@ -131,7 +155,7 @@ export class TrackBuilder {
     // Draw paving lines (large stone tiles) - HUGE thickness to survive grazing angle mipmapping
     ctx.strokeStyle = "rgba(20, 20, 20, 1.0)";
     ctx.lineWidth = 16;
-    
+
     // Vertical lines
     for (let x = 0; x <= 512; x += 256) {
       ctx.beginPath();
@@ -139,7 +163,7 @@ export class TrackBuilder {
       ctx.lineTo(x, 512);
       ctx.stroke();
     }
-    
+
     // Horizontal lines
     for (let y = 0; y <= 512; y += 256) {
       ctx.beginPath();
@@ -154,7 +178,7 @@ export class TrackBuilder {
     // Track length is 200, width is 10. To make it square:
     // width: 10 -> repeat 2 (5 units per tile)
     // length: 200 -> repeat 40 (5 units per tile)
-    tex.repeat.set(2, 40); 
+    tex.repeat.set(2, 40);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.needsUpdate = true;
     return tex;

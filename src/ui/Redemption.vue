@@ -30,7 +30,7 @@ const resetGame = () => {
         <p v-if="wonGoodies.length === 0" class="goodie-item">No prizes earned.</p>
       </div>
       
-      <p class="footer-note">Ask about your 25% offer. Our team can tell you more.</p>
+      <p class="footer-note">Ask about your 15% offer. Our team can tell you more.</p>
       
       <button class="btn-text" @click="resetGame">Return to Start</button>
     </div>

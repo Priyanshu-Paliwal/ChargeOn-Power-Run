@@ -3,7 +3,8 @@ import { computed, ref, onMounted } from 'vue'
 import { levels } from '../data/GameContent.js'
 
 const props = defineProps({
-  levelId: Number
+  levelId: Number,
+  previousGoodies: { type: Array, default: () => [] }  // goodies already won in earlier levels
 })
 const emit = defineEmits(['next'])
 
@@ -15,9 +16,11 @@ const getArticle = (item) => {
 }
 
 onMounted(() => {
-  if (levelData.value) {
-    const pool = levelData.value.goodiesPool
-    wonGoodie.value = pool[Math.floor(Math.random() * pool.length)]
+    if (levelData.value) {
+    // Exclude goodies already won in previous levels so repeats can't happen
+    const pool = levelData.value.goodiesPool.filter(g => !props.previousGoodies.includes(g))
+    const finalPool = pool.length > 0 ? pool : levelData.value.goodiesPool // fallback if all exhausted
+    wonGoodie.value = finalPool[Math.floor(Math.random() * finalPool.length)]
     
     // Save won goodie to localStorage for Redemption screen
     const stored = localStorage.getItem('chargeon_won_goodies')
@@ -60,7 +63,7 @@ const copy = computed(() => {
         <p>You have won {{ getArticle(wonGoodie) }} <span class="prize-name">{{ wonGoodie }}</span>!</p>
       </div>
       
-      <button class="btn-primary" @click="emit('next')">{{ copy.button }}</button>
+      <button class="btn-primary" @click="emit('next', wonGoodie)">{{ copy.button }}</button>
     </div>
   </div>
 </template>

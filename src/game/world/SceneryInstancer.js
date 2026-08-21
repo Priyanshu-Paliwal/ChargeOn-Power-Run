@@ -25,16 +25,44 @@ const NEAR_TREES_PER_SIDE = 6; // fixed from the original 4-7 random range
 const FAR_TREES_PER_SIDE = 0; // removed as requested to clear trees behind houses
 const TREE_SPECIES = ["maple", "poplar", "whitePoplar"];
 const BUILDING_VARIANTS = [
-  "PublicBuilding_1", "PublicBuilding_2", "PublicBuilding_3", "PublicBuilding_4", "PublicBuilding_5",
-  "PublicBuilding_6", "PublicBuilding_7", "PublicBuilding_8", "PublicBuilding_9", "PublicBuilding_10",
-  "RestaurantBuilding", "ShopBuilding", "PizzaBuilding", "BurgerBuilding", "CafeBuilding", "ShoppingCenterBuilding", "Cinema"
+  "PublicBuilding_1",
+  "PublicBuilding_2",
+  "PublicBuilding_3",
+  "PublicBuilding_4",
+  "PublicBuilding_5",
+  "PublicBuilding_6",
+  "PublicBuilding_7",
+  "PublicBuilding_8",
+  "PublicBuilding_9",
+  "PublicBuilding_10",
+  "RestaurantBuilding",
+  "ShopBuilding",
+  "PizzaBuilding",
+  "BurgerBuilding",
+  "CafeBuilding",
+  "ShoppingCenterBuilding",
+  "Cinema",
 ];
 
 const TREE_HEIGHT_RANGE = [15, 25]; // matches the original spawnTree height normalization
-const BUILDING_SCALE = { 
-  PublicBuilding_1: 350, PublicBuilding_2: 350, PublicBuilding_3: 450, PublicBuilding_4: 450, PublicBuilding_5: 550,
-  PublicBuilding_6: 450, PublicBuilding_7: 500, PublicBuilding_8: 500, PublicBuilding_9: 500, PublicBuilding_10: 500,
-  RestaurantBuilding: 600, ShopBuilding: 550, PizzaBuilding: 450, BurgerBuilding: 400, CafeBuilding: 450, ShoppingCenterBuilding: 700, Cinema: 600
+const BUILDING_SCALE = {
+  PublicBuilding_1: 350,
+  PublicBuilding_2: 350,
+  PublicBuilding_3: 450,
+  PublicBuilding_4: 450,
+  PublicBuilding_5: 550,
+  PublicBuilding_6: 450,
+  PublicBuilding_7: 500,
+  PublicBuilding_8: 500,
+  PublicBuilding_9: 500,
+  PublicBuilding_10: 500,
+  RestaurantBuilding: 600,
+  ShopBuilding: 550,
+  PizzaBuilding: 450,
+  BurgerBuilding: 400,
+  CafeBuilding: 450,
+  ShoppingCenterBuilding: 700,
+  Cinema: 600,
 };
 
 const BUILDING_TRACK_MARGIN = 15; // Distance from center of track to the building's front face
@@ -106,15 +134,28 @@ function buildBuildingVariant(model) {
   lod0.geometry.boundingBox.getSize(size);
   center.applyMatrix4(lod0.matrix);
   // Also transform size to get approximate world-aligned bounds
-  const sizeX = Math.abs(size.x * lod0.matrix.elements[0]) + Math.abs(size.z * lod0.matrix.elements[8]);
-  const sizeZ = Math.abs(size.x * lod0.matrix.elements[2]) + Math.abs(size.z * lod0.matrix.elements[10]);
+  const sizeX =
+    Math.abs(size.x * lod0.matrix.elements[0]) +
+    Math.abs(size.z * lod0.matrix.elements[8]);
+  const sizeZ =
+    Math.abs(size.x * lod0.matrix.elements[2]) +
+    Math.abs(size.z * lod0.matrix.elements[10]);
 
-  const centering = new THREE.Matrix4().makeTranslation(-center.x, 0, -center.z);
-  const canonical = new THREE.Matrix4().multiplyMatrices(centering, lod0.matrix);
+  const centering = new THREE.Matrix4().makeTranslation(
+    -center.x,
+    0,
+    -center.z,
+  );
+  const canonical = new THREE.Matrix4().multiplyMatrices(
+    centering,
+    lod0.matrix,
+  );
 
-  return { 
-    parts: [{ geometry: lod0.geometry, material: lod0.material, matrix: canonical }],
-    size: { x: sizeX, z: sizeZ }
+  return {
+    parts: [
+      { geometry: lod0.geometry, material: lod0.material, matrix: canonical },
+    ],
+    size: { x: sizeX, z: sizeZ },
   };
 }
 
@@ -152,7 +193,8 @@ class InstancePool {
 
   dispose() {
     this.mesh.geometry.dispose();
-    if (Array.isArray(this.mesh.material)) this.mesh.material.forEach((m) => m.dispose());
+    if (Array.isArray(this.mesh.material))
+      this.mesh.material.forEach((m) => m.dispose());
     else this.mesh.material?.dispose();
   }
 }
@@ -236,22 +278,80 @@ export class SceneryInstancer {
     // Track surface (always present, every chunk).
     this._allocPool(
       "trackBase",
-      { parts: [{ geometry: this.trackBuilder.trackBaseGeo, material: this.trackBuilder.trackBaseMat, matrix: new THREE.Matrix4() }] },
+      {
+        parts: [
+          {
+            geometry: this.trackBuilder.trackBaseGeo,
+            material: this.trackBuilder.gravelBaseMat,
+            matrix: new THREE.Matrix4(),
+          },
+        ],
+      },
       n,
     );
     this._allocPool(
       "lane",
-      { parts: [{ geometry: this.trackBuilder.laneGeo, material: this.trackBuilder.laneMat, matrix: new THREE.Matrix4() }] },
+      {
+        parts: [
+          {
+            geometry: this.trackBuilder.laneGeo,
+            material: this.trackBuilder.laneMat,
+            matrix: new THREE.Matrix4(),
+          },
+        ],
+      },
       n * 3,
     );
     this._allocPool(
       "trim",
-      { parts: [{ geometry: this.trackBuilder.trimGeo, material: this.trackBuilder.trimMat, matrix: new THREE.Matrix4() }] },
+      {
+        parts: [
+          {
+            geometry: this.trackBuilder.trimGeo,
+            material: this.trackBuilder.trimMat,
+            matrix: new THREE.Matrix4(),
+          },
+        ],
+      },
       n * 2,
     );
     this._allocPool(
+      "sleeper",
+      {
+        parts: [
+          {
+            geometry: this.trackBuilder.sleeperGeo,
+            material: this.trackBuilder.sleeperMat,
+            matrix: new THREE.Matrix4(),
+          },
+        ],
+      },
+      n * 18,
+    );
+    this._allocPool(
+      "rail",
+      {
+        parts: [
+          {
+            geometry: this.trackBuilder.railGeo,
+            material: this.trackBuilder.railMat,
+            matrix: new THREE.Matrix4(),
+          },
+        ],
+      },
+      n * 6,
+    );
+    this._allocPool(
       "footpath",
-      { parts: [{ geometry: this.trackBuilder.footpathGeo, material: this.trackBuilder.footpathMat, matrix: new THREE.Matrix4() }] },
+      {
+        parts: [
+          {
+            geometry: this.trackBuilder.footpathGeo,
+            material: this.trackBuilder.footpathMat,
+            matrix: new THREE.Matrix4(),
+          },
+        ],
+      },
       n * 2,
     );
 
@@ -262,7 +362,15 @@ export class SceneryInstancer {
     } else {
       this._allocPool(
         "border",
-        { parts: [{ geometry: this.trackBuilder.borderGeo, material: this.trackBuilder.borderMat, matrix: new THREE.Matrix4() }] },
+        {
+          parts: [
+            {
+              geometry: this.trackBuilder.borderGeo,
+              material: this.trackBuilder.borderMat,
+              matrix: new THREE.Matrix4(),
+            },
+          ],
+        },
         n * 2,
       );
     }
@@ -273,12 +381,18 @@ export class SceneryInstancer {
       this._allocPool("streetlight", streetlightVariant, n * 2);
     }
 
-    this.availableBuildingVariants = BUILDING_VARIANTS.filter((k) => !!models[k]);
+    this.availableBuildingVariants = BUILDING_VARIANTS.filter(
+      (k) => !!models[k],
+    );
     this.buildingSizes = {};
     for (const key of this.availableBuildingVariants) {
       const variant = buildBuildingVariant(models[key]);
       if (variant) {
-        this._allocPool(`building_${key}`, variant, Math.ceil((n * 2) / this.availableBuildingVariants.length) + 2);
+        this._allocPool(
+          `building_${key}`,
+          variant,
+          Math.ceil((n * 2) / this.availableBuildingVariants.length) + 2,
+        );
         this.buildingSizes[key] = variant.size;
       }
     }
@@ -286,7 +400,15 @@ export class SceneryInstancer {
     this.availableTreeSpecies = TREE_SPECIES.filter((k) => !!models[k]);
     for (const key of this.availableTreeSpecies) {
       const variant = buildVariant(models[key]);
-      if (variant) this._allocPool(`tree_${key}`, variant, Math.ceil(((n * (NEAR_TREES_PER_SIDE + FAR_TREES_PER_SIDE) * 2)) / this.availableTreeSpecies.length) + 4);
+      if (variant)
+        this._allocPool(
+          `tree_${key}`,
+          variant,
+          Math.ceil(
+            (n * (NEAR_TREES_PER_SIDE + FAR_TREES_PER_SIDE) * 2) /
+              this.availableTreeSpecies.length,
+          ) + 4,
+        );
     }
 
     this.ready = true;
@@ -301,10 +423,18 @@ export class SceneryInstancer {
       trackBaseIndex: this._take("trackBase"),
       laneIndices: [this._take("lane"), this._take("lane"), this._take("lane")],
       trimIndices: [this._take("trim"), this._take("trim")],
+      sleeperIndices: Array.from({ length: 18 }, () => this._take("sleeper")),
+      railIndices: Array.from({ length: 6 }, () => this._take("rail")),
       footpathIndices: [this._take("footpath"), this._take("footpath")],
-      railingIndices: this.hasRailingModel ? Array.from({ length: 30 }, () => this._take("railing")) : [],
-      borderIndices: this.hasRailingModel ? [] : [this._take("border"), this._take("border")],
-      streetlightIndices: this.hasStreetlightModel ? [this._take("streetlight"), this._take("streetlight")] : [],
+      railingIndices: this.hasRailingModel
+        ? Array.from({ length: 30 }, () => this._take("railing"))
+        : [],
+      borderIndices: this.hasRailingModel
+        ? []
+        : [this._take("border"), this._take("border")],
+      streetlightIndices: this.hasStreetlightModel
+        ? [this._take("streetlight"), this._take("streetlight")]
+        : [],
       treeSlots: [],
       buildingSlots: [],
       hasScenery: chunkIndex % 2 === 0, // matches the original ~50% density pacing
@@ -318,7 +448,9 @@ export class SceneryInstancer {
     let speciesCursor = chunkIndex; // stagger the starting species per chunk for variety
     const addTreeSlot = (side, xRange, zRange, isNear) => {
       const species = this.availableTreeSpecies.length
-        ? this.availableTreeSpecies[speciesCursor % this.availableTreeSpecies.length]
+        ? this.availableTreeSpecies[
+            speciesCursor % this.availableTreeSpecies.length
+          ]
         : null;
       speciesCursor++;
       if (!species) return;
@@ -348,15 +480,20 @@ export class SceneryInstancer {
     // (round robin), independent 70%-visible roll re-decided each recycle
     // (matches the original Math.random() > 0.3 per side).
     if (this.availableBuildingVariants.length > 0) {
-      const leftVariant = this.availableBuildingVariants[chunkIndex % this.availableBuildingVariants.length];
+      const leftVariant =
+        this.availableBuildingVariants[
+          chunkIndex % this.availableBuildingVariants.length
+        ];
       const rightVariant =
-        this.availableBuildingVariants[(chunkIndex + 2) % this.availableBuildingVariants.length];
+        this.availableBuildingVariants[
+          (chunkIndex + 2) % this.availableBuildingVariants.length
+        ];
       // Left building
       const leftScale = BUILDING_SCALE[leftVariant] || 1;
-      const leftDepth = this.buildingSizes[leftVariant]?.z || 1; 
+      const leftDepth = this.buildingSizes[leftVariant]?.z || 1;
       // If rotated 90 degrees, the original Z becomes the X width facing the track
       const leftWidth = leftDepth * leftScale;
-      const leftX = -(BUILDING_TRACK_MARGIN + (leftWidth / 2));
+      const leftX = -(BUILDING_TRACK_MARGIN + leftWidth / 2);
 
       manifest.buildingSlots.push({
         pool: `building_${leftVariant}`,
@@ -372,10 +509,21 @@ export class SceneryInstancer {
       const rightScale = BUILDING_SCALE[rightVariant] || 1;
       const rightDepth = this.buildingSizes[rightVariant]?.z || 1;
       const rightWidth = rightDepth * rightScale;
-      const rightX = BUILDING_TRACK_MARGIN + (rightWidth / 2);
+      const rightX = BUILDING_TRACK_MARGIN + rightWidth / 2;
 
       if (isNaN(leftX) || isNaN(rightX)) {
-        console.error("NaN detected in SceneryInstancer!", { leftVariant, leftScale, leftDepth, leftWidth, leftX, rightVariant, rightScale, rightDepth, rightWidth, rightX });
+        console.error("NaN detected in SceneryInstancer!", {
+          leftVariant,
+          leftScale,
+          leftDepth,
+          leftWidth,
+          leftX,
+          rightVariant,
+          rightScale,
+          rightDepth,
+          rightWidth,
+          rightX,
+        });
       }
 
       manifest.buildingSlots.push({
@@ -404,7 +552,10 @@ export class SceneryInstancer {
   // independent roll when omitted, so any other caller keeps working
   // unchanged.
   rerollChunk(manifest, hasSceneryOverride) {
-    manifest.hasScenery = hasSceneryOverride !== undefined ? hasSceneryOverride : Math.random() > 0.5;
+    manifest.hasScenery =
+      hasSceneryOverride !== undefined
+        ? hasSceneryOverride
+        : Math.random() > 0.5;
 
     manifest.treeSlots.forEach((slot, i) => {
       // Near and far trees use the same target-height range in the
@@ -412,15 +563,19 @@ export class SceneryInstancer {
       // both) -- there's no near/far distinction to make here.
       const [minH, maxH] = TREE_HEIGHT_RANGE;
       const targetHeight = minH + Math.random() * (maxH - minH);
-      const scale = slot.naturalHeight > 0 ? targetHeight / slot.naturalHeight : 1;
-      manifest.treeJitter[i].x = slot.xRange[0] + Math.random() * (slot.xRange[1] - slot.xRange[0]);
-      manifest.treeJitter[i].z = slot.zRange[0] + Math.random() * (slot.zRange[1] - slot.zRange[0]);
+      const scale =
+        slot.naturalHeight > 0 ? targetHeight / slot.naturalHeight : 1;
+      manifest.treeJitter[i].x =
+        slot.xRange[0] + Math.random() * (slot.xRange[1] - slot.xRange[0]);
+      manifest.treeJitter[i].z =
+        slot.zRange[0] + Math.random() * (slot.zRange[1] - slot.zRange[0]);
       manifest.treeJitter[i].scale = scale;
     });
 
     manifest.buildingSlots.forEach((slot, i) => {
       manifest.buildingVisible[i] = Math.random() > 0.3;
-      manifest.buildingZJitter[i] = slot.zRange[0] + Math.random() * (slot.zRange[1] - slot.zRange[0]);
+      manifest.buildingZJitter[i] =
+        slot.zRange[0] + Math.random() * (slot.zRange[1] - slot.zRange[0]);
     });
   }
 
@@ -429,33 +584,70 @@ export class SceneryInstancer {
   // the only per-frame cost -- pure Matrix4 composition into pre-allocated
   // buffers, no allocation.
   syncChunk(manifest, chunkZ) {
-    this.pools.trackBase.setTransform(manifest.trackBaseIndex, composePlacement(0, -0.25, chunkZ, 0, 1));
+    // 1. Base Gravel/Dirt ground (Subway Surfers ground)
+    this.pools.trackBase.setTransform(
+      manifest.trackBaseIndex,
+      composePlacement(0, 0.01, chunkZ, 0, 1),
+    );
 
+    // Hide old asphalt road lanes & yellow road markings so they don't cover the railway tracks
+    manifest.laneIndices.forEach((idx) => this.pools.lane.hide(idx));
+    manifest.trimIndices.forEach((idx) => this.pools.trim.hide(idx));
+
+    // 2. Subway Surfers Metallic Steel Rails (2 rails per lane = 6 total rails)
     const laneX = this.trackBuilder.laneX;
-    manifest.laneIndices.forEach((idx, i) => {
-      this.pools.lane.setTransform(idx, composePlacement(laneX[i], -0.2, chunkZ, 0, 1));
+    manifest.railIndices.forEach((idx, i) => {
+      const lane = Math.floor(i / 2);
+      const sideOffset = i % 2 === 0 ? -0.8 : 0.8;
+      const railX = laneX[lane] + sideOffset;
+      this.pools.rail.setTransform(
+        idx,
+        composePlacement(railX, 0.15, chunkZ, 0, 1),
+      );
     });
 
-    const trimX = this.trackBuilder.trimX;
-    manifest.trimIndices.forEach((idx, i) => {
-      this.pools.trim.setTransform(idx, composePlacement(trimX[i], -0.2, chunkZ, 0, 1));
+    // 3. Subway Surfers Wooden Sleepers / Planks (6 sleepers per lane = 18 total per chunk)
+    manifest.sleeperIndices.forEach((idx, i) => {
+      const lane = Math.floor(i / 6);
+      const stepIndex = i % 6;
+      const zLocal = stepIndex * 3.33 - 8.33;
+      const sleeperX = laneX[lane];
+      this.pools.sleeper.setTransform(
+        idx,
+        composePlacement(sleeperX, 0.05, chunkZ + zLocal, 0, 1),
+      );
     });
 
     manifest.footpathIndices.forEach((idx, i) => {
       const side = i === 0 ? -1 : 1;
-      this.pools.footpath.setTransform(idx, composePlacement(side * 10, 0.5, chunkZ, 0, 1));
+      this.pools.footpath.setTransform(
+        idx,
+        composePlacement(side * 10, 0.5, chunkZ, 0, 1),
+      );
     });
 
     manifest.railingIndices.forEach((idx, i) => {
       const side = i < 15 ? -1 : 1;
       const r = i % 15;
       const zLocal = r * 2 - 14;
-      this.pools.railing.setTransform(idx, composePlacement(side * 4.8, -0.25, chunkZ + zLocal, side > 0 ? -Math.PI / 2 : Math.PI / 2, 1));
+      this.pools.railing.setTransform(
+        idx,
+        composePlacement(
+          side * 4.8,
+          -0.25,
+          chunkZ + zLocal,
+          side > 0 ? -Math.PI / 2 : Math.PI / 2,
+          1,
+        ),
+      );
     });
 
     manifest.borderIndices.forEach((idx, i) => {
       const x = i === 0 ? -5 : 5;
-      this.pools.border.setTransform(idx, composePlacement(x, -0.1, chunkZ, 0, 1));
+      this.pools.border.setTransform(
+        idx,
+        composePlacement(x, -0.1, chunkZ, 0, 1),
+      );
     });
 
     manifest.streetlightIndices.forEach((idx, i) => {
@@ -463,7 +655,10 @@ export class SceneryInstancer {
       // To place the pole at +/- 4.9, we need x = 4.9 - 1.5 = 3.4.
       const x = i === 0 ? -3.4 : 3.4;
       const rotY = i === 0 ? Math.PI : 0;
-      this.pools.streetlight.setTransform(idx, composePlacement(x, 0, chunkZ, rotY, 1.5));
+      this.pools.streetlight.setTransform(
+        idx,
+        composePlacement(x, 0, chunkZ, rotY, 1.5),
+      );
     });
 
     manifest.treeSlots.forEach((slot, i) => {
@@ -474,7 +669,16 @@ export class SceneryInstancer {
         pool.hide(slot.index);
         return;
       }
-      pool.setTransform(slot.index, composePlacement(jitter.x, 0, chunkZ + jitter.z, jitter.rotY, jitter.scale));
+      pool.setTransform(
+        slot.index,
+        composePlacement(
+          jitter.x,
+          0,
+          chunkZ + jitter.z,
+          jitter.rotY,
+          jitter.scale,
+        ),
+      );
     });
 
     manifest.buildingSlots.forEach((slot, i) => {
@@ -486,7 +690,13 @@ export class SceneryInstancer {
       }
       pool.setTransform(
         slot.index,
-        composePlacement(slot.baseX, 0, chunkZ + manifest.buildingZJitter[i], slot.rotY, slot.scale),
+        composePlacement(
+          slot.baseX,
+          0,
+          chunkZ + manifest.buildingZJitter[i],
+          slot.rotY,
+          slot.scale,
+        ),
       );
     });
   }

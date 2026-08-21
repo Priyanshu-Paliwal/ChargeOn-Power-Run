@@ -29,6 +29,7 @@ import {
 } from './game/config/GameConfig.js'
 import { audioManager } from './game/systems/AudioManager.js'
 import { viewportManager } from './game/core/ViewportManager.js'
+import { submitRegistration, updateLevelResult, updateMainDiscount } from './services/SheetService.js'
 
 // --- State Machine ---
 // LANDING, REGISTRATION, HOW_TO_PLAY, STORY_BEAT, LEVEL_INTRO, PLAYING, LEVEL_COMPLETE, BOSS_BEAT, OFFER_REVEAL, VICTORY, REDEMPTION
@@ -67,6 +68,10 @@ const gameStats = reactive({
   // juice stat for now, not a scoring rebalance.
   combo: 0
 })
+
+// Goodies won so far in this session — used to prevent duplicate goodies
+// across levels (passed as prop to LevelComplete for exclusion logic).
+const wonGoodies = ref([])
 
 let gameEngine = null
 
@@ -272,7 +277,8 @@ const handleCollision = (hit) => {
     gameStats.lives--
     if (gameStats.lives <= 0) {
       saveScoreToLeaderboard()
-
+      // Update the sheet: current level was Failed
+      updateLevelResult(userData.email, gameStats.currentLevelId, 'Failed', '')
       gameState.value = 'GAME_OVER'
       gameEngine.setMode('LOBBY') // Stop running animation
       audioManager.duck(0.2, 1200)
@@ -321,6 +327,11 @@ const handleRegistration = (data) => {
   userData.company = data.company
   userData.email = data.email
   console.log('CRM WRITE:', userData)
+  // Clear any goodies from a previous game session in this browser
+  localStorage.removeItem('chargeon_won_goodies')
+  wonGoodies.value = []
+  // Send registration data to Google Sheet (fire-and-forget, non-blocking)
+  submitRegistration(userData.name, userData.company, userData.email)
   gameState.value = 'HOW_TO_PLAY' // After form submit, go to game
 }
 
@@ -332,7 +343,11 @@ const startLevel = () => {
   gameState.value = 'PLAYING'
 }
 
-const advanceLevel = () => {
+const advanceLevel = (wonGoodie = '') => {
+  // Track won goodie to prevent duplicates in subsequent levels
+  if (wonGoodie) wonGoodies.value.push(wonGoodie)
+  // Update the sheet: this level was Passed with the specific goodie won
+  updateLevelResult(userData.email, gameStats.currentLevelId, 'Passed', wonGoodie)
   if (gameStats.currentLevelId === 3) {
     saveScoreToLeaderboard()
     gameState.value = 'BOSS_BEAT'
@@ -340,6 +355,13 @@ const advanceLevel = () => {
     gameStats.currentLevelId++
     gameState.value = 'LEVEL_INTRO'
   }
+}
+
+// Called when BossBeat (post-Level-3 cinematic) ends.
+// This is the moment the user has earned the 15% discount — write it to the sheet.
+const handleBossBeatNext = () => {
+  updateMainDiscount(userData.email)
+  gameState.value = 'OFFER_REVEAL'
 }
 
 const handleCharacterSelected = (id) => {
@@ -413,6 +435,7 @@ const quitToLobby = () => {
         <LevelComplete
           v-else-if="gameState === 'LEVEL_COMPLETE'"
           :levelId="gameStats.currentLevelId"
+          :previousGoodies="wonGoodies"
           @next="advanceLevel"
         />
 
@@ -422,7 +445,7 @@ const quitToLobby = () => {
           @retry="quitToLobby"
         />
 
-        <BossBeat v-else-if="gameState === 'BOSS_BEAT'" @next="gameState = 'OFFER_REVEAL'" />
+        <BossBeat v-else-if="gameState === 'BOSS_BEAT'" @next="handleBossBeatNext" />
 
         <OfferReveal v-else-if="gameState === 'OFFER_REVEAL'" @next="gameState = 'VICTORY'" />
 
