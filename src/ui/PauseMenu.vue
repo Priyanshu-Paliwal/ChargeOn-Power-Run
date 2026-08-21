@@ -11,16 +11,34 @@ const emit = defineEmits(["resume", "restart-level", "quit"]);
 // docs/PROCESS_TRACKER.md for a marketing pass later, same treatment as
 // GameOver's copy).
 const view = ref("menu");
+const countdown = ref(0);
+let timer = null;
+
+const startResumeCountdown = () => {
+  if (countdown.value > 0) return;
+  countdown.value = 3;
+  timer = setInterval(() => {
+    countdown.value--;
+    if (countdown.value === 0) {
+      clearInterval(timer);
+      emit('resume');
+    }
+  }, 1000);
+};
 </script>
 
 <template>
   <div class="pause-overlay">
-    <div v-if="view === 'menu'" class="pause-card">
+    <div v-if="view === 'menu' && countdown === 0" class="pause-card">
       <h2>Paused</h2>
-      <button class="pause-option primary" @click="emit('resume')">Resume</button>
+      <button class="pause-option primary" @click="startResumeCountdown">Resume</button>
       <button class="pause-option" @click="emit('restart-level')">Restart Level</button>
       <button class="pause-option" @click="view = 'how-to-play'">How to Play</button>
       <button class="pause-option danger" @click="emit('quit')">Quit</button>
+    </div>
+    
+    <div v-else-if="countdown > 0" class="countdown-display">
+      {{ countdown }}
     </div>
     <!-- HowToPlay emits 'next' when its own button is pressed -- from Pause
          that just returns to the menu rather than advancing the game flow. -->
@@ -70,6 +88,20 @@ const view = ref("menu");
 @keyframes dropIn {
   from { opacity: 0; transform: translateY(-30px) scale(0.9); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.countdown-display {
+  font-size: 5rem;
+  font-weight: 800;
+  color: #ffffff;
+  animation: pulse 1s infinite;
+  text-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 h2 {

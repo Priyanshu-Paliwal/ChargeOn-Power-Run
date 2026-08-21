@@ -69,19 +69,38 @@ function doPost(e) {
     }
 
     if (data.action === 'register') {
-      // New user: create a new row (Main Discount is blank — set only after Level 3 is cleared)
-      sheet.appendRow([
-        data.name || '',
-        data.company || '',
-        data.email || '',
-        '', // Level 1 - filled after level completes
-        '', // Level 1 Goodie
-        '', // Level 2
-        '', // Level 2 Goodie
-        '', // Level 3
-        '', // Level 3 Goodie
-        '', // Main Discount - intentionally blank at registration
-      ]);
+      const targetRow = findRowByEmail(sheet, data.email);
+
+      if (targetRow !== -1) {
+        // Email exists: update Name & Company, and reset all progression columns to blank
+        sheet.getRange(targetRow, COL.FULL_NAME).setValue(data.name || '');
+        sheet.getRange(targetRow, COL.COMPANY_NAME).setValue(data.company || '');
+        
+        const colsToClear = [
+          COL.LEVEL_1, COL.LEVEL_1_GOODIE,
+          COL.LEVEL_2, COL.LEVEL_2_GOODIE,
+          COL.LEVEL_3, COL.LEVEL_3_GOODIE,
+          COL.MAIN_DISCOUNT
+        ];
+        
+        colsToClear.forEach(col => {
+          sheet.getRange(targetRow, col).setValue('');
+        });
+      } else {
+        // New user: create a new row (Main Discount is blank — set only after Level 3 is cleared)
+        sheet.appendRow([
+          data.name || '',
+          data.company || '',
+          data.email || '',
+          '', // Level 1 - filled after level completes
+          '', // Level 1 Goodie
+          '', // Level 2
+          '', // Level 2 Goodie
+          '', // Level 3
+          '', // Level 3 Goodie
+          '', // Main Discount - intentionally blank at registration
+        ]);
+      }
 
     } else if (data.action === 'updateLevel') {
       // Find the row with matching email and update level columns
