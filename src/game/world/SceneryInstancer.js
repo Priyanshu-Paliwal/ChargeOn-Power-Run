@@ -21,9 +21,10 @@ import * as THREE from "three";
 // applied a material to EVERY one of them and rendered all 3 stacked
 // simultaneously. This picks only the highest-detail one (LOD0).
 
-const NEAR_TREES_PER_SIDE = 6; // fixed from the original 4-7 random range
+const NEAR_TREES_PER_SIDE = 0; // Trees removed as requested - will be re-added after footpath is correct
 const FAR_TREES_PER_SIDE = 0; // removed as requested to clear trees behind houses
 const TREE_SPECIES = ["maple", "poplar", "whitePoplar"];
+const FOOTPATH_PROP_KEYS = []; // Removed to let FootpathPropSystem handle props!
 const BUILDING_VARIANTS = [
   "PublicBuilding_1",
   "PublicBuilding_2",
@@ -114,6 +115,44 @@ function buildVariant(model) {
   const parts = extractMeshInfos(model);
   if (parts.length === 0) return null;
   return { parts, naturalHeight: boundingBoxHeightOf(parts) };
+}
+
+function buildPropVariant(model) {
+  if (!model) return null;
+  const infos = extractMeshInfos(model);
+  if (infos.length === 0) return null;
+
+  const box = new THREE.Box3();
+  const tempBox = new THREE.Box3();
+  let any = false;
+  for (const p of infos) {
+    p.geometry.computeBoundingBox();
+    if (!p.geometry.boundingBox) continue;
+    tempBox.copy(p.geometry.boundingBox).applyMatrix4(p.matrix);
+    box.union(tempBox);
+    any = true;
+  }
+  if (!any) return null;
+
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+
+  // Center X and Z, and place the BOTTOM at Y=0
+  const centering = new THREE.Matrix4().makeTranslation(
+    -center.x,
+    -box.min.y,
+    -center.z,
+  );
+
+  const parts = infos.map(p => {
+    const canonical = new THREE.Matrix4().multiplyMatrices(
+      centering,
+      p.matrix,
+    );
+    return { geometry: p.geometry, material: p.material, matrix: canonical };
+  });
+
+  return { parts, naturalHeight: box.max.y - box.min.y };
 }
 
 // Buildings ship LOD0/LOD1/LOD2 at identical transforms; keep only the
@@ -411,6 +450,19 @@ export class SceneryInstancer {
         );
     }
 
+    // Footpath props: cycle through available prop types, 2 per chunk (left+right)
+    this.availableFootpathProps = FOOTPATH_PROP_KEYS.filter((k) => !!models[k]);
+    for (const key of this.availableFootpathProps) {
+      const variant = buildPropVariant(models[key]);
+      if (variant) {
+        // 2 per chunk (left+right), distributed among all prop types
+        const capacity =
+          Math.ceil((n * 2) / Math.max(this.availableFootpathProps.length, 1)) +
+          2;
+        this._allocPool(`prop_${key}`, variant, capacity);
+      }
+    }
+
     this.ready = true;
   }
 
@@ -435,13 +487,41 @@ export class SceneryInstancer {
       streetlightIndices: this.hasStreetlightModel
         ? [this._take("streetlight"), this._take("streetlight")]
         : [],
+      // Footpath prop: one per side, type cycles per chunk
+      footpathPropSlots: [],
       treeSlots: [],
       buildingSlots: [],
-      hasScenery: chunkIndex % 2 === 0, // matches the original ~50% density pacing
+      hasScenery: chunkIndex % 2 === 0,
       buildingVisible: [false, false],
       buildingZJitter: [0, 0],
       treeJitter: [],
     };
+
+    // Assign one prop per side using round-robin through available prop types
+    if (this.availableFootpathProps.length > 0) {
+      const leftKey =
+        this.availableFootpathProps[
+          chunkIndex % this.availableFootpathProps.length
+        ];
+      const rightKey =
+        this.availableFootpathProps[
+          (chunkIndex + 1) % this.availableFootpathProps.length
+        ];
+      if (this.pools[`prop_${leftKey}`]) {
+        manifest.footpathPropSlots.push({
+          pool: `prop_${leftKey}`,
+          index: this._take(`prop_${leftKey}`),
+          side: -1,
+        });
+      }
+      if (this.pools[`prop_${rightKey}`]) {
+        manifest.footpathPropSlots.push({
+          pool: `prop_${rightKey}`,
+          index: this._take(`prop_${rightKey}`),
+          side: 1,
+        });
+      }
+    }
 
     // Trees: 6 near-tree pairs (left+right) + 14 far-tree pairs, species
     // assigned round-robin across the flat slot list.
@@ -696,6 +776,26 @@ export class SceneryInstancer {
           chunkZ + manifest.buildingZJitter[i],
           slot.rotY,
           slot.scale,
+        ),
+      );
+    });
+
+    // Footpath props: place on sidewalk surface (y=0.6 = top of footpath box)
+    // x=±9 puts them just inside the footpath width, visible next to the railing
+    manifest.footpathPropSlots.forEach((slot) => {
+      const pool = this.pools[slot.pool];
+      if (!pool) return;
+      // Place prop at sidewalk level, slightly offset into the footpath
+      const propX = slot.side * 9.0;
+      // Face the track: right side (-Math.PI/2), left side (Math.PI/2)
+      pool.setTransform(
+        slot.index,
+        composePlacement(
+          propX,
+          0.6,
+          chunkZ,
+          slot.side > 0 ? -Math.PI / 2 : Math.PI / 2,
+          1,
         ),
       );
     });

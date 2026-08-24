@@ -88,15 +88,13 @@ export class TrackBuilder {
       roughness: 0.2,
     });
 
-    const footpathTex = this._createFootpathTexture();
-
+    // Footpath - dark grey concrete matching reference game exactly (0x555555)
     this.footpathGeo = new THREE.BoxGeometry(10, 0.6, trackLength);
     this.footpathMat = new THREE.MeshStandardMaterial({
-      map: footpathTex,
-      color: 0xffffff, // Use 100% of the texture color
-      roughness: 0.9,
+      color: 0x555555, // Dark grey concrete - matches reference game footpath
+      roughness: 0.95,
       metalness: 0.0,
-    }); // Textured rock/grey sidewalk
+    });
 
     this.laneX = [-3, 0, 3];
     this.trimX = [-1.5, 1.5];

@@ -73,7 +73,6 @@ export class WorldStreamer {
     this.chunkManifests = []; // parallel to trackPool, filled in by buildScenery()
 
     this.propSystem = new FootpathPropSystem(this.scene, this.models);
-    this.propSystem.generateChunk(0, -800);
 
     this.obstacleFactory = new ObstacleFactory();
     this.spawnDirector = new SpawnDirector();
@@ -193,7 +192,7 @@ export class WorldStreamer {
   // Called by Engine.js once loadAssets() has resolved. Builds every
   // InstancedMesh scenery pool and assigns each chunk's fixed slots.
   buildScenery() {
-    this.sceneryInstancer.build(this.models);
+    this.sceneryInstancer.build(this.models, this.poolSize, this.trackLength);
     for (let i = 0; i < this.poolSize; i++) {
       const manifest = this.sceneryInstancer.registerChunkSlots(i);
       this.chunkManifests.push(manifest);
@@ -218,6 +217,9 @@ export class WorldStreamer {
       this.sceneryInstancer.syncChunk(manifest, this.trackPool[i].position.z);
     }
     this.sceneryInstancer.flush();
+    if (this.propSystem) {
+      this.propSystem.generateChunk(0, -800);
+    }
   }
 
   setLevel(level) {

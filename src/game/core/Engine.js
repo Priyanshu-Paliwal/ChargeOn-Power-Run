@@ -37,7 +37,7 @@ export class Engine {
 
     // Scene setup - Real Atmosphere
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x8c7a6b, 0.0025); // Warm atmospheric fog
+    this.scene.fog = new THREE.FogExp2(0xd4c9b0, 0.0018); // Warm daylight haze, low density
 
     // Camera + responsive framing/follow. FOV, aspect, position and lookAt
     // are all owned by CameraRig from here on -- see updateFraming()/update()
@@ -459,32 +459,28 @@ export class Engine {
       loadModel("poplar", "/assets/models/trees/poplar1.glb"),
       loadModel("whitePoplar", "/assets/models/trees/whitePoplar1.glb"),
 
-      // Footpath props (these will log a 404 until uploaded, but won't crash the game)
+      // Footpath props
       loadModel("atm", "/assets/models/environment/props/atm.glb"),
-      loadModel("utility_box", "/assets/models/environment/props/utility_box.glb"),
-      loadModel("storm_drain", "/assets/models/environment/props/storm_drain.glb"),
+      loadModel("bench", "/assets/models/environment/props/bench.glb"),
+      loadModel("bus_stop", "/assets/models/environment/props/bus_stop.glb"),
+      loadModel("coffee_food_cart", "/assets/models/environment/props/coffee_food_cart.glb"),
+      loadModel("hydrant", "/assets/models/environment/props/hydrant.glb"),
+      loadModel("ice_cream_food_cart", "/assets/models/environment/props/ice_cream_food_cart.glb"),
+      loadModel("abandoned_snow_carraw", "/assets/models/environment/props/abandoned_snow_carraw.glb"),
       loadModel("manhole", "/assets/models/environment/props/manhole.glb"),
+      loadModel("old_car", "/assets/models/environment/props/old_car.glb"),
       loadModel("pallet", "/assets/models/environment/props/pallet.glb"),
+      loadModel("postbox", "/assets/models/environment/props/postbox.glb"),
+      loadModel("stop_sign", "/assets/models/environment/props/stop_sign.glb"),
+      loadModel("storm_drain", "/assets/models/environment/props/storm_drain.glb"),
       loadModel("tarp_crates", "/assets/models/environment/props/tarp_crates.glb"),
       loadModel("trash_large", "/assets/models/environment/props/trash_large.glb"),
       loadModel("trash_small", "/assets/models/environment/props/trash_small.glb"),
-      loadModel("bench", "/assets/models/environment/props/bench.glb"),
-      loadModel("postbox", "/assets/models/environment/props/postbox.glb"),
-      loadModel("hydrant", "/assets/models/environment/props/hydrant.glb"),
-      loadModel("old_car", "/assets/models/environment/props/old_car.glb"),
-      loadModel("stop_sign", "/assets/models/environment/props/stop_sign.glb"),
-      loadModel("coffee_food_cart", "/assets/models/environment/props/coffee_food_cart.glb"),
-      loadModel("ice_cream_food_cart", "/assets/models/environment/props/ice_cream_food_cart.glb"),
-      loadModel("bus_stop", "/assets/models/environment/props/bus_stop.glb"),
-      loadModel("abandoned_snow_carraw", "/assets/models/environment/props/abandoned_snow_carraw.glb"),
+      loadModel("utility_box", "/assets/models/environment/props/utility_box.glb"),
     ]);
 
-    if (this.models.desert) {
-      const desert = this.models.desert;
-      desert.scale.set(0.015, 0.015, 0.015);
-      desert.position.set(0, -3.5, 0);
-      this.scene.add(desert);
-    }
+    // Desert model removed - it rendered as a white/snowy landscape that washed out the track visuals.
+    // The ground plane in initAtmosphere() provides the base green ground like the reference game.
 
     // Now that assets are loaded, build every scenery InstancedMesh pool and
     // assign each chunk's fixed slots -- the world has no scenery at all
@@ -529,33 +525,17 @@ export class Engine {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
 
-    // We will apply the grass texture after it loads (handled via the texture loader reference)
-    // 2. Endless Ground (Lush/Dark)
+    // 2. Endless Ground - clean green base matching the reference game
     const groundGeo = new THREE.PlaneGeometry(2000, 2000);
     this.groundMat = new THREE.MeshStandardMaterial({
-      color: 0x4caf50, // Grass color base
-      roughness: 0.8,
-      metalness: 0.1,
+      color: 0x228b22, // Forest green - matches reference game exactly
+      roughness: 0.9,
+      metalness: 0.0,
     });
-
-    // We update the ground material once we have the grass diffuse (in WorldGenerator or here).
-    // Actually, we can just assign the texture directly here.
-    const texLoader = new THREE.TextureLoader();
-    const grassDiff = texLoader.load("/textures/grass_diffuse.jpg");
-    grassDiff.wrapS = grassDiff.wrapT = THREE.RepeatWrapping;
-    grassDiff.repeat.set(100, 100);
-    grassDiff.colorSpace = THREE.SRGBColorSpace;
-
-    const grassNorm = texLoader.load("/textures/grass_normal.jpg");
-    grassNorm.wrapS = grassNorm.wrapT = THREE.RepeatWrapping;
-    grassNorm.repeat.set(100, 100);
-
-    this.groundMat.map = grassDiff;
-    this.groundMat.normalMap = grassNorm;
 
     const ground = new THREE.Mesh(groundGeo, this.groundMat);
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.5; // Just below the track
+    ground.position.y = -0.15; // Just below the track
     ground.receiveShadow = true;
     this.scene.add(ground);
   }
