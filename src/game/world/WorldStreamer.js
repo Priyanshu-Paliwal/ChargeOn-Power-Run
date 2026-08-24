@@ -411,7 +411,7 @@ export class WorldStreamer {
     this._distanceSinceLastFeature += moveDist;
 
     if (this.propSystem) {
-      this.propSystem.update(this.speed, delta, -800);
+      this.propSystem.update(this.speed, delta, 50);
       
       if (!this.distanceTraveledProps) this.distanceTraveledProps = 0;
       this.distanceTraveledProps += moveDist;
@@ -419,7 +419,7 @@ export class WorldStreamer {
       // Generate a new 200 unit chunk every time we travel 200 units
       if (this.distanceTraveledProps > 200) {
         this.propSystem.generateChunk(-800, -1000);
-        this.distanceTraveledProps = 0;
+        this.distanceTraveledProps -= 200;
       }
     }
 

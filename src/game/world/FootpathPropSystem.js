@@ -14,15 +14,12 @@ export const PROP_CONFIG = {
   SPAWN_CHANCE_CURB: 0.35, 
   SPAWN_CHANCE_BENCH: 0.05, 
   SCALES: {
-    old_car: 1.0,
-    abandoned_snow_carraw: 1.0,
     coffee_food_cart: 1.5,
     ice_cream_food_cart: 1.5,
     stop_sign: 1.0,
     utility_box: 0.015,
     storm_drain: 0.015,
     manhole: 0.015,
-    tarp_crates: 0.015,
     bench: 0.015,
     trash_large: 0.015,
     trash_small: 0.015,
@@ -31,23 +28,17 @@ export const PROP_CONFIG = {
   },
   CUSTOM_OFFSETS: {
     bench: { x: 0, y: 0, z: 0, rotY: Math.PI / 2 },
-    abandoned_snow_carraw: { x: 0, y: 0, z: 0, rotY: 0 },
-    old_car: { x: 0, y: 0, z: 0, rotY: 0 },
-    tarp_crates: { x: 1.5, y: 0, z: 0, rotY: 0 },
   },
   FOOTPRINTS: {
     bench: 2.5,
     bus_stop: 6,
     trash_large: 3,
-    old_car: 4.5,
-    abandoned_snow_carraw: 4.5,
     trash_small: 1,
     postbox: 1,
     utility_box: 1.5,
     stop_sign: 1,
     coffee_food_cart: 2.5,
     ice_cream_food_cart: 2.5,
-    tarp_crates: 3,
   },
   WEIGHTS: {
     BUILDING_ROW: {
@@ -59,7 +50,6 @@ export const PROP_CONFIG = {
       stop_sign: 15,
       coffee_food_cart: 25,
       ice_cream_food_cart: 25,
-      tarp_crates: 5,
     },
   },
   BENCH_BUFFER: 3.0,
@@ -167,11 +157,6 @@ export class FootpathPropSystem {
     }
     wrapper.position.set(finalX, finalY, finalZ);
     wrapper.scale.set(scale, scale, scale);
-    const label = this.makeTextSprite(propName);
-    const labelScale = 1 / scale; 
-    label.scale.set(label.userData.width * labelScale, label.userData.height * labelScale, 1.0);
-    label.position.y = (nativeSize.y + 4) * labelScale; 
-    wrapper.add(label);
     if (isCar) {
       wrapper.rotation.y = side === 1 ? Math.PI : 0;
     } else if (faceRoad) {
@@ -217,28 +202,30 @@ export class FootpathPropSystem {
     }
     sides.forEach((side) => {
       for (let z = startZ; z > endZ; z -= PROP_CONFIG.SLOT_SPACING) {
-        if (Math.random() < PROP_CONFIG.SPAWN_CHANCE_BENCH) {
-          if (this.spawnBenchCluster(z, side)) continue;
-        }
-        if (Math.random() < PROP_CONFIG.SPAWN_CHANCE_BUILDING) {
+        // Add random stagger to Z to prevent perfect grid alignment
+        const staggerZ = z + (Math.random() - 0.5) * 10;
+        
+        const rand = Math.random();
+        if (rand < PROP_CONFIG.SPAWN_CHANCE_BENCH) {
+          this.spawnBenchCluster(staggerZ, side);
+        } else if (rand < PROP_CONFIG.SPAWN_CHANCE_BENCH + PROP_CONFIG.SPAWN_CHANCE_BUILDING) {
           const bProp = this.pickRandomProp(PROP_CONFIG.WEIGHTS.BUILDING_ROW, this.lastSpawnedBuilding[side]);
           if (bProp) {
             const bRadius = PROP_CONFIG.FOOTPRINTS[bProp];
-            if (!this.isRangeReserved(side, z, bRadius)) {
-              this.instantiateProp(bProp, side * PROP_CONFIG.BUILDING_ROW_OFFSET, z, side, true);
-              this.reserveRange(side, z, bRadius);
+            if (!this.isRangeReserved(side, staggerZ, bRadius)) {
+              this.instantiateProp(bProp, side * PROP_CONFIG.BUILDING_ROW_OFFSET, staggerZ, side, true);
+              this.reserveRange(side, staggerZ, bRadius);
               this.lastSpawnedBuilding[side] = bProp;
             }
           }
-        }
-        if (Math.random() < PROP_CONFIG.SPAWN_CHANCE_CURB) {
+        } else if (rand < PROP_CONFIG.SPAWN_CHANCE_BENCH + PROP_CONFIG.SPAWN_CHANCE_BUILDING + PROP_CONFIG.SPAWN_CHANCE_CURB) {
           const cProp = this.pickRandomProp(PROP_CONFIG.WEIGHTS.CURB_ROW, this.lastSpawnedCurb[side]);
           if (cProp) {
             const cRadius = PROP_CONFIG.FOOTPRINTS[cProp];
             const isCar = cProp === "old_car" || cProp === "abandoned_snow_carraw";
-            if (!this.isRangeReserved(side, z, cRadius)) {
-              this.instantiateProp(cProp, side * PROP_CONFIG.CURB_ROW_OFFSET, z, side, true, isCar);
-              this.reserveRange(side, z, cRadius);
+            if (!this.isRangeReserved(side, staggerZ, cRadius)) {
+              this.instantiateProp(cProp, side * PROP_CONFIG.CURB_ROW_OFFSET, staggerZ, side, true, isCar);
+              this.reserveRange(side, staggerZ, cRadius);
               this.lastSpawnedCurb[side] = cProp;
             }
           }
