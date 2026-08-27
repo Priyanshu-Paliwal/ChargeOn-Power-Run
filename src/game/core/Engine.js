@@ -159,7 +159,9 @@ export class Engine {
     // function each time it's called, so removeEventListener never matched
     // the listener that was actually added).
     viewportManager.init(this.container);
-    this._unsubscribeViewport = viewportManager.subscribe((state) => this._onViewportChange(state));
+    this._unsubscribeViewport = viewportManager.subscribe((state) =>
+      this._onViewportChange(state),
+    );
 
     // Animation loop
     this.isRunning = false;
@@ -216,8 +218,14 @@ export class Engine {
 
     if (levelId === TUTORIAL_LEVEL_ID && !this._tutorialShownThisRun) {
       this._tutorialShownThisRun = true;
-      this.world.startTutorial(TUTORIAL_PATTERN_SEQUENCE, TUTORIAL_CHUNK_INDICES);
+      this.world.startTutorial(
+        TUTORIAL_PATTERN_SEQUENCE,
+        TUTORIAL_CHUNK_INDICES,
+      );
     }
+
+    // Fill the empty chunks so the track isn't totally blank at the start
+    this.world.populateInitialTrack();
   }
 
   get isSpeedLinesActive() {
@@ -242,11 +250,15 @@ export class Engine {
   _handleHit(hit) {
     if (hit.type === "coin") {
       const result = this.scoreSystem.registerCoin(hit);
-      if (hit.powerUp === "magnet") this.player.activateMagnet(hit.powerUpDurationMs);
+      if (hit.powerUp === "magnet")
+        this.player.activateMagnet(hit.powerUpDurationMs);
       else if (hit.powerUp === "shield") this.player.activateShield();
       audioManager.playSFX(hit.powerUp ? "powerup" : "coin");
       if (hit.worldPosition) {
-        this.effectsSystem.burst(hit.worldPosition, hit.powerUp === "shield" ? 0x00e5ff : 0xffd700);
+        this.effectsSystem.burst(
+          hit.worldPosition,
+          hit.powerUp === "shield" ? 0x00e5ff : 0xffd700,
+        );
       }
       // worldPosition is a shared mutable scratch vector (see
       // CollisionSystem's comment) -- must NOT reach Vue's reactive
@@ -278,7 +290,8 @@ export class Engine {
 
   _onViewportChange(state) {
     this.cameraRig.updateFraming(state);
-    const { width, height, pixelRatio } = this.quality.computeRendererSize(state);
+    const { width, height, pixelRatio } =
+      this.quality.computeRendererSize(state);
     this._applyRendererSize(width, height, pixelRatio);
   }
 
@@ -339,7 +352,7 @@ export class Engine {
           child.receiveShadow = true;
           if (child.material) {
             if (Array.isArray(child.material)) {
-              child.material.forEach(m => m.roughness = 0.8);
+              child.material.forEach((m) => (m.roughness = 0.8));
             } else {
               child.material.roughness = 0.8;
             }
@@ -366,7 +379,7 @@ export class Engine {
         const [colorMap, normalMap, roughnessMap] = await Promise.all([
           texLoader.loadAsync(`${texFolder}/${prefix}_Base_Color.webp`),
           texLoader.loadAsync(`${texFolder}/${prefix}_Normal.webp`),
-          texLoader.loadAsync(`${texFolder}/${prefix}_Roughness.webp`)
+          texLoader.loadAsync(`${texFolder}/${prefix}_Roughness.webp`),
         ]);
 
         colorMap.flipY = false;
@@ -384,7 +397,7 @@ export class Engine {
               normalMap: normalMap,
               roughnessMap: roughnessMap,
               roughness: 1.0,
-              metalness: 0.1
+              metalness: 0.1,
             });
           }
         });
@@ -394,86 +407,179 @@ export class Engine {
       }
     };
 
-    const setupStreetlight = (model) => {
-      if (!model) return null;
-      let singleArm = null;
-      model.traverse((child) => {
-        if (child.name === 'Single_arm') {
-          singleArm = child;
-        }
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-          child.material = new THREE.MeshStandardMaterial({
-            color: 0x222222,
-            metalness: 0.8,
-            roughness: 0.4
-          });
-        }
+    const createStreetLight = () => {
+      const group = new THREE.Group();
+
+      const poleMat = new THREE.MeshStandardMaterial({
+        color: 0x111111, // Dark grey/black pole color
+        metalness: 0.8,
+        roughness: 0.2,
       });
-      if (singleArm) {
-        const group = new THREE.Group();
-        singleArm.position.set(0, 3.46, 0);
-        group.add(singleArm);
-        return group;
-      }
-      return model;
+
+      // Base
+      const baseGeo = new THREE.CylinderGeometry(0.2, 0.5, 1, 16);
+      const base = new THREE.Mesh(baseGeo, poleMat);
+      base.position.y = 0.5;
+      base.castShadow = true;
+      base.receiveShadow = true;
+      group.add(base);
+
+      // Main Pole
+      const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 6, 16);
+      const pole = new THREE.Mesh(poleGeo, poleMat);
+      pole.position.y = 4;
+      pole.castShadow = true;
+      pole.receiveShadow = true;
+      group.add(pole);
+
+      // Arm
+      const armGeo = new THREE.CylinderGeometry(0.1, 0.1, 2.5, 16);
+      const arm = new THREE.Mesh(armGeo, poleMat);
+      arm.rotation.z = Math.PI / 2;
+      arm.position.set(-1, 6.3, 0);
+      arm.castShadow = true;
+      arm.receiveShadow = true;
+      group.add(arm);
+
+      // Lamp Head
+      const lampGeo = new THREE.BoxGeometry(0.6, 0.15, 0.3);
+      const lamp = new THREE.Mesh(lampGeo, poleMat);
+      lamp.position.set(-2, 6.3, 0);
+      lamp.castShadow = true;
+      lamp.receiveShadow = true;
+      group.add(lamp);
+
+      // Bulb (Glowing)
+      const bulbGeo = new THREE.SphereGeometry(0.12, 8, 8);
+      // Emissive material for bloom pass
+      const bulbMat = new THREE.MeshStandardMaterial({
+        color: 0xffff88,
+        emissive: 0xffff88,
+        emissiveIntensity: 2.0, // Strong emissive for UnrealBloomPass
+      });
+      const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+      bulb.position.set(-2, 6.2, 0);
+      group.add(bulb);
+
+      return group;
     };
 
+    this.models["streetlight"] = createStreetLight();
+
     await Promise.all([
-      loadModel("PublicBuilding_1", "/assets/models/buildings/PublicBuilding_1.glb"),
-      loadModel("PublicBuilding_2", "/assets/models/buildings/PublicBuilding_2.glb"),
-      loadModel("PublicBuilding_3", "/assets/models/buildings/PublicBuilding_3.glb"),
-      loadModel("PublicBuilding_4", "/assets/models/buildings/PublicBuilding_4.glb"),
-      loadModel("PublicBuilding_5", "/assets/models/buildings/PublicBuilding_5.glb"),
-      loadModel("PublicBuilding_6", "/assets/models/buildings/PublicBuilding_6.glb"),
-      loadModel("PublicBuilding_7", "/assets/models/buildings/PublicBuilding_7.glb"),
-      loadModel("PublicBuilding_8", "/assets/models/buildings/PublicBuilding_8.glb"),
-      loadModel("PublicBuilding_9", "/assets/models/buildings/PublicBuilding_9.glb"),
-      loadModel("PublicBuilding_10", "/assets/models/buildings/PublicBuilding_10.glb"),
-      loadModel("RestaurantBuilding", "/assets/models/buildings/RestaurantBuilding.glb"),
+      loadModel(
+        "PublicBuilding_1",
+        "/assets/models/buildings/PublicBuilding_1.glb",
+      ),
+      loadModel(
+        "PublicBuilding_2",
+        "/assets/models/buildings/PublicBuilding_2.glb",
+      ),
+      loadModel(
+        "PublicBuilding_3",
+        "/assets/models/buildings/PublicBuilding_3.glb",
+      ),
+      loadModel(
+        "PublicBuilding_4",
+        "/assets/models/buildings/PublicBuilding_4.glb",
+      ),
+      loadModel(
+        "PublicBuilding_5",
+        "/assets/models/buildings/PublicBuilding_5.glb",
+      ),
+      loadModel(
+        "PublicBuilding_6",
+        "/assets/models/buildings/PublicBuilding_6.glb",
+      ),
+      loadModel(
+        "PublicBuilding_7",
+        "/assets/models/buildings/PublicBuilding_7.glb",
+      ),
+      loadModel(
+        "PublicBuilding_8",
+        "/assets/models/buildings/PublicBuilding_8.glb",
+      ),
+      loadModel(
+        "PublicBuilding_9",
+        "/assets/models/buildings/PublicBuilding_9.glb",
+      ),
+      loadModel(
+        "PublicBuilding_10",
+        "/assets/models/buildings/PublicBuilding_10.glb",
+      ),
+      loadModel(
+        "RestaurantBuilding",
+        "/assets/models/buildings/RestaurantBuilding.glb",
+      ),
       loadModel("ShopBuilding", "/assets/models/buildings/ShopBuilding.glb"),
       loadModel("PizzaBuilding", "/assets/models/buildings/PizzaBuilding.glb"),
-      loadModel("BurgerBuilding", "/assets/models/buildings/BurgerBuilding.glb"),
+      loadModel(
+        "BurgerBuilding",
+        "/assets/models/buildings/BurgerBuilding.glb",
+      ),
       loadModel("CafeBuilding", "/assets/models/buildings/CafeBuilding.glb"),
-      loadModel("ShoppingCenterBuilding", "/assets/models/buildings/ShoppingCenterBuilding.glb"),
+      loadModel(
+        "ShoppingCenterBuilding",
+        "/assets/models/buildings/ShoppingCenterBuilding.glb",
+      ),
       loadModel("Cinema", "/assets/models/buildings/Cinema.glb"),
       loadModel("railing", "/assets/models/environment/MetalRailing.glb"),
-      loadModel("streetlight", "/assets/models/environment/StreetLightPoles.glb", setupStreetlight),
-      loadModel("desert", "/assets/models/environment/Desert_field.glb", (m) => {
-        m.traverse(child => {
-          if (child.isMesh) {
-            child.receiveShadow = true;
-            if (child.material) {
-              const oldMat = Array.isArray(child.material) ? child.material[0] : child.material;
-              child.material = new THREE.MeshBasicMaterial({
-                map: oldMat.map,
-                color: oldMat.color
-              });
+      loadModel(
+        "desert",
+        "/assets/models/environment/Desert_field.glb",
+        (m) => {
+          m.traverse((child) => {
+            if (child.isMesh) {
+              child.receiveShadow = true;
+              if (child.material) {
+                const oldMat = Array.isArray(child.material)
+                  ? child.material[0]
+                  : child.material;
+                child.material = new THREE.MeshBasicMaterial({
+                  map: oldMat.map,
+                  color: oldMat.color,
+                });
+              }
             }
-          }
-        });
-        return m;
-      }),
-      loadModel("maple", "/assets/models/trees/maple1.glb"),
-      loadModel("poplar", "/assets/models/trees/poplar1.glb"),
-      loadModel("whitePoplar", "/assets/models/trees/whitePoplar1.glb"),
+          });
+          return m;
+        },
+      ),
+      loadModel("airport_plant", "/assets/models/trees/airport_plant.glb"),
 
       // Footpath props
       loadModel("atm", "/assets/models/environment/props/atm.glb"),
       loadModel("bench", "/assets/models/environment/props/bench.glb"),
       loadModel("bus_stop", "/assets/models/environment/props/bus_stop.glb"),
-      loadModel("coffee_food_cart", "/assets/models/environment/props/coffee_food_cart.glb"),
+      loadModel(
+        "coffee_food_cart",
+        "/assets/models/environment/props/coffee_food_cart.glb",
+      ),
       loadModel("hydrant", "/assets/models/environment/props/hydrant.glb"),
-      loadModel("ice_cream_food_cart", "/assets/models/environment/props/ice_cream_food_cart.glb"),
+      loadModel(
+        "ice_cream_food_cart",
+        "/assets/models/environment/props/ice_cream_food_cart.glb",
+      ),
       loadModel("manhole", "/assets/models/environment/props/manhole.glb"),
       loadModel("pallet", "/assets/models/environment/props/pallet.glb"),
       loadModel("postbox", "/assets/models/environment/props/postbox.glb"),
       loadModel("stop_sign", "/assets/models/environment/props/stop_sign.glb"),
-      loadModel("storm_drain", "/assets/models/environment/props/storm_drain.glb"),
-      loadModel("trash_large", "/assets/models/environment/props/trash_large.glb"),
-      loadModel("trash_small", "/assets/models/environment/props/trash_small.glb"),
-      loadModel("utility_box", "/assets/models/environment/props/utility_box.glb"),
+      loadModel(
+        "storm_drain",
+        "/assets/models/environment/props/storm_drain.glb",
+      ),
+      loadModel(
+        "trash_large",
+        "/assets/models/environment/props/trash_large.glb",
+      ),
+      loadModel(
+        "trash_small",
+        "/assets/models/environment/props/trash_small.glb",
+      ),
+      loadModel(
+        "utility_box",
+        "/assets/models/environment/props/utility_box.glb",
+      ),
     ]);
 
     // Desert model removed - it rendered as a white/snowy landscape that washed out the track visuals.
@@ -584,14 +690,21 @@ export class Engine {
       this.world.update(delta);
     }
 
-    this.cameraRig.update(rawDelta, time, this.player.mesh.position.x, this.mode);
+    this.cameraRig.update(
+      rawDelta,
+      time,
+      this.player.mesh.position.x,
+      this.mode,
+    );
 
     if (this.quality.recordFrame(rawDelta)) {
       this._applyQualityTier();
     }
 
     if (this.mode === "PLAYING") {
-      this.collisionSystem.update(delta, this.player, this.world, (hit) => this._handleHit(hit));
+      this.collisionSystem.update(delta, this.player, this.world, (hit) =>
+        this._handleHit(hit),
+      );
     }
 
     // Runs AFTER collisionSystem, not before: a coin hit THIS frame calls

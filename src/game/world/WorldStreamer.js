@@ -13,6 +13,7 @@ import {
   TUTORIAL_SPEED_MULTIPLIER,
   TUTORIAL_DISTANCE,
   TUTORIAL_MECHANIC_BY_PATTERN,
+  TUTORIAL_CHUNK_INDICES,
 } from "../config/GameConfig.js";
 
 // Replaces WorldGenerator. Same public API (constructor(scene, textures,
@@ -51,7 +52,12 @@ import {
 // would need, but simpler to get right, and cheap since every variant's
 // geometry/materials are shared via ObstacleFactory regardless of how many
 // instances exist.
-const OBSTACLE_TYPE_NAMES = ["BARRICADE_LOW", "BARRICADE_WIDE", "DRONE_LOW", "DRONE_HIGH"];
+const OBSTACLE_TYPE_NAMES = [
+  "BARRICADE_LOW",
+  "BARRICADE_WIDE",
+  "DRONE_LOW",
+  "DRONE_HIGH",
+];
 const MAX_OBSTACLE_SLOTS = 3; // matches the densest authored pattern (gauntlet-three)
 const MAX_COIN_SLOTS = 3; // matches the densest coin trail across all patterns
 
@@ -68,8 +74,15 @@ export class WorldStreamer {
     this.trackLength = 20;
     this.trackPool = [];
 
-    this.trackBuilder = new TrackBuilder(this.trackLength, textures?.asphaltNormal);
-    this.sceneryInstancer = new SceneryInstancer(scene, this.poolSize, this.trackBuilder);
+    this.trackBuilder = new TrackBuilder(
+      this.trackLength,
+      textures?.asphaltNormal,
+    );
+    this.sceneryInstancer = new SceneryInstancer(
+      scene,
+      this.poolSize,
+      this.trackBuilder,
+    );
     this.chunkManifests = []; // parallel to trackPool, filled in by buildScenery()
 
     this.propSystem = new FootpathPropSystem(this.scene, this.models);
@@ -85,7 +98,9 @@ export class WorldStreamer {
     // of leaving it an unverified assumption; *2 is a generous margin over
     // the highest realistic ramped speed.
     const poolDepth = this.poolSize * this.trackLength;
-    const worstCaseLookAhead = this.spawnDirector.dynamicLookAheadZ(REACTION_BASE_SPEED * 2);
+    const worstCaseLookAhead = this.spawnDirector.dynamicLookAheadZ(
+      REACTION_BASE_SPEED * 2,
+    );
     if (poolDepth < worstCaseLookAhead) {
       console.warn(
         `WorldStreamer: chunk pool depth (${poolDepth}) is less than the worst-case reaction distance (${worstCaseLookAhead}) -- increase poolSize.`,
@@ -216,6 +231,7 @@ export class WorldStreamer {
       // for the next update() tick.
       this.sceneryInstancer.syncChunk(manifest, this.trackPool[i].position.z);
     }
+    this.sceneryInstancer.syncBuildings(this.activeZ, 0); // Seed buildings for lobby
     this.sceneryInstancer.flush();
     if (this.propSystem) {
       this.propSystem.generateChunk(0, -800);
@@ -243,6 +259,31 @@ export class WorldStreamer {
       // can deal a feature immediately, rather than making the player run
       // the first ~90 units with nothing to collect.
       this._distanceSinceLastFeature = FEATURE_SPACING_DISTANCE;
+    }
+  }
+
+  // Pre-populates the existing track chunks immediately, so the player
+  // doesn't have to run 300 units on an empty track before the first
+  // chunks recycle. Skips chunks that were already populated (e.g. by startTutorial).
+  populateInitialTrack() {
+    for (let i = 0; i < this.poolSize; i++) {
+      // If tutorial is active, leave non-tutorial chunks empty to avoid distracting the player
+      if (this.tutorialActive && !TUTORIAL_CHUNK_INDICES.includes(i)) {
+        continue;
+      }
+
+      // If this chunk already has content (like a seeded tutorial chunk), skip it
+      let hasContent = false;
+      for (const slot of this.chunkObstacles[i]) {
+        if (slot.activeType) hasContent = true;
+      }
+      if (hasContent) continue;
+
+      const sceneryChance = Math.min(
+        0.9,
+        0.5 * this.spawnDirector.getDensityFactor(),
+      );
+      this._refreshChunkContent(i, Math.random() < sceneryChance);
     }
   }
 
@@ -278,7 +319,8 @@ export class WorldStreamer {
   // setLevel() was never called (defensive; App.vue always calls it
   // before entering PLAYING mode).
   _nextFeature() {
-    if (!this.levelFeatures || this.levelFeatures.length === 0) return undefined;
+    if (!this.levelFeatures || this.levelFeatures.length === 0)
+      return undefined;
     if (this.featuresToSpawn.length === 0) {
       this.featuresToSpawn = this._shuffledFeatureBag();
     }
@@ -308,7 +350,11 @@ export class WorldStreamer {
 
     if (!hasScenery) return;
 
-    const pattern = this.spawnDirector.selectPattern(this.spawnDirector.getMaxDifficulty(), this.speed, forcedId);
+    const pattern = this.spawnDirector.selectPattern(
+      this.spawnDirector.getMaxDifficulty(),
+      this.speed,
+      forcedId,
+    );
 
     pattern.obstacles.forEach((obs, idx) => {
       if (idx >= obstacleSlots.length) return; // safety net; no authored pattern exceeds MAX_OBSTACLE_SLOTS
@@ -318,7 +364,9 @@ export class WorldStreamer {
 
       const x =
         obs.lanes.length === 2
-          ? (PLAYER_PHYSICS.lanes[obs.lanes[0]] + PLAYER_PHYSICS.lanes[obs.lanes[1]]) / 2
+          ? (PLAYER_PHYSICS.lanes[obs.lanes[0]] +
+              PLAYER_PHYSICS.lanes[obs.lanes[1]]) /
+            2
           : PLAYER_PHYSICS.lanes[obs.lanes[0]];
       instance.group.position.set(x, 0, obs.z);
 
@@ -329,7 +377,9 @@ export class WorldStreamer {
       // model did (blockers are meant to recur often, unlike coins).
       const painPoint =
         this.blockersToSpawn.length > 0
-          ? this.blockersToSpawn[Math.floor(Math.random() * this.blockersToSpawn.length)]
+          ? this.blockersToSpawn[
+              Math.floor(Math.random() * this.blockersToSpawn.length)
+            ]
           : null;
       instance.group.userData = {
         isInteractable: true,
@@ -373,12 +423,20 @@ export class WorldStreamer {
       // in-world, before the player even knows what it does.
       const powerUpDef = POWER_UPS[featureData.name];
       const isAdmin = featureData.category.includes("Admin");
-      const mat = powerUpDef ? this.powerUpMat : isAdmin ? this.adminMat : this.businessMat;
+      const mat = powerUpDef
+        ? this.powerUpMat
+        : isAdmin
+          ? this.adminMat
+          : this.businessMat;
       coin.ring.material = mat;
       coin.plate.material = mat;
       coin.innerRing.material = mat;
       coin.baseY = coinDef.y ?? 1.2;
-      coin.group.position.set(PLAYER_PHYSICS.lanes[coinDef.lane], coin.baseY, coinDef.z);
+      coin.group.position.set(
+        PLAYER_PHYSICS.lanes[coinDef.lane],
+        coin.baseY,
+        coinDef.z,
+      );
       coin.bobOffset = Math.random() * Math.PI * 2;
       coin.group.userData = {
         isInteractable: true,
@@ -412,10 +470,10 @@ export class WorldStreamer {
 
     if (this.propSystem) {
       this.propSystem.update(this.speed, delta, 50);
-      
+
       if (!this.distanceTraveledProps) this.distanceTraveledProps = 0;
       this.distanceTraveledProps += moveDist;
-      
+
       // Generate a new 200 unit chunk every time we travel 200 units
       if (this.distanceTraveledProps > 200) {
         this.propSystem.generateChunk(-800, -1000);
@@ -441,7 +499,8 @@ export class WorldStreamer {
       for (const coin of this.chunkCoins[i]) {
         if (coin.group.visible) {
           coin.group.rotation.y += 3 * delta;
-          coin.group.position.y = coin.baseY + Math.sin(time + coin.bobOffset) * 0.2;
+          coin.group.position.y =
+            coin.baseY + Math.sin(time + coin.bobOffset) * 0.2;
           if (coin.group.userData.powerUp) {
             // Shared material across every power-up coin (at most 1-2 are
             // ever visible at once, given only 2 power-up features exist
@@ -458,7 +517,8 @@ export class WorldStreamer {
       if (chunk.position.z > this.activeZ + this.trackLength) {
         let minZ = Infinity;
         for (let j = 0; j < this.trackPool.length; j++) {
-          if (this.trackPool[j].position.z < minZ) minZ = this.trackPool[j].position.z;
+          if (this.trackPool[j].position.z < minZ)
+            minZ = this.trackPool[j].position.z;
         }
         chunk.position.z = minZ - this.trackLength;
 
@@ -468,30 +528,41 @@ export class WorldStreamer {
           // a stray obstacle appearing while the player is still learning
           // the 3 seeded ones would be confusing and unfair. Scenery still
           // rerolls normally (background dressing, not gameplay content).
-          if (sceneryReady) this.sceneryInstancer.rerollChunk(this.chunkManifests[i], true);
+          if (sceneryReady)
+            this.sceneryInstancer.rerollChunk(this.chunkManifests[i], true);
           this._refreshChunkContent(i, true, "empty-coin-trail");
         } else {
           // Base ~50% density, scaled toward 0.5*densityRampMultiplier as the
           // level progresses, capped well under 1.0 so "breather" chunks with
           // no content never disappear entirely even at max ramp.
-          const sceneryChance = Math.min(0.9, 0.5 * this.spawnDirector.getDensityFactor());
+          const sceneryChance = Math.min(
+            0.9,
+            0.5 * this.spawnDirector.getDensityFactor(),
+          );
           let hasScenery = Math.random() < sceneryChance;
           if (sceneryReady) {
-            this.sceneryInstancer.rerollChunk(this.chunkManifests[i], hasScenery);
+            this.sceneryInstancer.rerollChunk(
+              this.chunkManifests[i],
+              hasScenery,
+            );
             hasScenery = this.chunkManifests[i].hasScenery;
           }
           this._refreshChunkContent(i, hasScenery);
         }
       }
 
-      // Sync exactly once per chunk per frame, using whatever the final Z
-      // ended up being this frame (recycled or not) -- avoids writing scenery
-      // matrices twice on a recycle frame only to discard the first write.
       if (sceneryReady) {
-        this.sceneryInstancer.syncChunk(this.chunkManifests[i], chunk.position.z);
+        this.sceneryInstancer.syncChunk(
+          this.chunkManifests[i],
+          chunk.position.z,
+        );
       }
     }
 
-    if (sceneryReady) this.sceneryInstancer.flush();
+    if (sceneryReady) {
+      // Sync independent buildings
+      this.sceneryInstancer.syncBuildings(this.activeZ, moveDist);
+      this.sceneryInstancer.flush();
+    }
   }
 }

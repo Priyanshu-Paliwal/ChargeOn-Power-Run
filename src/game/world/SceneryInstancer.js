@@ -21,9 +21,17 @@ import * as THREE from "three";
 // applied a material to EVERY one of them and rendered all 3 stacked
 // simultaneously. This picks only the highest-detail one (LOD0).
 
-const NEAR_TREES_PER_SIDE = 0; // Trees removed as requested - will be re-added after footpath is correct
-const FAR_TREES_PER_SIDE = 0; // removed as requested to clear trees behind houses
-const TREE_SPECIES = ["maple", "poplar", "whitePoplar"];
+// 🌲 AIRPORT PLANT CONFIGURATION 🌲
+const TREE_SPECIES = ["airport_plant"]; // Uses your new plant
+const TREE_HEIGHT_RANGE = [2, 2]; // HEIGHT: [minHeight, maxHeight]
+const TREE_WIDTH_MULTIPLIER = 1.0; // WIDTH: Increase to make them fatter, decrease for thinner
+
+// 🌳 POSITIONING CONTROLS 🌳
+const TREES_PER_SIDE = 15; // NUMBER OF PLANTS: How many plants in a row per chunk side
+const TREE_X_POSITION = 5.2; // POSITION: Distance from center. 4.8 is railing. 14.0 is near houses!
+const TREE_Y_POSITION = 0; // UP/DOWN: Adjust this to sink them into the footpath or float them higher!
+const TREE_Z_SPACING = 10; // GAP: Distance between each plant (smaller = closer together side-by-side)
+const FAR_TREES_PER_SIDE = 0; // (kept 0 to clear space behind houses)
 const FOOTPATH_PROP_KEYS = []; // Removed to let FootpathPropSystem handle props!
 const BUILDING_VARIANTS = [
   "PublicBuilding_1",
@@ -45,29 +53,71 @@ const BUILDING_VARIANTS = [
   "Cinema",
 ];
 
-const TREE_HEIGHT_RANGE = [15, 25]; // matches the original spawnTree height normalization
+const RARE_BUILDINGS = [
+  "Cinema",
+  "ShoppingCenterBuilding",
+  "RestaurantBuilding",
+];
+
+const LARGE_BUILDINGS = [
+  "PublicBuilding_9",
+  "PublicBuilding_2",
+  "PublicBuilding_8",
+  "PublicBuilding_1",
+  "PublicBuilding_10",
+];
+
+const COMMERCIAL_BUILDINGS = [
+  "BurgerBuilding",
+  "PizzaBuilding",
+  "CafeBuilding",
+  "ShopBuilding",
+];
+
+// TREE_HEIGHT_RANGE moved to top config block
 const BUILDING_SCALE = {
-  PublicBuilding_1: 350,
-  PublicBuilding_2: 350,
-  PublicBuilding_3: 450,
-  PublicBuilding_4: 450,
-  PublicBuilding_5: 550,
-  PublicBuilding_6: 450,
-  PublicBuilding_7: 500,
-  PublicBuilding_8: 500,
-  PublicBuilding_9: 500,
-  PublicBuilding_10: 500,
-  RestaurantBuilding: 600,
-  ShopBuilding: 550,
-  PizzaBuilding: 450,
-  BurgerBuilding: 400,
-  CafeBuilding: 450,
-  ShoppingCenterBuilding: 700,
-  Cinema: 600,
+  PublicBuilding_1: 250,
+  PublicBuilding_2: 200,
+  PublicBuilding_3: 350,
+  PublicBuilding_4: 350,
+  PublicBuilding_5: 350,
+  PublicBuilding_6: 300,
+  PublicBuilding_7: 350,
+  PublicBuilding_8: 200,
+  PublicBuilding_9: 200,
+  PublicBuilding_10: 200,
+  RestaurantBuilding: 350,
+  ShopBuilding: 350,
+  PizzaBuilding: 350,
+  BurgerBuilding: 350,
+  CafeBuilding: 350,
+  ShoppingCenterBuilding: 400, // Reduced from 700 to look normal
+  Cinema: 250, // Reduced from 600 to look normal
 };
 
-const BUILDING_TRACK_MARGIN = 15; // Distance from center of track to the building's front face
+const BUILDING_ROTATION_ADJUSTMENT = {
+  PublicBuilding_1: -Math.PI / 2,
+  PublicBuilding_2: -Math.PI / 2,
+  PublicBuilding_3: -Math.PI / 2,
+  PublicBuilding_4: -Math.PI / 2,
+  PublicBuilding_5: -Math.PI / 2,
+  PublicBuilding_6: -Math.PI / 2,
+  PublicBuilding_7: -Math.PI / 2,
+  PublicBuilding_8: -Math.PI / 2,
+  PublicBuilding_9: -Math.PI / 2,
+  PublicBuilding_10: -Math.PI / 2,
+  RestaurantBuilding: 0,
+  ShopBuilding: 0,
+  PizzaBuilding: 0,
+  BurgerBuilding: 0,
+  CafeBuilding: 0,
+  ShoppingCenterBuilding: 0,
+  Cinema: 0,
+};
+
+const BUILDING_TRACK_MARGIN = 11.0; // Distance from center of track to the building's front face (matches outer edge of 10.85 footpath)
 const BUILDING_ROTATION_OFFSET = Math.PI / 2; // Adjust if buildings face backward
+const TARGET_BUILDING_WIDTH = 14; // Fixed width along the track to ensure perfect 6-unit gaps in a 20-unit chunk
 
 const _m1 = new THREE.Matrix4();
 const _m2 = new THREE.Matrix4();
@@ -75,6 +125,7 @@ const _pos = new THREE.Vector3();
 const _quat = new THREE.Quaternion();
 const _scale = new THREE.Vector3();
 const _zeroMatrix = new THREE.Matrix4().makeScale(0, 0, 0); // degenerate: renders nothing
+const _UP = new THREE.Vector3(0, 1, 0);
 
 function extractMeshInfos(root) {
   root.updateMatrixWorld(true);
@@ -90,6 +141,27 @@ function extractMeshInfos(root) {
     }
   });
   return infos;
+}
+
+function getBuildingLengthAlongTrack(variant, rotY, baseScale, buildingSizes) {
+  const size = buildingSizes[variant];
+  if (!size) return 20;
+  const cos = Math.abs(Math.cos(rotY));
+  const sin = Math.abs(Math.sin(rotY));
+  return (size.x * sin + size.z * cos) * baseScale;
+}
+
+function getBuildingDepthAwayFromTrack(
+  variant,
+  rotY,
+  baseScale,
+  buildingSizes,
+) {
+  const size = buildingSizes[variant];
+  if (!size) return 20;
+  const cos = Math.abs(Math.cos(rotY));
+  const sin = Math.abs(Math.sin(rotY));
+  return (size.x * cos + size.z * sin) * baseScale;
 }
 
 function boundingBoxHeightOf(parts) {
@@ -144,11 +216,8 @@ function buildPropVariant(model) {
     -center.z,
   );
 
-  const parts = infos.map(p => {
-    const canonical = new THREE.Matrix4().multiplyMatrices(
-      centering,
-      p.matrix,
-    );
+  const parts = infos.map((p) => {
+    const canonical = new THREE.Matrix4().multiplyMatrices(centering, p.matrix);
     return { geometry: p.geometry, material: p.material, matrix: canonical };
   });
 
@@ -206,6 +275,7 @@ class InstancePool {
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
+    this.mesh.frustumCulled = false; // Prevent disappearing when camera swings, as instances span the entire track
     // Instances start fully collapsed so nothing renders at the origin
     // before the first real chunk assignment runs.
     for (let i = 0; i < capacity; i++) this.mesh.setMatrixAt(i, _zeroMatrix);
@@ -278,13 +348,14 @@ class MultiPartPool {
 // This function alone is called for every scenery instance every frame
 // (~1000+ times); allocating a new Matrix4 per call here would be exactly
 // the per-frame allocation this whole module exists to eliminate.
-function composePlacement(x, y, z, rotY, scale) {
+function composePlacement(x, y, z, rotY, scale, widthScale = 1.0) {
   _pos.set(x, y, z);
   _quat.setFromAxisAngle(_UP, rotY);
-  _scale.set(scale, scale, scale);
-  return _m2.compose(_pos, _quat, _scale);
+  // widthScale only scales X and Z to make it fatter/thinner without affecting height
+  _scale.set(scale * widthScale, scale, scale * widthScale);
+  const result = _m2.compose(_pos, _quat, _scale);
+  return result;
 }
-const _UP = new THREE.Vector3(0, 1, 0);
 
 export class SceneryInstancer {
   constructor(scene, chunkCount, trackBuilder) {
@@ -294,6 +365,27 @@ export class SceneryInstancer {
     this.pools = {}; // name -> MultiPartPool
     this.ready = false;
     this._nextIndex = {}; // name -> next free instance index (fixed allocation, never freed)
+    this.activeLeftBuildings = [];
+    this.activeRightBuildings = [];
+    this.nextLeftBuildingZ = 10; // activeZ starts at 10
+    this.nextRightBuildingZ = 10;
+    this.buildingCounterLeft = 0;
+    this.buildingCounterRight = 0;
+
+    this.leftBlock = {
+      type: null,
+      variant: null,
+      remaining: 0,
+      lastVariant: null,
+    };
+    this.rightBlock = {
+      type: null,
+      variant: null,
+      remaining: 0,
+      lastVariant: null,
+    };
+
+    this.chunkLength = 20;
   }
 
   _allocPool(name, variantData, capacity) {
@@ -302,10 +394,11 @@ export class SceneryInstancer {
   }
 
   _take(name) {
-    const idx = this._nextIndex[name]++;
-    if (idx >= this.pools[name].parts[0].mesh.count) {
-      throw new Error(`SceneryInstancer: pool "${name}" exceeded its capacity`);
-    }
+    const pool = this.pools[name];
+    if (!pool) throw new Error(`SceneryInstancer: pool "${name}" not found`);
+    const capacity = pool.parts[0].mesh.count;
+    const idx = this._nextIndex[name] % capacity;
+    this._nextIndex[name]++;
     return idx;
   }
 
@@ -430,7 +523,7 @@ export class SceneryInstancer {
         this._allocPool(
           `building_${key}`,
           variant,
-          Math.ceil((n * 2) / this.availableBuildingVariants.length) + 2,
+          Math.ceil((n * 2) / this.availableBuildingVariants.length) + 40, // Generous capacity for recycled independent buildings
         );
         this.buildingSizes[key] = variant.size;
       }
@@ -444,7 +537,7 @@ export class SceneryInstancer {
           `tree_${key}`,
           variant,
           Math.ceil(
-            (n * (NEAR_TREES_PER_SIDE + FAR_TREES_PER_SIDE) * 2) /
+            (n * (TREES_PER_SIDE + FAR_TREES_PER_SIDE) * 2) /
               this.availableTreeSpecies.length,
           ) + 4,
         );
@@ -490,10 +583,7 @@ export class SceneryInstancer {
       // Footpath prop: one per side, type cycles per chunk
       footpathPropSlots: [],
       treeSlots: [],
-      buildingSlots: [],
       hasScenery: chunkIndex % 2 === 0,
-      buildingVisible: [false, false],
-      buildingZJitter: [0, 0],
       treeJitter: [],
     };
 
@@ -547,74 +637,27 @@ export class SceneryInstancer {
       manifest.treeJitter.push({ x: 0, z: 0, rotY: 0, scale: 1 });
     };
 
-    for (let i = 0; i < NEAR_TREES_PER_SIDE; i++) {
-      addTreeSlot("left", [-14, -6], [-15, 15], true);
-      addTreeSlot("right", [6, 14], [-15, 15], true);
+    const totalZSpan = (TREES_PER_SIDE - 1) * TREE_Z_SPACING;
+    const startZ = -totalZSpan / 2;
+    for (let i = 0; i < TREES_PER_SIDE; i++) {
+      const exactZ = startZ + i * TREE_Z_SPACING;
+      // Place at exact X position (no jitter) and exact Z position
+      addTreeSlot(
+        "left",
+        [-TREE_X_POSITION, -TREE_X_POSITION],
+        [exactZ, exactZ],
+        true,
+      );
+      addTreeSlot(
+        "right",
+        [TREE_X_POSITION, TREE_X_POSITION],
+        [exactZ, exactZ],
+        true,
+      );
     }
     for (let i = 0; i < FAR_TREES_PER_SIDE; i++) {
       addTreeSlot("left", [-75, -35], [-15, 15], false);
       addTreeSlot("right", [35, 75], [-15, 15], false);
-    }
-
-    // Buildings: one left slot, one right slot, fixed variant per slot
-    // (round robin), independent 70%-visible roll re-decided each recycle
-    // (matches the original Math.random() > 0.3 per side).
-    if (this.availableBuildingVariants.length > 0) {
-      const leftVariant =
-        this.availableBuildingVariants[
-          chunkIndex % this.availableBuildingVariants.length
-        ];
-      const rightVariant =
-        this.availableBuildingVariants[
-          (chunkIndex + 2) % this.availableBuildingVariants.length
-        ];
-      // Left building
-      const leftScale = BUILDING_SCALE[leftVariant] || 1;
-      const leftDepth = this.buildingSizes[leftVariant]?.z || 1;
-      // If rotated 90 degrees, the original Z becomes the X width facing the track
-      const leftWidth = leftDepth * leftScale;
-      const leftX = -(BUILDING_TRACK_MARGIN + leftWidth / 2);
-
-      manifest.buildingSlots.push({
-        pool: `building_${leftVariant}`,
-        index: this._take(`building_${leftVariant}`),
-        side: "left",
-        baseX: leftX,
-        zRange: [-7.5, 7.5],
-        rotY: 0 + BUILDING_ROTATION_OFFSET,
-        scale: leftScale,
-      });
-
-      // Right building
-      const rightScale = BUILDING_SCALE[rightVariant] || 1;
-      const rightDepth = this.buildingSizes[rightVariant]?.z || 1;
-      const rightWidth = rightDepth * rightScale;
-      const rightX = BUILDING_TRACK_MARGIN + rightWidth / 2;
-
-      if (isNaN(leftX) || isNaN(rightX)) {
-        console.error("NaN detected in SceneryInstancer!", {
-          leftVariant,
-          leftScale,
-          leftDepth,
-          leftWidth,
-          leftX,
-          rightVariant,
-          rightScale,
-          rightDepth,
-          rightWidth,
-          rightX,
-        });
-      }
-
-      manifest.buildingSlots.push({
-        pool: `building_${rightVariant}`,
-        index: this._take(`building_${rightVariant}`),
-        side: "right",
-        baseX: rightX,
-        zRange: [-7.5, 7.5],
-        rotY: Math.PI + BUILDING_ROTATION_OFFSET,
-        scale: rightScale,
-      });
     }
 
     return manifest;
@@ -651,12 +694,167 @@ export class SceneryInstancer {
         slot.zRange[0] + Math.random() * (slot.zRange[1] - slot.zRange[0]);
       manifest.treeJitter[i].scale = scale;
     });
+  }
 
-    manifest.buildingSlots.forEach((slot, i) => {
-      manifest.buildingVisible[i] = Math.random() > 0.3;
-      manifest.buildingZJitter[i] =
-        slot.zRange[0] + Math.random() * (slot.zRange[1] - slot.zRange[0]);
-    });
+  // Called every frame by WorldStreamer to advance and update the independent buildings queue.
+  syncBuildings(activeZ, moveDist) {
+    if (!this.ready || this.availableBuildingVariants.length === 0) return;
+
+    // 1. Move all buildings forward by moveDist (treadmill effect)
+    for (const b of this.activeLeftBuildings) b.z += moveDist;
+    for (const b of this.activeRightBuildings) b.z += moveDist;
+    this.nextLeftBuildingZ += moveDist;
+    this.nextRightBuildingZ += moveDist;
+
+    // 2. Cleanup buildings that are behind the camera (activeZ is just behind the camera)
+    const cleanupThreshold = activeZ + 40;
+
+    while (
+      this.activeLeftBuildings.length > 0 &&
+      this.activeLeftBuildings[0].z > cleanupThreshold
+    ) {
+      const b = this.activeLeftBuildings.shift();
+      this.pools[b.pool].hide(b.index);
+    }
+
+    while (
+      this.activeRightBuildings.length > 0 &&
+      this.activeRightBuildings[0].z > cleanupThreshold
+    ) {
+      const b = this.activeRightBuildings.shift();
+      this.pools[b.pool].hide(b.index);
+    }
+
+    // Spawn new buildings if the horizon is less than 400 units away
+    const horizonThreshold = activeZ - 1000;
+
+    while (this.nextLeftBuildingZ > horizonThreshold) {
+      this._spawnNextBuilding("left");
+    }
+    while (this.nextRightBuildingZ > horizonThreshold) {
+      this._spawnNextBuilding("right");
+    }
+
+    // Update transforms
+    for (const b of this.activeLeftBuildings) {
+      this.pools[b.pool].setTransform(
+        b.index,
+        composePlacement(b.x, 0, b.z, b.rotY, b.scale),
+      );
+    }
+    for (const b of this.activeRightBuildings) {
+      this.pools[b.pool].setTransform(
+        b.index,
+        composePlacement(b.x, 0, b.z, b.rotY, b.scale),
+      );
+    }
+  }
+
+  _spawnNextBuilding(side) {
+    const isLeft = side === "left";
+    const block = isLeft ? this.leftBlock : this.rightBlock;
+
+    // If we've finished the previous block of houses, pick a new type!
+    if (block.remaining <= 0) {
+      let newVariant = block.variant;
+      if (this.availableBuildingVariants.length > 1) {
+        while (newVariant === block.variant) {
+          const randomIndex = Math.floor(
+            Math.random() * this.availableBuildingVariants.length,
+          );
+          newVariant = this.availableBuildingVariants[randomIndex];
+        }
+      } else {
+        newVariant = this.availableBuildingVariants[0];
+      }
+
+      block.variant = newVariant;
+
+      if (RARE_BUILDINGS.includes(newVariant)) {
+        block.type = "RARE";
+        block.remaining = 1;
+      } else if (LARGE_BUILDINGS.includes(newVariant)) {
+        block.type = "LARGE";
+        block.remaining = Math.random() < 0.7 ? 1 : 2; // Mostly 1, sometimes 2
+      } else if (COMMERCIAL_BUILDINGS.includes(newVariant)) {
+        block.type = "COMMERCIAL";
+        block.remaining = Math.floor(Math.random() * 3) + 1; // Mix of 1 to 3 commercial buildings
+      } else {
+        block.type = "NORMAL";
+        block.remaining = Math.floor(Math.random() * 2) + 1; // 1 or 2 normal buildings
+      }
+    }
+
+    let variant = block.variant;
+
+    // For commercial blocks, we mix them up instead of repeating the same one!
+    if (block.type === "COMMERCIAL") {
+      let commercialVariant =
+        COMMERCIAL_BUILDINGS[
+          Math.floor(Math.random() * COMMERCIAL_BUILDINGS.length)
+        ];
+      // Prevent spawning the exact same commercial building back-to-back
+      while (commercialVariant === block.lastVariant) {
+        commercialVariant =
+          COMMERCIAL_BUILDINGS[
+            Math.floor(Math.random() * COMMERCIAL_BUILDINGS.length)
+          ];
+      }
+      variant = commercialVariant;
+    }
+
+    block.lastVariant = variant;
+    block.remaining--;
+
+    const scale = BUILDING_SCALE[variant] || 1;
+    const rotAdj = BUILDING_ROTATION_ADJUSTMENT[variant] || 0;
+    const rotY = rotAdj + BUILDING_ROTATION_OFFSET + (isLeft ? 0 : Math.PI);
+
+    // Use the exact native width calculation, but this time we DONT modify the scale!
+    // We just read how big it is, so we know exactly where to place the NEXT building!
+    const lengthAlongTrack = getBuildingLengthAlongTrack(
+      variant,
+      rotY,
+      scale,
+      this.buildingSizes,
+    );
+    const widthAwayFromTrack = getBuildingDepthAwayFromTrack(
+      variant,
+      rotY,
+      scale,
+      this.buildingSizes,
+    );
+
+    const xPos = isLeft
+      ? -(BUILDING_TRACK_MARGIN + widthAwayFromTrack / 2)
+      : BUILDING_TRACK_MARGIN + widthAwayFromTrack / 2;
+
+    // Z position is at the center of the building footprint
+    // Since Z goes negatively, we subtract half the length to get the center
+    const zPos =
+      (isLeft ? this.nextLeftBuildingZ : this.nextRightBuildingZ) -
+      lengthAlongTrack / 2;
+
+    // Reserve an index from the pool
+    const poolName = `building_${variant}`;
+    const instanceIndex = this._take(poolName);
+
+    const buildingRecord = {
+      pool: poolName,
+      index: instanceIndex,
+      x: xPos,
+      z: zPos,
+      rotY: rotY,
+      scale: scale,
+    };
+
+    if (isLeft) {
+      this.activeLeftBuildings.push(buildingRecord);
+      this.nextLeftBuildingZ -= lengthAlongTrack + 5; // 5-unit gap after this building
+    } else {
+      this.activeRightBuildings.push(buildingRecord);
+      this.nextRightBuildingZ -= lengthAlongTrack + 5; // 5-unit gap after this building
+    }
   }
 
   // Called every frame for every chunk: writes fresh world matrices for
@@ -702,7 +900,7 @@ export class SceneryInstancer {
       const side = i === 0 ? -1 : 1;
       this.pools.footpath.setTransform(
         idx,
-        composePlacement(side * 10, 0.5, chunkZ, 0, 1),
+        composePlacement(side * 7.85, 0.2, chunkZ, 0, 1),
       );
     });
 
@@ -733,11 +931,11 @@ export class SceneryInstancer {
     manifest.streetlightIndices.forEach((idx, i) => {
       // The pole base is locally offset by ~1.0 in +X. With scale 1.5, that's +1.5 world offset.
       // To place the pole at +/- 4.9, we need x = 4.9 - 1.5 = 3.4.
-      const x = i === 0 ? -3.4 : 3.4;
+      const x = i === 0 ? -4.9 : 4.9;
       const rotY = i === 0 ? Math.PI : 0;
       this.pools.streetlight.setTransform(
         idx,
-        composePlacement(x, 0, chunkZ, rotY, 1.5),
+        composePlacement(x, 0, chunkZ, rotY, 1),
       );
     });
 
@@ -753,29 +951,11 @@ export class SceneryInstancer {
         slot.index,
         composePlacement(
           jitter.x,
-          0,
+          TREE_Y_POSITION, // Up/down position based on configuration
           chunkZ + jitter.z,
           jitter.rotY,
           jitter.scale,
-        ),
-      );
-    });
-
-    manifest.buildingSlots.forEach((slot, i) => {
-      const visible = manifest.hasScenery && manifest.buildingVisible[i];
-      const pool = this.pools[slot.pool];
-      if (!visible) {
-        pool.hide(slot.index);
-        return;
-      }
-      pool.setTransform(
-        slot.index,
-        composePlacement(
-          slot.baseX,
-          0,
-          chunkZ + manifest.buildingZJitter[i],
-          slot.rotY,
-          slot.scale,
+          TREE_WIDTH_MULTIPLIER, // Custom width multiplier!
         ),
       );
     });

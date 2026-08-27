@@ -2,7 +2,10 @@
 import { ref, onMounted, inject } from "vue";
 import { gsap } from "gsap";
 import CharacterSelect from "./CharacterSelect.vue";
-import { TV_ATTRACT_LINE_1, TV_ATTRACT_LINE_2 } from "../game/config/GameConfig.js";
+import {
+  TV_ATTRACT_LINE_1,
+  TV_ATTRACT_LINE_2,
+} from "../game/config/GameConfig.js";
 
 const props = defineProps({
   userData: {
@@ -17,7 +20,7 @@ const props = defineProps({
 
 const emit = defineEmits(["start", "character-selected"]);
 
-const musicState = inject('musicState');
+const musicState = inject("musicState");
 
 // Dynamic leaderboard
 const leaderboard = ref([]);
@@ -83,16 +86,19 @@ onMounted(() => {
     <!-- Top Bar -->
     <header class="top-bar">
       <div class="logo-container" ref="logoEl">
-        <img
-          src="/img/chargeon-Logo.webp"
-          alt="ChargeOn Logo"
-          class="logo"
-        />
+        <img src="/img/chargeon-Logo.webp" alt="ChargeOn Logo" class="logo" />
       </div>
       <div class="profile-container">
         <div class="top-stats" ref="topStatsEl">
-          <button v-if="musicState" class="music-toggle-btn" @click="musicState.toggleMusic()" :title="musicState.isMusicPlaying.value ? 'Pause Music' : 'Play Music'">
-            {{ musicState.isMusicPlaying.value ? '🔊' : '🔇' }}
+          <button
+            v-if="musicState"
+            class="music-toggle-btn"
+            @click="musicState.toggleMusic()"
+            :title="
+              musicState.isMusicPlaying.value ? 'Pause Music' : 'Play Music'
+            "
+          >
+            {{ musicState.isMusicPlaying.value ? "🔊" : "🔇" }}
           </button>
           <div class="stat-box">DREAMFORCE '26</div>
         </div>
@@ -131,7 +137,10 @@ onMounted(() => {
 
       <!-- Right Panel: Character Selector -->
       <section class="right-panel" ref="rightPanelEl">
-        <CharacterSelect :modelValue="selectedCharacterId" @select="(id) => emit('character-selected', id)" />
+        <CharacterSelect
+          :modelValue="selectedCharacterId"
+          @select="(id) => emit('character-selected', id)"
+        />
       </section>
     </main>
 
@@ -349,7 +358,9 @@ onMounted(() => {
   font-family: "Roboto", sans-serif;
   font-size: 1rem;
   font-weight: 500;
-  transition: background 0.15s, transform 0.15s;
+  transition:
+    background 0.15s,
+    transform 0.15s;
 }
 
 .leaderboard li:hover {
@@ -597,7 +608,9 @@ onMounted(() => {
   padding: 3px 8px;
   font-size: 0.7rem;
 }
-:global(html[data-size-class="phone-landscape"] .leaderboard li:nth-child(n + 4)) {
+:global(
+  html[data-size-class="phone-landscape"] .leaderboard li:nth-child(n + 4)
+) {
   display: none;
 }
 :global(html[data-size-class="phone-landscape"] .right-panel) {

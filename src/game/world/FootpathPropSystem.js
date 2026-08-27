@@ -5,14 +5,14 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 // 🛠️ FOOTPATH PROP SYSTEM CONFIGURATION
 // ==========================================
 export const PROP_CONFIG = {
-  SLOT_SPACING: 30, 
-  GROUND_PROP_SPACING: 150, 
-  CURB_ROW_OFFSET: 9.5, 
-  BUILDING_ROW_OFFSET: 13.5, 
-  MANHOLE_OFFSET: 10.5, 
-  SPAWN_CHANCE_BUILDING: 0.3, 
-  SPAWN_CHANCE_CURB: 0.35, 
-  SPAWN_CHANCE_BENCH: 0.05, 
+  SLOT_SPACING: 30,
+  GROUND_PROP_SPACING: 150,
+  CURB_ROW_OFFSET: 6.0,
+  BUILDING_ROW_OFFSET: 10.0,
+  MANHOLE_OFFSET: 7.85,
+  SPAWN_CHANCE_BUILDING: 0.3,
+  SPAWN_CHANCE_CURB: 0.35,
+  SPAWN_CHANCE_BENCH: 0.05,
   SCALES: {
     coffee_food_cart: 1.5,
     ice_cream_food_cart: 1.5,
@@ -59,11 +59,11 @@ export const PROP_CONFIG = {
 export class FootpathPropSystem {
   constructor(scene, modelsMap) {
     this.scene = scene;
-    this.models = modelsMap; 
+    this.models = modelsMap;
     this.spawnedMeshes = [];
     this.reservedSlots = {
-      1: [], 
-      "-1": [], 
+      1: [],
+      "-1": [],
     };
     this.lastSpawnedBuilding = { 1: null, "-1": null };
     this.lastSpawnedCurb = { 1: null, "-1": null };
@@ -84,7 +84,7 @@ export class FootpathPropSystem {
       if (randomVal < candidate.weight) return candidate.name;
       randomVal -= candidate.weight;
     }
-    return candidates[0].name; 
+    return candidates[0].name;
   }
 
   isRangeReserved(side, z, radius) {
@@ -92,7 +92,7 @@ export class FootpathPropSystem {
     const end = z + radius;
     for (const range of this.reservedSlots[side]) {
       if (start < range.endZ && range.startZ < end) {
-        return true; 
+        return true;
       }
     }
     return false;
@@ -124,7 +124,7 @@ export class FootpathPropSystem {
     const spriteMaterial = new THREE.SpriteMaterial({
       map: texture,
       depthTest: false,
-    }); 
+    });
     const sprite = new THREE.Sprite(spriteMaterial);
     sprite.userData = { width: canvas.width / 20, height: canvas.height / 20 };
     return sprite;
@@ -142,12 +142,12 @@ export class FootpathPropSystem {
     box.getCenter(center);
     const nativeSize = box.getSize(new THREE.Vector3());
     mesh.position.sub(center);
-    mesh.position.y -= box.min.y - center.y; 
+    mesh.position.y -= box.min.y - center.y;
     const scale = PROP_CONFIG.SCALES[propName] || 0.015;
     const wrapper = new THREE.Group();
     wrapper.add(mesh);
     let finalX = x;
-    let finalY = 0.8; 
+    let finalY = 0.35;
     let finalZ = z;
     const customOffset = PROP_CONFIG.CUSTOM_OFFSETS[propName];
     if (customOffset) {
@@ -174,16 +174,34 @@ export class FootpathPropSystem {
     const radius = PROP_CONFIG.FOOTPRINTS.bus_stop;
     this.reserveRange(side, z, radius);
     const leftZ = z + PROP_CONFIG.BUS_STOP_DUSTBIN_OFFSET;
-    this.instantiateProp("trash_small", side * PROP_CONFIG.CURB_ROW_OFFSET, leftZ, side, true);
+    this.instantiateProp(
+      "trash_small",
+      side * PROP_CONFIG.CURB_ROW_OFFSET,
+      leftZ,
+      side,
+      true,
+    );
     const rightZ = z - PROP_CONFIG.BUS_STOP_DUSTBIN_OFFSET;
-    this.instantiateProp("trash_small", side * PROP_CONFIG.CURB_ROW_OFFSET, rightZ, side, true);
+    this.instantiateProp(
+      "trash_small",
+      side * PROP_CONFIG.CURB_ROW_OFFSET,
+      rightZ,
+      side,
+      true,
+    );
   }
 
   spawnBenchCluster(z, side) {
     const radius = PROP_CONFIG.FOOTPRINTS.bench + PROP_CONFIG.BENCH_BUFFER;
     if (this.isRangeReserved(side, z, radius)) return false;
     this.reserveRange(side, z, radius);
-    this.instantiateProp("bench", side * PROP_CONFIG.CURB_ROW_OFFSET, z, side, true);
+    this.instantiateProp(
+      "bench",
+      side * PROP_CONFIG.CURB_ROW_OFFSET,
+      z,
+      side,
+      true,
+    );
     return true;
   }
 
@@ -192,9 +210,15 @@ export class FootpathPropSystem {
     for (let z = startZ; z > endZ; z -= PROP_CONFIG.GROUND_PROP_SPACING) {
       if (this.models["manhole"]) {
         sides.forEach((side) => {
-          const wrapper = this.instantiateProp("manhole", side * PROP_CONFIG.MANHOLE_OFFSET, z, side, false);
+          const wrapper = this.instantiateProp(
+            "manhole",
+            side * PROP_CONFIG.MANHOLE_OFFSET,
+            z,
+            side,
+            false,
+          );
           if (wrapper) {
-            wrapper.position.y = 0.82; 
+            wrapper.position.y = 0.36;
             wrapper.rotation.y = Math.random() * Math.PI * 2;
           }
         });
@@ -204,27 +228,55 @@ export class FootpathPropSystem {
       for (let z = startZ; z > endZ; z -= PROP_CONFIG.SLOT_SPACING) {
         // Add random stagger to Z to prevent perfect grid alignment
         const staggerZ = z + (Math.random() - 0.5) * 10;
-        
+
         const rand = Math.random();
         if (rand < PROP_CONFIG.SPAWN_CHANCE_BENCH) {
           this.spawnBenchCluster(staggerZ, side);
-        } else if (rand < PROP_CONFIG.SPAWN_CHANCE_BENCH + PROP_CONFIG.SPAWN_CHANCE_BUILDING) {
-          const bProp = this.pickRandomProp(PROP_CONFIG.WEIGHTS.BUILDING_ROW, this.lastSpawnedBuilding[side]);
+        } else if (
+          rand <
+          PROP_CONFIG.SPAWN_CHANCE_BENCH + PROP_CONFIG.SPAWN_CHANCE_BUILDING
+        ) {
+          const bProp = this.pickRandomProp(
+            PROP_CONFIG.WEIGHTS.BUILDING_ROW,
+            this.lastSpawnedBuilding[side],
+          );
           if (bProp) {
             const bRadius = PROP_CONFIG.FOOTPRINTS[bProp];
             if (!this.isRangeReserved(side, staggerZ, bRadius)) {
-              this.instantiateProp(bProp, side * PROP_CONFIG.BUILDING_ROW_OFFSET, staggerZ, side, true);
+              this.instantiateProp(
+                bProp,
+                side * PROP_CONFIG.BUILDING_ROW_OFFSET,
+                staggerZ,
+                side,
+                true,
+              );
               this.reserveRange(side, staggerZ, bRadius);
               this.lastSpawnedBuilding[side] = bProp;
             }
           }
-        } else if (rand < PROP_CONFIG.SPAWN_CHANCE_BENCH + PROP_CONFIG.SPAWN_CHANCE_BUILDING + PROP_CONFIG.SPAWN_CHANCE_CURB) {
-          const cProp = this.pickRandomProp(PROP_CONFIG.WEIGHTS.CURB_ROW, this.lastSpawnedCurb[side]);
+        } else if (
+          rand <
+          PROP_CONFIG.SPAWN_CHANCE_BENCH +
+            PROP_CONFIG.SPAWN_CHANCE_BUILDING +
+            PROP_CONFIG.SPAWN_CHANCE_CURB
+        ) {
+          const cProp = this.pickRandomProp(
+            PROP_CONFIG.WEIGHTS.CURB_ROW,
+            this.lastSpawnedCurb[side],
+          );
           if (cProp) {
             const cRadius = PROP_CONFIG.FOOTPRINTS[cProp];
-            const isCar = cProp === "old_car" || cProp === "abandoned_snow_carraw";
+            const isCar =
+              cProp === "old_car" || cProp === "abandoned_snow_carraw";
             if (!this.isRangeReserved(side, staggerZ, cRadius)) {
-              this.instantiateProp(cProp, side * PROP_CONFIG.CURB_ROW_OFFSET, staggerZ, side, true, isCar);
+              this.instantiateProp(
+                cProp,
+                side * PROP_CONFIG.CURB_ROW_OFFSET,
+                staggerZ,
+                side,
+                true,
+                isCar,
+              );
               this.reserveRange(side, staggerZ, cRadius);
               this.lastSpawnedCurb[side] = cProp;
             }

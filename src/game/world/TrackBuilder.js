@@ -39,7 +39,7 @@ export class TrackBuilder {
       normalMap: asphaltNormal,
       roughness: 0.9,
       metalness: 0.03,
-      color: 0x444444,
+      color: 0x999999,
     });
 
     this.laneGeo = new THREE.BoxGeometry(2.8, 0.55, trackLength);
@@ -51,11 +51,13 @@ export class TrackBuilder {
       color: 0x555555,
     });
 
+    // Concrete border/curb mesh
     this.borderGeo = new THREE.BoxGeometry(0.5, 0.8, trackLength);
     this.borderMat = new THREE.MeshStandardMaterial({
-      color: 0x888888,
-      roughness: 1.0,
-    }); // Concrete border
+      color: 0xd0d0d0, // Distinctly lighter/brighter concrete to read as a raised edge
+      roughness: 0.8,
+      metalness: 0.0,
+    });
 
     this.trimGeo = new THREE.BoxGeometry(0.1, 0.56, trackLength);
     this.trimMat = new THREE.MeshStandardMaterial({
@@ -88,11 +90,17 @@ export class TrackBuilder {
       roughness: 0.2,
     });
 
-    // Footpath - dark grey concrete matching reference game exactly (0x555555)
-    this.footpathGeo = new THREE.BoxGeometry(10, 0.6, trackLength);
+    // Footpath PBR Material
+    const footpathTex = this._createFootpathTextures();
+    this.footpathGeo = new THREE.BoxGeometry(6, 0.3, trackLength);
     this.footpathMat = new THREE.MeshStandardMaterial({
-      color: 0x555555, // Dark grey concrete - matches reference game footpath
-      roughness: 0.95,
+      color: 0x444444, // Base tint
+      // color: 0x999999, // Base tint
+      map: footpathTex.diffuse,
+      bumpMap: footpathTex.bump,
+      // bumpScale: 0.055, // Very subtle depth for expansion joints
+      bumpScale: 0.1, // Very subtle depth for expansion joints
+      roughnessMap: footpathTex.roughness,
       metalness: 0.0,
     });
 
@@ -124,61 +132,98 @@ export class TrackBuilder {
     return tex;
   }
 
-  _createFootpathTexture() {
-    const canvas = document.createElement("canvas");
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext("2d");
+  // Generates complete procedural PBR textures for the footpath (0 new network calls/assets)
+  _createFootpathTextures() {
+    const size = 512; // Back to 512 for cleaner mipmapping
 
-    // Base rock/grey color - lighter so lines stand out
-    ctx.fillStyle = "#b0b0b0";
-    ctx.fillRect(0, 0, 512, 512);
+    // 1. Diffuse (Color) Map
+    const diffCanvas = document.createElement("canvas");
+    diffCanvas.width = size;
+    diffCanvas.height = size;
+    const diffCtx = diffCanvas.getContext("2d");
 
-    // Add noise for rock texture
-    for (let i = 0; i < 30000; i++) {
-      const x = Math.random() * 512;
-      const y = Math.random() * 512;
-      const intensity = Math.random();
-      if (intensity > 0.8) {
-        ctx.fillStyle = "rgba(255,255,255,0.4)"; // bright specks
-      } else if (intensity < 0.2) {
-        ctx.fillStyle = "rgba(0,0,0,0.4)"; // dark specks
-      } else {
-        ctx.fillStyle = "rgba(100,100,100,0.2)"; // mid tones
-      }
-      const size = Math.random() > 0.8 ? 3 : 1;
-      ctx.fillRect(x, y, size, size);
+    // Base concrete grey
+    diffCtx.fillStyle = "#8a8a8a";
+    diffCtx.fillRect(0, 0, size, size);
+
+    // Subtle Low-Contrast Noise/Speckles (Avoid high frequency)
+    for (let i = 0; i < 8000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      diffCtx.fillStyle =
+        Math.random() > 0.5 ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.08)";
+      // Larger 3x3 blocks prevent tiny 1-pixel high-frequency aliasing from far away
+      diffCtx.fillRect(x, y, 3, 3);
     }
 
-    // Draw paving lines (large stone tiles) - HUGE thickness to survive grazing angle mipmapping
-    ctx.strokeStyle = "rgba(20, 20, 20, 1.0)";
-    ctx.lineWidth = 16;
+    // Expansion joints (Diffuse - dark subtle line)
+    // diffCtx.strokeStyle = "rgba(50, 50, 50, 0.4)";
+    diffCtx.strokeStyle = "rgba(255, 255, 255, 1)";
+    diffCtx.lineWidth = 10;
+    diffCtx.beginPath();
+    diffCtx.moveTo(0, 0);
+    diffCtx.lineTo(size, 0); // Top edge joint
+    diffCtx.moveTo(size / 2, 0);
+    diffCtx.lineTo(size / 2, size); // Middle vertical joint
+    diffCtx.stroke();
 
-    // Vertical lines
-    for (let x = 0; x <= 512; x += 256) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, 512);
-      ctx.stroke();
+    // 2. Bump (Height) Map
+    const bumpCanvas = document.createElement("canvas");
+    bumpCanvas.width = size;
+    bumpCanvas.height = size;
+    const bumpCtx = bumpCanvas.getContext("2d");
+
+    // White = Flat high surface
+    // CRITICAL FIX: No random pitting dots here. Tiny dots in a bump map
+    // cause severe Moiré/corduroy stripe patterns at low grazing angles.
+    bumpCtx.fillStyle = "#ffffff";
+    bumpCtx.fillRect(0, 0, size, size);
+
+    // Expansion joints (Black = deep groove)
+    // bumpCtx.strokeStyle = "rgba(0, 0, 0, 0.5)"; // Softened intensity
+    bumpCtx.strokeStyle = "rgba(255, 255, 255, 1)"; // Softened intensity
+    bumpCtx.lineWidth = 6;
+    bumpCtx.beginPath();
+    bumpCtx.moveTo(0, 0);
+    bumpCtx.lineTo(size, 0);
+    bumpCtx.moveTo(size / 2, 0);
+    bumpCtx.lineTo(size / 2, size);
+    bumpCtx.stroke();
+
+    // 3. Roughness Map
+    const roughCanvas = document.createElement("canvas");
+    roughCanvas.width = size;
+    roughCanvas.height = size;
+    const roughCtx = roughCanvas.getContext("2d");
+
+    // Concrete is very rough (mostly white/light-grey)
+    roughCtx.fillStyle = "#e0e0e0";
+    roughCtx.fillRect(0, 0, size, size);
+
+    // Slight smudges/puddles (darker patches = smoother)
+    for (let i = 0; i < 4000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      roughCtx.fillStyle = "rgba(150, 150, 150, 1)";
+      roughCtx.fillRect(x, y, 4, 4);
     }
 
-    // Horizontal lines
-    for (let y = 0; y <= 512; y += 256) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(512, y);
-      ctx.stroke();
-    }
+    // Convert to Three.js textures
+    const diffuse = new THREE.CanvasTexture(diffCanvas);
+    diffuse.colorSpace = THREE.SRGBColorSpace;
+    const bump = new THREE.CanvasTexture(bumpCanvas);
+    const roughness = new THREE.CanvasTexture(roughCanvas);
 
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    // Track length is 200, width is 10. To make it square:
-    // width: 10 -> repeat 2 (5 units per tile)
-    // length: 200 -> repeat 40 (5 units per tile)
-    tex.repeat.set(2, 40);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.needsUpdate = true;
-    return tex;
+    [diffuse, bump, roughness].forEach((t) => {
+      t.wrapS = THREE.RepeatWrapping;
+      t.wrapT = THREE.RepeatWrapping;
+      // Width is 6 units. Length is trackLength (usually 30).
+      // Repeat U=1 (6 units wide), Repeat V=5 (30 units long) makes perfect 3x3 square slabs!
+      t.repeat.set(1, 2.5);
+      t.anisotropy = 16; // CRITICAL: Keeps the lines sharp in the distance!
+      t.needsUpdate = true;
+    });
+
+    return { diffuse, bump, roughness };
   }
 }
