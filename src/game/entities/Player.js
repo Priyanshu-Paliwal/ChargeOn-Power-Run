@@ -79,7 +79,8 @@ export class Player {
     this.movementState = PlayerMovementState.RUNNING;
     this.baseY = 0;
     this._jumpElapsed = 0;
-    this._jumpAirtime = (2 * PLAYER_PHYSICS.jumpForce) / Math.abs(PLAYER_PHYSICS.gravity);
+    this._jumpAirtime =
+      (2 * PLAYER_PHYSICS.jumpForce) / Math.abs(PLAYER_PHYSICS.gravity);
     this._slideTimer = 0;
     this._slideCooldown = 0;
 
@@ -218,7 +219,8 @@ export class Player {
         // next lane switch/jump/slide). Only recover to Run if the state
         // machine is genuinely idle-running -- a hit taken mid-jump/slide
         // must NOT stomp that in-progress action's own animation.
-        if (this.movementState === PlayerMovementState.RUNNING) this.setAnimation("Run");
+        if (this.movementState === PlayerMovementState.RUNNING)
+          this.setAnimation("Run");
       }
     }
 
@@ -252,7 +254,10 @@ export class Player {
 
     // Jump/slide can only be INITIATED from RUNNING (matches the original
     // guard on both), and not during the post-slide recovery cooldown.
-    if (this.movementState === PlayerMovementState.RUNNING && this._slideCooldown <= 0) {
+    if (
+      this.movementState === PlayerMovementState.RUNNING &&
+      this._slideCooldown <= 0
+    ) {
       if (this.inputManager.consumeBuffered("jump")) {
         this._startJump();
       } else if (this.inputManager.consumeBuffered("slide")) {
@@ -417,7 +422,10 @@ export class Player {
 
   async _loadCharacterModel(id) {
     const requestId = ++this._loadToken;
-    const [gltf, clips] = await Promise.all([characterLoader.loadCharacter(id), characterLoader.loadAnimations()]);
+    const [gltf, clips] = await Promise.all([
+      characterLoader.loadCharacter(id),
+      characterLoader.loadAnimations(),
+    ]);
 
     // Another setCharacter() call landed after this one started -- drop
     // this (now stale) result instead of racing it onto the mesh.
@@ -436,6 +444,14 @@ export class Player {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
+        if (child.material) {
+          // Tone down the HDRI skybox reflections on the character
+          child.material.envMapIntensity = 0.4;
+          // Soften the specular highlights (stop it from looking like a mirror)
+          child.material.roughness = 0.45;
+          // Ensure it's not perfectly metallic
+          child.material.metalness = 0.6;
+        }
       }
     });
 
@@ -451,7 +467,9 @@ export class Player {
     // a mid-Lobby character swap) on the new model -- hard cut, not a
     // crossfade, since the OLD mixer/model this would fade from is being
     // torn down this same frame.
-    const resumeName = this.animations[this.currentActionName] ? this.currentActionName : "Idle";
+    const resumeName = this.animations[this.currentActionName]
+      ? this.currentActionName
+      : "Idle";
     const action = this.animations[resumeName];
     if (action) {
       action.reset().play();

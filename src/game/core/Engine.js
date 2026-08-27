@@ -81,10 +81,10 @@ export class Engine {
     this.clock = new THREE.Clock();
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0xfff0dd, 0.5); // Warm ambient
+    const ambientLight = new THREE.AmbientLight(0xfff0dd, 0.35); // Warm ambient
     this.scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xfffaeb, 2.5); // Warm sunlight directional
+    const dirLight = new THREE.DirectionalLight(0xfffaeb, 1.2); // Warm sunlight directional
     dirLight.position.set(20, 30, 10);
     dirLight.castShadow = this.quality.tier.shadows;
 
@@ -628,11 +628,19 @@ export class Engine {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
 
-    // 2. Endless Ground - clean green base matching the reference game
+    // 2. Endless Ground - sand/dirt base replacing the old green base
+    const texLoader = new THREE.TextureLoader();
+    const sandTex = texLoader.load("/textures/sand.jpg");
+    sandTex.wrapS = THREE.RepeatWrapping;
+    sandTex.wrapT = THREE.RepeatWrapping;
+    // The ground is 2000x2000, repeating 200 times makes each tile 10x10 units
+    sandTex.repeat.set(200, 200);
+    sandTex.colorSpace = THREE.SRGBColorSpace;
+
     const groundGeo = new THREE.PlaneGeometry(2000, 2000);
     this.groundMat = new THREE.MeshStandardMaterial({
-      color: 0x228b22, // Forest green - matches reference game exactly
-      roughness: 0.9,
+      map: sandTex,
+      roughness: 0.95,
       metalness: 0.0,
     });
 

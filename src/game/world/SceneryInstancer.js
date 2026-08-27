@@ -402,6 +402,260 @@ export class SceneryInstancer {
     return idx;
   }
 
+  _createPlaceholderBannerTexture() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+
+    // Background gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, "#042C53");
+    grad.addColorStop(1, "#0A4F8C");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 512);
+
+    // Border
+    ctx.strokeStyle = "#F4C775";
+    ctx.lineWidth = 10;
+    ctx.strokeRect(5, 5, 246, 502);
+
+    // Text (ChargeOn)
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 40px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("CHARGE", 128, 200);
+    ctx.fillStyle = "#F4C775";
+    ctx.fillText("ON", 128, 260);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  _createBannerPool(n) {
+    // 1. Bracket (Horizontal metal bar)
+    const bracketGeo = new THREE.BoxGeometry(1.2, 0.05, 0.05);
+    // Offset so one end touches the pole and the other extends out
+    bracketGeo.translate(0.6, 0, 0);
+
+    const bracketMat = new THREE.MeshStandardMaterial({
+      color: 0x222222,
+      metalness: 0.8,
+      roughness: 0.4,
+    });
+
+    // 2. Banner (Vertical Plane)
+    // Taller than wide, e.g. 0.8 wide, 2.0 tall
+    const bannerGeo = new THREE.PlaneGeometry(0.8, 2.0, 4, 8); // Subdivided for wind flex
+    // Offset so the top edge is at Y=0 (anchored to the bracket)
+    bannerGeo.translate(0, -1.0, 0);
+    // Shift slightly forward to avoid Z-fighting with bracket, and move along bracket X
+    bannerGeo.translate(0.8, -0.025, 0.03);
+
+    const bannerMat = new THREE.MeshStandardMaterial({
+      map: this._createPlaceholderBannerTexture(),
+      transparent: true,
+      alphaTest: 0.1,
+      side: THREE.DoubleSide,
+      roughness: 0.8,
+    });
+
+    // Create the global time uniform for the wind shader
+    this.bannerTimeUniform = { value: 0 };
+
+    // Apply wind shader via onBeforeCompile
+    bannerMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = this.bannerTimeUniform;
+
+      shader.vertexShader = `
+        uniform float uTime;
+        ${shader.vertexShader}
+      `;
+
+      // Inject the wind displacement right before calculating position
+      shader.vertexShader = shader.vertexShader.replace(
+        "#include <begin_vertex>",
+        `
+        #include <begin_vertex>
+        
+        // We only want the bottom of the banner to sway.
+        // Y goes from 0 (top anchor) down to -2.0 (bottom edge)
+        float swayFactor = smoothstep(0.0, -2.0, position.y);
+        
+        // Simple sine wave based on time and local Y position
+        float windWave = sin(uTime * 3.0 + position.y * 2.0) * 0.15;
+        
+        transformed.z += windWave * swayFactor;
+        `,
+      );
+    };
+
+    const variant = {
+      parts: [
+        {
+          geometry: bracketGeo,
+          material: bracketMat,
+          matrix: new THREE.Matrix4(),
+        },
+        {
+          geometry: bannerGeo,
+          material: bannerMat,
+          matrix: new THREE.Matrix4(),
+        },
+      ],
+    };
+
+    this._allocPool("banner", variant, n * 2);
+  }
+
+  _createBannerPool(n, poolName, textureUrl) {
+    // === BANNER CONFIGURATION ===
+    const CONFIG = {
+      fabricWidth: 1,
+      fabricHeight: 2.4,
+      fabricColor: 0xffffff,
+      logoWidth: 1.8, // The physical width of the image on the flag (Before rotation)
+      logoHeight: 0.8, // The physical height of the image on the flag (Before rotation)
+      logoOffsetY: 0.0,
+      logoRotation: -Math.PI / 2,
+      distanceFromPole: -0.9,
+      mountHeight: 5,
+    };
+
+    this.bannerMountHeight = CONFIG.mountHeight;
+    const halfHeight = CONFIG.fabricHeight / 2;
+
+    const bracketGeo = new THREE.BoxGeometry(1.6, 0.05, 0.05);
+    bracketGeo.translate(-0.8, 0, 0);
+    const bracketMat = new THREE.MeshStandardMaterial({
+      color: 0x222222,
+      metalness: 0.8,
+      roughness: 0.4,
+    });
+
+    const fabricGeo = new THREE.PlaneGeometry(
+      CONFIG.fabricWidth,
+      CONFIG.fabricHeight,
+      4,
+      8,
+    );
+    fabricGeo.translate(0, -halfHeight, 0);
+    fabricGeo.translate(CONFIG.distanceFromPole, 0, 0);
+    const fabricMat = new THREE.MeshStandardMaterial({
+      color: CONFIG.fabricColor,
+      side: THREE.DoubleSide,
+      roughness: 0.9,
+    });
+
+    // We build the plane using your EXACT configured width and height!
+    const logoGeoFront = new THREE.PlaneGeometry(
+      CONFIG.logoWidth,
+      CONFIG.logoHeight,
+      4,
+      4,
+    );
+    if (CONFIG.logoRotation !== 0) logoGeoFront.rotateZ(CONFIG.logoRotation);
+    logoGeoFront.translate(0, -halfHeight + CONFIG.logoOffsetY, 0);
+    logoGeoFront.translate(CONFIG.distanceFromPole, 0, 0.015);
+
+    const logoGeoBack = new THREE.PlaneGeometry(
+      CONFIG.logoWidth,
+      CONFIG.logoHeight,
+      4,
+      4,
+    );
+    if (CONFIG.logoRotation !== 0) logoGeoBack.rotateZ(-CONFIG.logoRotation);
+    logoGeoBack.rotateY(Math.PI);
+    logoGeoBack.translate(0, -halfHeight + CONFIG.logoOffsetY, 0);
+    logoGeoBack.translate(CONFIG.distanceFromPole, 0, -0.015);
+
+    let map = new THREE.Texture();
+    map.colorSpace = THREE.SRGBColorSpace;
+
+    if (textureUrl.toLowerCase().endsWith(".svg")) {
+      const img = new Image();
+      img.src = textureUrl;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1024;
+        canvas.height = 1024;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, 1024, 1024);
+        map.image = canvas;
+        map.needsUpdate = true;
+      };
+    } else {
+      map = new THREE.TextureLoader().load(textureUrl);
+      map.colorSpace = THREE.SRGBColorSpace;
+    }
+
+    const logoMat = new THREE.MeshStandardMaterial({
+      map: map,
+      transparent: true,
+      alphaTest: 0.1,
+      side: THREE.FrontSide,
+      roughness: 0.8,
+    });
+
+    if (!this.bannerTimeUniform) this.bannerTimeUniform = { value: 0 };
+
+    const applyWindShader = (shader) => {
+      shader.uniforms.uTime = this.bannerTimeUniform;
+      shader.vertexShader = `uniform float uTime;\n${shader.vertexShader}`;
+      shader.vertexShader = shader.vertexShader.replace(
+        "#include <begin_vertex>",
+        `
+        #include <begin_vertex>
+        float height = ${CONFIG.fabricHeight.toFixed(4)};
+        float peak = -(height * 0.5) * (height * 0.5);
+        float swayFactor = (position.y * (position.y + height)) / peak;
+        float windWave = sin(uTime * 3.0 + position.y * 2.0) * 0.15;
+        if (swayFactor > 0.0) { transformed.z += windWave * swayFactor; }
+        `,
+      );
+    };
+
+    fabricMat.onBeforeCompile = applyWindShader;
+    logoMat.onBeforeCompile = applyWindShader;
+
+    const variant = {
+      parts: [
+        {
+          geometry: bracketGeo,
+          material: bracketMat,
+          matrix: new THREE.Matrix4(),
+        },
+        {
+          geometry: bracketGeo,
+          material: bracketMat,
+          matrix: new THREE.Matrix4().makeTranslation(
+            0,
+            -CONFIG.fabricHeight,
+            0,
+          ),
+        },
+        {
+          geometry: fabricGeo,
+          material: fabricMat,
+          matrix: new THREE.Matrix4(),
+        },
+        {
+          geometry: logoGeoFront,
+          material: logoMat,
+          matrix: new THREE.Matrix4(),
+        },
+        {
+          geometry: logoGeoBack,
+          material: logoMat,
+          matrix: new THREE.Matrix4(),
+        },
+      ],
+    };
+
+    this._allocPool(poolName, variant, n);
+  }
+
   // Called once Engine.js's asset loading has resolved. Builds every
   // InstancedMesh pool, sized for `chunkCount` chunks' worth of slots.
   build(models) {
@@ -511,6 +765,12 @@ export class SceneryInstancer {
     this.hasStreetlightModel = !!streetlightVariant;
     if (this.hasStreetlightModel) {
       this._allocPool("streetlight", streetlightVariant, n * 2);
+      this._createBannerPool(n, "bannerCyntexa", "/img/cyntexa-badge.svg");
+      this._createBannerPool(
+        n,
+        "bannerChargeon",
+        "/img/chargeon-logo-badge.webp",
+      );
     }
 
     this.availableBuildingVariants = BUILDING_VARIANTS.filter(
@@ -580,11 +840,18 @@ export class SceneryInstancer {
       streetlightIndices: this.hasStreetlightModel
         ? [this._take("streetlight"), this._take("streetlight")]
         : [],
+      bannerCyntexaIndex: this.hasStreetlightModel
+        ? this._take("bannerCyntexa")
+        : null,
+      bannerChargeonIndex: this.hasStreetlightModel
+        ? this._take("bannerChargeon")
+        : null,
       // Footpath prop: one per side, type cycles per chunk
       footpathPropSlots: [],
       treeSlots: [],
       hasScenery: chunkIndex % 2 === 0,
       treeJitter: [],
+      chunkIndex: chunkIndex, // Add this so syncChunk can read it
     };
 
     // Assign one prop per side using round-robin through available prop types
@@ -862,6 +1129,10 @@ export class SceneryInstancer {
   // the only per-frame cost -- pure Matrix4 composition into pre-allocated
   // buffers, no allocation.
   syncChunk(manifest, chunkZ) {
+    if (this.bannerTimeUniform) {
+      this.bannerTimeUniform.value = performance.now() / 1000;
+    }
+
     // 1. Base Gravel/Dirt ground (Subway Surfers ground)
     this.pools.trackBase.setTransform(
       manifest.trackBaseIndex,
@@ -929,6 +1200,12 @@ export class SceneryInstancer {
     });
 
     manifest.streetlightIndices.forEach((idx, i) => {
+      // Space them out by only showing them on even chunks (every 60 units instead of 30)
+      if (manifest.chunkIndex % 2 !== 0) {
+        this.pools.streetlight.hide(idx);
+        return;
+      }
+
       // The pole base is locally offset by ~1.0 in +X. With scale 1.5, that's +1.5 world offset.
       // To place the pole at +/- 4.9, we need x = 4.9 - 1.5 = 3.4.
       const x = i === 0 ? -4.9 : 4.9;
@@ -938,6 +1215,26 @@ export class SceneryInstancer {
         composePlacement(x, 0, chunkZ, rotY, 1),
       );
     });
+
+    if (this.hasStreetlightModel) {
+      if (manifest.chunkIndex % 2 === 0) {
+        // Place banners exactly at the top of the streetlight poles based on configured height
+        // Left side pole gets Cyntexa badge (rotated so it faces track)
+        this.pools.bannerCyntexa.setTransform(
+          manifest.bannerCyntexaIndex,
+          composePlacement(-4.9, this.bannerMountHeight, chunkZ, Math.PI, 1),
+        );
+        // Right side pole gets ChargeOn badge
+        this.pools.bannerChargeon.setTransform(
+          manifest.bannerChargeonIndex,
+          composePlacement(4.9, this.bannerMountHeight, chunkZ, 0, 1),
+        );
+      } else {
+        // Hide banners on chunks where streetlights are also hidden
+        this.pools.bannerCyntexa.hide(manifest.bannerCyntexaIndex);
+        this.pools.bannerChargeon.hide(manifest.bannerChargeonIndex);
+      }
+    }
 
     manifest.treeSlots.forEach((slot, i) => {
       const jitter = manifest.treeJitter[i];
