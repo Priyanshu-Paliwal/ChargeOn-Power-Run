@@ -62,8 +62,9 @@ const MAX_OBSTACLE_SLOTS = 3; // matches the densest authored pattern (gauntlet-
 const MAX_COIN_SLOTS = 3; // matches the densest coin trail across all patterns
 
 export class WorldStreamer {
-  constructor(scene, textures, models) {
+  constructor(scene, textures, models, engine) {
     this.scene = scene;
+    this.engine = engine;
     this.textures = textures;
     this.models = models;
     this.levelBaseSpeed = 30; // per-level BASE speed (before in-level ramp); set by setLevel()
@@ -85,7 +86,7 @@ export class WorldStreamer {
     );
     this.chunkManifests = []; // parallel to trackPool, filled in by buildScenery()
 
-    this.propSystem = new FootpathPropSystem(this.scene, this.models);
+    this.propSystem = new FootpathPropSystem(this.scene, this.models, [], this.engine);
 
     this.obstacleFactory = new ObstacleFactory();
     this.spawnDirector = new SpawnDirector();

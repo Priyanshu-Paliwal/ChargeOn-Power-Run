@@ -7,6 +7,7 @@ import { WorldStreamer } from "../world/WorldStreamer.js";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { viewportManager } from "./ViewportManager.js";
 import { CameraRig } from "./CameraRig.js";
@@ -148,7 +149,7 @@ export class Engine {
     textures.grassNormal.repeat.set(50, 50);
 
     this.models = {};
-    this.world = new WorldStreamer(this.scene, textures, this.models);
+    this.world = new WorldStreamer(this.scene, textures, this.models, this);
 
     this.loadAssets();
 
@@ -342,6 +343,7 @@ export class Engine {
     const dracoLoader = new DRACOLoader();
     dracoLoader.setDecoderPath("/draco/");
     gltfLoader.setDRACOLoader(dracoLoader);
+    const fbxLoader = new FBXLoader();
     const texLoader = new THREE.TextureLoader();
 
     const setupModel = (model) => {
@@ -367,9 +369,27 @@ export class Engine {
         const gltf = await gltfLoader.loadAsync(url);
         if (gltf && gltf.scene) {
           this.models[key] = customSetup(gltf.scene);
+          if (gltf.animations && gltf.animations.length > 0) {
+            this.models[key].animations = gltf.animations; // Store embedded animations directly on the scene object
+          }
         }
       } catch (err) {
-        console.error(`Failed to load ${url}:`, err);
+        console.error(`Failed to load GLTF ${url}:`, err);
+      }
+    };
+
+    const loadFBXModel = async (key, url, customSetup = setupModel) => {
+      try {
+        const fbx = await fbxLoader.loadAsync(url);
+        if (fbx) {
+          // FBX scales differently sometimes, standard scale adjustment (0.01) may be needed, but we'll let customSetup handle it if needed
+          this.models[key] = customSetup(fbx);
+          if (fbx.animations && fbx.animations.length > 0) {
+            this.models[key].animations = fbx.animations;
+          }
+        }
+      } catch (err) {
+        console.error(`Failed to load FBX ${url}:`, err);
       }
     };
 
@@ -580,16 +600,472 @@ export class Engine {
         "utility_box",
         "/assets/models/environment/props/utility_box.glb",
       ),
+
+      // ----- Native Characters (with embedded animations) -----
+      loadModel(
+        "npc_businessman",
+        "/assets/characters/businessman_character_ankit_rigged.glb",
+        (scene) => {
+          scene.scale.set(1.5, 1.5, 1.5);
+          return setupModel(scene);
+        },
+      ),
+      loadModel(
+        "npc_thalapathy",
+        "/assets/characters/thalapathy_vijay_3d_model.glb",
+        (scene) => {
+          scene.scale.set(1.5, 1.5, 1.5);
+          return setupModel(scene);
+        },
+      ),
+      loadModel("npc_dog", "/assets/characters/dog/source/dog.glb", (scene) => {
+        // Dog natively might be right sized, scaling to 1.0 just in case.
+        scene.scale.set(1.0, 1.0, 1.0);
+        return setupModel(scene);
+      }),
+      loadModel(
+        "npc_flamingo",
+        "/assets/characters/flamingo/source/Flamingo.glb",
+        (scene) => {
+          scene.scale.set(0.005, 0.005, 0.005); // Flamingo usually big
+          return setupModel(scene);
+        },
+      ),
+      loadFBXModel(
+        "npc_female_phone",
+        "/assets/characters/female-phone-walking-free-animation-40f-loop/source/extracted/locom_f_phoneWalking_40f.fbx",
+        (scene) => {
+          scene.scale.set(0.015, 0.015, 0.015);
+          return setupModel(scene);
+        },
+      ),
+      loadFBXModel(
+        "npc_male_basic",
+        "/assets/characters/male-basic-walk-30-frames-loop/source/extracted/locom_m_basicWalk_30f.fbx",
+        (scene) => {
+          scene.scale.set(0.015, 0.015, 0.015);
+          return setupModel(scene);
+        },
+      ),
+      loadFBXModel(
+        "npc_male_phone",
+        "/assets/characters/male-phone-walking-40-frames-loop/source/extracted/locom_m_phoneWalking_40f.fbx",
+        (scene) => {
+          scene.scale.set(0.015, 0.015, 0.015);
+          return setupModel(scene);
+        },
+      ),
+      loadFBXModel(
+        "npc_male_slow",
+        "/assets/characters/male-slow-walk-40-frames-loop/source/extracted/locom_m_slowWalk_40f.fbx",
+        (scene) => {
+          scene.scale.set(0.015, 0.015, 0.015);
+          return setupModel(scene);
+        },
+      ),
+      loadModel(
+        "npc_ps1_male",
+        "/assets/characters/male_character_ps1-style.glb",
+        (scene) => {
+          scene.scale.set(1.3, 1.3, 1.3); // Increased scale as requested
+          return setupModel(scene);
+        },
+      ),
     ]);
 
     // Desert model removed - it rendered as a white/snowy landscape that washed out the track visuals.
     // The ground plane in initAtmosphere() provides the base green ground like the reference game.
 
-    // Now that assets are loaded, build every scenery InstancedMesh pool and
-    // assign each chunk's fixed slots -- the world has no scenery at all
-    // until this runs (see WorldStreamer/SceneryInstancer), so this is the
-    // one moment it all appears at once instead of swapping in per-chunk.
+    // Wait for the main character models and animations to finish loading
+    const [animations] = await Promise.all([characterLoader.loadAnimations()]);
+
+    try {
+      const thalapathyModel = this.models["npc_thalapathy"];
+      const businessmanModel = this.models["npc_businessman"];
+      const ps1Model = this.models["npc_ps1_male"];
+      const malePhoneModel = this.models["npc_male_phone"];
+      const femalePhoneModel = this.models["npc_female_phone"];
+
+      const thalapathyBones = [];
+      const businessmanBones = [];
+      const ps1Bones = [];
+      const malePhoneBones = [];
+      const femalePhoneBones = [];
+
+      if (thalapathyModel) {
+        if (!thalapathyModel.animations) thalapathyModel.animations = [];
+        thalapathyModel.traverse((c) => {
+          if (c.isBone) thalapathyBones.push(c.name);
+        });
+      }
+
+      if (businessmanModel) {
+        if (!businessmanModel.animations) businessmanModel.animations = [];
+        businessmanModel.traverse((c) => {
+          if (c.isBone) businessmanBones.push(c.name);
+        });
+      }
+
+      if (ps1Model) {
+        if (!ps1Model.animations) ps1Model.animations = [];
+        ps1Model.traverse((c) => {
+          if (c.isBone) ps1Bones.push(c.name);
+        });
+      }
+
+      if (malePhoneModel) {
+        if (!malePhoneModel.animations) malePhoneModel.animations = [];
+        malePhoneModel.traverse((c) => {
+          if (c.isBone) malePhoneBones.push(c.name);
+        });
+      }
+
+      if (femalePhoneModel) {
+        if (!femalePhoneModel.animations) femalePhoneModel.animations = [];
+        femalePhoneModel.traverse((c) => {
+          if (c.isBone) femalePhoneBones.push(c.name);
+          if (c.name === "bip_Pelvis" || c.name === "bip") {
+            console.log(
+              `[Female Phone] ${c.name} rest pos:`,
+              c.position.x,
+              c.position.y,
+              c.position.z,
+            );
+            console.log(
+              `[Female Phone] ${c.name} rest quat:`,
+              c.quaternion.x,
+              c.quaternion.y,
+              c.quaternion.z,
+              c.quaternion.w,
+            );
+          }
+        });
+      }
+
+      // Strip root motion from phone models' embedded Take 001
+      const stripRootMotion = (model) => {
+        if (model && model.animations) {
+          model.animations.forEach((anim) => {
+            anim.tracks = anim.tracks.filter(
+              (t) =>
+                !t.name.includes("rig_CharRoot.position") &&
+                !t.name.includes("bip.position") &&
+                !t.name.includes("bip_Pelvis.position"),
+            );
+          });
+        }
+      };
+      stripRootMotion(femalePhoneModel);
+      stripRootMotion(malePhoneModel);
+
+      if (
+        thalapathyModel ||
+        businessmanModel ||
+        ps1Model ||
+        malePhoneModel ||
+        femalePhoneModel
+      ) {
+        const motionFiles = [
+          "jogging.fbx",
+          "Looking.fbx",
+          "Pacing_And_Talking_On_A_Phone_backwards_forwards.fbx",
+          "Sitting_clap.fbx",
+          "sitting_leg_movement.fbx",
+          "strut_walking.fbx",
+          "talking_phone_pacing.fbx",
+          "walking.fbx",
+          "walking_while_texting.fbx",
+          "Waving.fbx",
+        ];
+
+        const retargetClip = (clip, targetBones, model) => {
+          const retargetedTracks = [];
+          const unmatched = new Set();
+          clip.tracks.forEach((track) => {
+            const parts = track.name.split(".");
+            const origBone = parts[0];
+            const prop = parts[1];
+
+            // Handle 'mixamorig:', 'mixamorig', 'mixamorig_' etc.
+            let coreName = origBone.replace(/mixamorig[:_]?/gi, "");
+
+            let searchName = coreName;
+
+            // PS1 Custom Mapping Dictionary
+            if (model === ps1Model) {
+              const ps1Map = {
+                Hips: "pelvis",
+                Spine: "spine",
+                Spine1: "chest",
+                Spine2: "chest",
+                Neck: "neck",
+                Head: "head",
+                LeftShoulder: "shoulder_left",
+                LeftArm: "upper_arm_left",
+                LeftForeArm: "forearm_left",
+                LeftHand: "hand_left",
+                RightShoulder: "shoulder_right",
+                RightArm: "upper_arm_right",
+                RightForeArm: "forearm_right",
+                RightHand: "hand_right",
+                LeftUpLeg: "thigh_left",
+                LeftLeg: "shin\\.L",
+                LeftFoot: "foot_left",
+                RightUpLeg: "thigh_right",
+                RightLeg: "shin\\.R",
+                RightFoot: "foot_right",
+              };
+              if (ps1Map[coreName]) searchName = ps1Map[coreName];
+            }
+
+            // Male Phone and Female Phone Custom Mapping Dictionary (Biped)
+            if (model === malePhoneModel || model === femalePhoneModel) {
+              const bipedMap = {
+                Hips: "bip_Pelvis",
+                Spine: "bip_Spine",
+                Spine1: "bip_Spine1",
+                Spine2: "bip_Spine1", // No Spine2 in bip
+                Neck: "bip_Neck",
+                Head: "bip_Head",
+                LeftShoulder: "bip_L_Clavicle",
+                LeftArm: "bip_L_UpperArm",
+                LeftForeArm: "bip_L_Forearm",
+                LeftHand: "bip_L_Hand",
+                RightShoulder: "bip_R_Clavicle",
+                RightArm: "bip_R_UpperArm",
+                RightForeArm: "bip_R_Forearm",
+                RightHand: "bip_R_Hand",
+                LeftUpLeg: "bip_L_Thigh",
+                LeftLeg:
+                  "(bip_L_Calf|bip_L_Shin|bip_L_Knee|bip_L_Leg|bip_L_LowerLeg)",
+                LeftFoot: "bip_L_Foot",
+                LeftToeBase: "(bip_L_Toe0|bip_L_Toe)",
+                RightUpLeg: "bip_R_Thigh",
+                RightLeg:
+                  "(bip_R_Calf|bip_R_Shin|bip_R_Knee|bip_R_Leg|bip_R_LowerLeg)",
+                RightFoot: "bip_R_Foot",
+                RightToeBase: "(bip_R_Toe0|bip_R_Toe)",
+              };
+              if (bipedMap[coreName]) searchName = bipedMap[coreName];
+            }
+
+            // Match the core name exactly, or with an underscore and numbers (e.g. Hips_01 or Hips_53),
+            // AND optionally allow the 'mixamorig:' prefix for standard FBX models!
+            const regex = new RegExp(
+              `^(mixamorig[:_]?)?${searchName}(_\\d+)?$`,
+              "i",
+            );
+            const matchingBone = targetBones.find((b) => regex.test(b));
+
+            if (matchingBone) {
+              if (prop === "quaternion") {
+                const newTrack = track.clone();
+                newTrack.name = matchingBone + "." + prop;
+
+                // If this is a Z-up model (like PS1) and it's the root bone (pelvis/hips),
+                // we must PRESERVE the rest rotation, otherwise it gets forced to Identity and lies down!
+                if (
+                  (model === ps1Model && matchingBone === "pelvis_01") ||
+                  ((model === malePhoneModel || model === femalePhoneModel) &&
+                    matchingBone === "bip_Pelvis")
+                ) {
+                  const boneObj = model.getObjectByName(matchingBone);
+                  if (boneObj) {
+                    const restQ = boneObj.quaternion.clone();
+                    for (let i = 0; i < newTrack.values.length; i += 4) {
+                      const animQ = new THREE.Quaternion(
+                        newTrack.values[i],
+                        newTrack.values[i + 1],
+                        newTrack.values[i + 2],
+                        newTrack.values[i + 3],
+                      );
+                      // Pre-multiply the rest rotation so it stays standing!
+                      const finalQ = restQ.clone().multiply(animQ);
+                      newTrack.values[i] = finalQ.x;
+                      newTrack.values[i + 1] = finalQ.y;
+                      newTrack.values[i + 2] = finalQ.z;
+                      newTrack.values[i + 3] = finalQ.w;
+                    }
+                  }
+                }
+
+                retargetedTracks.push(newTrack);
+              } else if (prop === "position") {
+                const newTrack = track.clone();
+                newTrack.name = matchingBone + "." + prop;
+
+                // Dynamically scale position data so the character doesn't fly off screen
+                let targetRestX = 0.0;
+                let targetRestY = 1.0;
+                let targetRestZ = 0.0;
+                const boneObj = model.getObjectByName(matchingBone);
+                if (boneObj) {
+                  targetRestX = boneObj.position.x;
+                  targetRestY = boneObj.position.y;
+                  targetRestZ = boneObj.position.z;
+                }
+
+                // Detect if the target skeleton is Z-up (like PS1 male) instead of Y-up
+                const isZUp = Math.abs(targetRestZ) > Math.abs(targetRestY);
+
+                let animRestX = newTrack.values[0] || 0.0;
+                let animRestY = newTrack.values[1] || 1.0;
+                let animRestZ = newTrack.values[2] || 0.0;
+                if (animRestY === 0) animRestY = 1.0;
+
+                let targetUpRest = isZUp ? targetRestZ : targetRestY;
+                let scaleRatio = Math.abs(targetUpRest / animRestY);
+
+                // Preserve full hip sway (X, Y, Z) but centered around the target's rest position!
+                for (let i = 0; i < newTrack.values.length; i += 3) {
+                  let mixamoX = newTrack.values[i];
+                  let mixamoY = newTrack.values[i + 1];
+                  let mixamoZ = newTrack.values[i + 2];
+
+                  let swayX = (mixamoX - animRestX) * scaleRatio;
+                  let bobbing = (mixamoY - animRestY) * scaleRatio;
+                  let rawSwayZ = (mixamoZ - animRestZ) * scaleRatio;
+
+                  // Strip the macroscopic forward root motion for continuous walking/jogging
+                  // animations, so they loop perfectly in-place as the engine pushes them.
+                  // HOWEVER, for complex local animations (like pacing, talking, turning around),
+                  // we PRESERVE the local root motion so they actually step around in their spot!
+                  let swayZ = 0;
+                  const nameLower = clip.name.toLowerCase();
+                  if (
+                    nameLower.includes("pacing") ||
+                    nameLower.includes("talking") ||
+                    nameLower.includes("waving") ||
+                    nameLower.includes("sit") ||
+                    nameLower.includes("looking")
+                  ) {
+                    swayZ = rawSwayZ;
+                  }
+
+                  if (isZUp) {
+                    newTrack.values[i] = targetRestX + swayX;
+                    newTrack.values[i + 1] = targetRestY - swayZ;
+                    newTrack.values[i + 2] = targetRestZ + bobbing;
+                  } else {
+                    newTrack.values[i] = targetRestX + swayX;
+                    newTrack.values[i + 1] = targetRestY + bobbing;
+                    newTrack.values[i + 2] = targetRestZ + swayZ;
+                  }
+                }
+
+                retargetedTracks.push(newTrack);
+              }
+            } else {
+              unmatched.add(origBone);
+            }
+          });
+
+          if (unmatched.size > 0) {
+            console.warn(
+              `[Retargeting] ${clip.name} unmatched bones:`,
+              Array.from(unmatched).join(", "),
+            );
+          }
+
+          clip.tracks = retargetedTracks;
+          return clip;
+        };
+
+        // Process embedded animations to strip Root Motion and make them "In-Place"!
+        const processEmbeddedAnims = (model, bones) => {
+          if (!model || !model.animations) return;
+          const newAnims = [];
+          for (const clip of model.animations) {
+            const retargeted = retargetClip(clip.clone(), bones, model);
+            newAnims.push(retargeted);
+          }
+          model.animations = newAnims;
+        };
+
+        processEmbeddedAnims(thalapathyModel, thalapathyBones);
+        processEmbeddedAnims(businessmanModel, businessmanBones);
+        processEmbeddedAnims(ps1Model, ps1Bones);
+        // processEmbeddedAnims(malePhoneModel, malePhoneBones); // Temporarily disable to stop freezing
+
+        if (malePhoneModel) {
+          console.log("Male Phone Bones length:", malePhoneBones.length);
+        }
+
+        for (const file of motionFiles) {
+          try {
+            const fbx = await fbxLoader.loadAsync(
+              `/assets/characters/motions/${file}`,
+            );
+            if (fbx.animations && fbx.animations.length > 0) {
+              const clip = fbx.animations[0];
+              clip.name = file.replace(".fbx", "");
+
+              if (thalapathyModel) {
+                // Pass a cloned clip so we don't mutate the original before the next character needs it!
+                const retargeted = retargetClip(
+                  clip.clone(),
+                  thalapathyBones,
+                  thalapathyModel,
+                );
+                thalapathyModel.animations.push(retargeted);
+                console.log(`[Retargeting] Applied ${clip.name} to Thalapathy`);
+              }
+
+              if (businessmanModel) {
+                const retargeted = retargetClip(
+                  clip.clone(),
+                  businessmanBones,
+                  businessmanModel,
+                );
+                businessmanModel.animations.push(retargeted);
+                console.log(
+                  `[Retargeting] Applied ${clip.name} to Businessman`,
+                );
+              }
+              if (ps1Model) {
+                const retargeted = retargetClip(
+                  clip.clone(),
+                  ps1Bones,
+                  ps1Model,
+                );
+                ps1Model.animations.push(retargeted);
+                console.log(`[Retargeting] Applied ${clip.name} to PS1 Male`);
+              }
+
+              if (malePhoneModel) {
+                const retargeted = retargetClip(
+                  clip.clone(),
+                  malePhoneBones,
+                  malePhoneModel,
+                );
+                malePhoneModel.animations.push(retargeted);
+                console.log(`[Retargeting] Applied ${clip.name} to Male Phone`);
+              }
+              if (femalePhoneModel) {
+                const retargeted = retargetClip(
+                  clip.clone(),
+                  femalePhoneBones,
+                  femalePhoneModel,
+                );
+                femalePhoneModel.animations.push(retargeted);
+                console.log(
+                  `[Retargeting] Applied ${clip.name} to Female Phone`,
+                );
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to load/retarget motion ${file}:`, err);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Retargeting Error:", e);
+    }
+    // ==============================================
+
+    // Inject the animations into WorldStreamer so it can pass them to FootpathPropSystem
     if (this.world) {
+      this.world.propSystem.animations = animations; // Core mixamo animations (Run, Idle, etc)
       this.world.buildScenery();
     }
   }
@@ -696,6 +1172,11 @@ export class Engine {
     // Only move the world if playing
     if (this.mode === "PLAYING") {
       this.world.update(delta);
+    } else {
+      // In LOBBY, we want pedestrians to keep walking/animating even though the world is stationary
+      if (this.world && this.world.propSystem) {
+        this.world.propSystem.update(0, delta, 50);
+      }
     }
 
     this.cameraRig.update(
