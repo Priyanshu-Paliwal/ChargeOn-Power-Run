@@ -494,3 +494,21 @@ Flagging rather than blocking — none of these stop Milestone 1 starting.
 5. **Audio assets** need sourcing with a commercial licence.
 6. **The docs file is out of date** — `initial_implementation_documentation.md` claims a React migration, but the codebase is Vue 3 + Pinia (and Pinia is installed but unused). Corrected in Milestone 10.
 7. **Goodie pools** — the overview flags exact level-to-pool assignment as needing confirmation. Current values in `GameContent.js` match the suggested first pass.
+
+---
+
+## 2026-08-31 Refinements & Progression Tweaks Update
+* **Jetpack Redesign & Animation:** The jetpack model was re-oriented to sit horizontally and flat against the character's back (`rotation.x = -Math.PI / 2`) and its scale was increased by 10% (from `0.17` to `0.187`). Additionally, the player now correctly plays the `flying.fbx` animation while the jetpack is active.
+* **Track Gaps (Floating Point Drift) Fixed:** Fixed a visual bug where gaps would appear between track chunks during long runs. `WorldStreamer.js` now wraps chunk positions using exact subtraction (`chunk.position.z -= this.poolSize * trackLength`) rather than recalculating from `minZ`, mathematically eliminating floating-point precision drift.
+* **Unused Asset Cleanup:** Deleted several unused 3D models (`StreetLightPoles.glb`, `.blend` files, unused tree models) that were no longer referenced by `SceneryInstancer`, keeping the workspace clean and reducing total asset size.
+* **Difficulty & Pacing Tuning:**
+  * Reduced Level 3 speed multiplier from `1.6x` to `1.5x`.
+  * Reduced `FEATURE_SPACING_DISTANCE` from 45 to 35 for Levels 1 and 2, ensuring coins appear faster.
+  * Reduced `sceneryChance` (barrier spawn chance) from 50% to 40%.
+  * Increased `MIN_OBSTACLE_GAP_SECONDS` from 0.55s to 0.60s to ensure a slightly more forgiving reaction window.
+* **Level Transition "Breather" Runway:** Fixed an issue where players would instantly hit a barrier immediately after the 3-2-1 countdown when starting a new level. `WorldStreamer.js`'s `setLevel()` was modified to hide all currently loaded `chunkObstacles` and `chunkCoins` across all chunks. This provides a completely clear, empty ~8-second runway at the start of every level, allowing players to safely get their bearings.
+* **Fixed Level Goodies & Discounts:** Replaced the RNG-based `goodiesPool` with a fixed reward structure mapped directly to levels:
+  * Level 1: Energy Bar + 5% OFF
+  * Level 2: Fridge Magnet + 10% OFF
+  * Level 3: Premium Tote Bag + 15% OFF
+  * `LevelComplete.vue` was updated to explicitly show both the won item and the discount value. `SheetService.js` and `App.vue` were updated to dispatch the specific `discount` value to the backend, which required a matching update to the Google Apps Script column layout.
