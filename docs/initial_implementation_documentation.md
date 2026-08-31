@@ -1,19 +1,20 @@
-# ChargeOn Power Run - Initial Implementation Documentation
+# ChargeOn Power Run - Implementation Documentation
 
 **Date:** August 2026  
-**Status:** Alpha / Initial Release  
+**Status:** Beta / Pre-Release  
 
 ---
 
 ## 1. Project Overview & Origins
 **ChargeOn Power Run** is a 3D endless-runner style web game developed for **Dreamforce '26**. The goal of the project was to create a highly engaging, interactive, and visually stunning gamified experience to showcase ChargeOn's Salesforce-native payment solutions.
 
-We started with a basic Vite + Vue 3 template (later migrated to React) and integrated **Three.js** to handle the 3D rendering. Over the course of development, we transformed it from a simple prototype into a fully responsive, polished AAA-style browser game featuring post-processing, procedural world generation, and a complete UI state machine.
+We started with a basic Vite + Vue 3 template and integrated **Three.js** to handle the 3D rendering. Over the course of development, we transformed it from a simple prototype into a fully responsive, polished AAA-style browser game featuring post-processing, high-performance object pooling, and a complete UI state machine.
 
 ---
 
 ## 2. Agreement Protocol
-Moving forward, this documentation will be updated incrementally immediately following the approval of any new feature or fix. I will not overwrite the entire document, but will carefully append or update the specific parts that have changed.
+Moving forward, this documentation will be updated incrementally immediately following the approval of any new feature or fix. We do not overwrite the entire history, but carefully append or update the specific parts that have changed to maintain an accurate living record.
+
 ---
 
 ## 3. Game Design Document (GDD)
@@ -23,39 +24,42 @@ The player controls a futuristic character running forward on a 3-lane track. Th
 
 ### Win / Lose Conditions
 - **Lose Condition:** Hitting blockers/obstacles reduces the player's life count. If lives reach 0, the game is over. 
-- **Win Condition (Per Level):** Collecting the required number of "Features" mapped to the current level completes the stage. The player unlocks an exclusive offer upon finishing all levels.
+- **Win Condition (Per Level):** Collecting the required number of "Features" mapped to the current level completes the stage. Features are dealt as a shuffled queue without replacement. The player unlocks an exclusive offer upon finishing all levels.
 
 ### Controls
-- **Movement:** Left / Right Arrow Keys (or `A` / `D`) to smoothly switch lanes.
-- **Jump:** Spacebar or Up Arrow Key to jump over obstacles.
+- **Movement:** Left / Right Arrow Keys (or `A` / `D`) or Mobile Swipes (Left/Right) to smoothly switch lanes.
+- **Jump:** Spacebar, Up Arrow Key, or Swipe Up to jump over obstacles (BARRICADE_LOW).
+- **Slide:** Down Arrow Key, `S`, or Swipe Down to slide under flying obstacles (DRONE_LOW).
 
 ### Levels / Stages Structure
-- **Level 1 to N:** As levels progress, the running speed incrementally increases (via `speedMultiplier`).
-- **Dynamic Spawning:** The track procedurally spawns blockers and features based on the current level requirements. The game generates a 3D chunk pool that cycles infinitely as the player runs.
+- **Level 1 to 3:** As levels progress, the running speed incrementally increases (via `speedMultiplier`) and obstacle density ramps up.
+- **Dynamic Spawning:** The track procedurally spawns blockers and features based on the current level requirements. The game generates a 3D chunk pool (`WorldStreamer`) that cycles infinitely as the player runs.
 
 ---
 
 ## 4. Asset Inventory & Art Style
 
-### Current 3D Models (GLB) & Textures
-- **Buildings (`public/assets/models/buildings/`)**
-  - `L_build_1.glb` (With L1 Texture Maps)
-  - `L_build_2.glb` (With L2 Texture Maps)
-  - `L_build_3.glb` (With L3 Texture Maps)
-  - `old_small_house.glb`
-- **Environment (`public/assets/models/environment/`)**
-  - `Desert field.glb` (Background base layer)
-  - `MetalRailing.glb` (Track borders)
-  - `StreetLightPoles.glb` (Lighting along the track)
-- **Trees (`public/assets/models/trees/`)**
-  - `maple1.glb`
-  - `poplar1.glb`
-  - `whitePoplar1.glb`
+### Current 3D Models (GLB)
+- **Playable Characters (`public/assets/characters/`)**
+  - `male_suit.glb`
+  - `female_suit.glb`
+  - `anime_tech.glb`
+  - `anime_wizard.glb`
+- **NPC Characters (`public/assets/characters/`)**
+  - `thalapathy_vijay_3d_model.glb`
+  - `businessman_character_ankit_rigged.glb`
+  - `professional_male_causual_dress.glb`
+  - `professional_female_black_dress.glb`
+  - `gentleman_in_shirt.glb`
+  - `commanding_coach_model.glb`
+  - `big_black_man.glb`
+  - `indian-man-with-suit.glb`
+- **Environment (`public/assets/models/`)**
+  - Buildings (`L_build_1.glb`, `L_build_2.glb`, `L_build_3.glb`, `old_small_house.glb`)
+  - Trees (`maple1.glb`, `poplar1.glb`, `whitePoplar1.glb`)
+  - Track Elements (`Desert_field.glb`, `MetalRailing.glb`, `StreetLightPoles.glb`)
 
-### Missing / Future Assets Needed
-- Custom 3D meshes for power-ups (currently using procedural spheres/icons).
-- Unique 3D obstacle models (currently using procedural barricades).
-- Custom UI overlays/fonts specifically branded to Cyntexa.
+*Note: All heavy character models have been heavily optimized using Draco compression, deduplication, and WebP textures to fit within a strict <100MB Vercel deployment budget.*
 
 ### Art Style Reference
 - **Low-Poly & Vibrant:** Clean, baked textures with dynamic lighting.
@@ -64,10 +68,11 @@ The player controls a futuristic character running forward on a 3-lane track. Th
 ---
 
 ## 5. Technology Stack & Directory Structure
-* **Core Framework:** React (via Vite) (Migrated from Vue 3)
+* **Core Framework:** Vue 3 (via Vite)
+* **State Management:** Pinia (Installed, unused in favor of reactive App.vue state)
 * **3D Rendering Engine:** Three.js (WebGL)
 * **Build Tool:** Vite
-* **Styling:** CSS Modules / Vanilla CSS (Responsive, Mobile-First)
+* **Styling:** CSS / Scoped Vue CSS (Responsive, Mobile-First)
 * **Languages:** JavaScript (ES6+), HTML5, CSS3
 
 ### Project Architecture & Directory Structure
@@ -76,40 +81,32 @@ The project is structured to strictly separate the **3D Game Engine** from the *
 ```text
 ChargeOn Power Run/
 ├── docs/
-│   └── initial_implementation_documentation.md # This living document
-|   └── ChargeOn_Power_Run_Content_Script (1).docx
-|   └── ChargeOn_Power_Run_Simple_Overview (1).docx
-|   └── Character-Images.png
-|
-├── index.html              # Main HTML entry point for the Vite app
-├── package.json            # Node dependencies (Three.js, React, Vite)
-├── vite.config.js          # Vite build configuration
+│   ├── initial_implementation_documentation.md # This living document
+│   ├── PROCESS_TRACKER.md                      # Detailed changelog and milestones
+│   └── IMPLEMENTATION_PLAN.md                  # Strategic architecture plan
 ├── public/                 # STATIC ASSETS (Served directly by Vite)
-│   ├── assets/             # Refactored 3D models and textures
-│   │   ├── models/
-│   │   │   ├── buildings/  # L_build_1, L_build_2, L_build_3, old_small_house
-│   │   │   ├── environment/# Desert field, MetalRailing, StreetLightPoles
-│   │   │   └── trees/      # maple1, poplar1, whitePoplar1
-│   │   └── textures/       # Materials and maps
-│   └── models/             
-│       └── Soldier.glb     # 3D Character model
-├── refactor_assets.js      # Utility script for asset management
+│   ├── assets/             # 3D models and textures
+│   │   ├── characters/     # Optimized .glb characters + animations.glb
+│   │   ├── models/         # Buildings, Trees, Environment
+│   │   └── textures/       # Materials and UI images
+│   └── audio/              # SFX sprite and music loops
+├── scripts/                # Node build utilities (Draco compression, budget checks)
 └── src/
-    ├── App.jsx             # The root React component and State Machine controller
-    ├── main.jsx            # React application entry point
-    ├── index.css           # Global CSS resets and fonts
+    ├── App.vue             # The root Vue component and State Machine controller
+    ├── main.js             # Vue application entry point
+    ├── style.css           # Global CSS resets and fonts
     ├── data/
     │   └── GameContent.js  # Centralized content (Levels, Features, Pain Points, Dialogues)
     ├── game/               # THREE.JS 3D ENGINE
-    │   ├── Engine.js       # Main render loop, collision detection, and asset loader
-    │   ├── Lighting.js     # Environment lighting and shadows
-    │   ├── Player.js       # 3D character mesh, animations, and lerp physics
-    │   ├── PostProcessing.js # Visual effects (Bloom, Depth of Field, Outlines)
-    │   └── WorldGenerator.js # Procedural track generation and chunk pooling
-    └── ui/                 # REACT 2D OVERLAYS
-        ├── Landing.jsx     # Main menu, Leaderboard, Character Selection
-        ├── GameHUD.jsx     # Heads-up display (Lives, Progress bar, Collected Features)
-        ├── GameOver.jsx    # Out of lives screen
+    │   ├── config/         # GameConfig.js (Tuning constants)
+    │   ├── core/           # Engine.js, CameraRig, ObjectPool, QualityManager
+    │   ├── entities/       # Player, Pickups, CharacterLoader
+    │   ├── systems/        # CollisionSystem, InputManager, EffectsSystem, AudioManager
+    │   └── world/          # WorldStreamer, SceneryInstancer, TrackBuilder, SpawnDirector
+    └── ui/                 # VUE 2D OVERLAYS
+        ├── Landing.vue     # Main menu, Leaderboard, Character Selection
+        ├── GameHUD.vue     # Heads-up display (Lives, Progress bar, Coins, Powerups)
+        ├── GameOver.vue    # Out of lives screen
         └── ...             # Other narrative and marketing funnel components
 ```
 
@@ -117,10 +114,10 @@ ChargeOn Power Run/
 
 ## 6. The Game Loop & State Machine
 
-The entire flow of the application is managed in `App.jsx` using a reactive `gameState` variable. The UI React components are dynamically mounted/unmounted based on this state, overlaying the persistent 3D `<canvas>` in the background.
+The entire flow of the application is managed in `App.vue` using a reactive `gameState` variable. The UI Vue components are dynamically mounted/unmounted based on this state, overlaying the persistent 3D `<canvas>` in the background.
 
 **State Flow:**
-1. `LANDING`: The user arrives, selects a character color, and toggles music.
+1. `LANDING`: The user arrives, selects a character, and toggles music. The 3D view shows a lobby with wandering NPCs.
 2. `REGISTRATION`: Lead capture form (Name, Company, Email).
 3. `HOW_TO_PLAY`: Quick tutorial on mechanics.
 4. `STORY_BEAT`: Narrative introduction.
@@ -128,85 +125,46 @@ The entire flow of the application is managed in `App.jsx` using a reactive `gam
 6. `PLAYING`: The 3D Engine is unpaused. The user controls the character. `GameHUD` is active.
 7. `LEVEL_COMPLETE`: Triggered when the required number of features is collected.
 8. `BOSS_BEAT` -> `OFFER_REVEAL` -> `VICTORY` -> `REDEMPTION`: The end-game marketing funnel.
-* *Alternative Flow:* If the player hits 3 blockers, the state switches to `GAME_OVER`.
+* *Alternative Flow:* If the player loses 3 lives, the state switches to `GAME_OVER`.
 
 ---
 
 ## 7. Core Game Mechanics
 
 ### Input & Controls
-* **Keyboard:** Left/Right Arrow keys or A/D to switch lanes.
-* **Movement:** The character runs automatically on a 3-lane track.
-* **Mobile/Tablet:** The UI is fully responsive, setting the stage for future mobile swipe controls.
+* **Keyboard:** Left/Right Arrow keys or A/D to switch lanes. Up/W to jump, Down/S to slide.
+* **Touch:** Swipe Left/Right/Up/Down. Input buffers ensure swipes register smoothly even if the player is mid-animation.
 
-### Procedural Generation (`WorldGenerator.js`)
-* The track is built in "chunks". As the player moves forward, old chunks behind the camera are destroyed and new chunks are spawned ahead.
-* **Scenery:** Trees and skyscrapers are randomly scaled and placed on the periphery.
-* **Spawning Algorithm:** Coins (Features) and Blockers (Pain Points) are spawned dynamically. We heavily tuned the ratio so that blockers spawn at a roughly ~50% clip to keep the game appropriately challenging.
+### Procedural Generation (`WorldStreamer.js` & `SceneryInstancer.js`)
+* The track is built using an **Object Pool** of reusable chunks. Old chunks behind the camera are moved ahead of the camera to prevent memory leaks and GC stutters.
+* **Scenery:** Trees, buildings, and railings are rendered using `InstancedMesh`, reducing thousands of draw calls down to just a handful.
+* **Spawning Algorithm (`SpawnDirector.js`):** Coins, Powerups, and Blockers are spawned dynamically based on a weighted difficulty ramp. The director ensures that every obstacle configuration is physically solvable.
 
 ### Entities & Collisions
-* **Features (Coins):** 3D spinning cylinders. Collecting them adds to the user's progress. "ChargeOn Exclusive" features grant special popups.
-* **Blockers (Obstacles):** 3D red boxes (some on the ground, some flying in later levels). Hitting these triggers an error popup, shakes the camera, and removes 1 of the player's 3 lives.
+* **Features (Coins):** 3D spinning cylinders. Collecting them pulls from the unique feature queue.
+* **Blockers (Obstacles):** BARRICADE_LOW (requires jump), DRONE_LOW (requires slide), DRONE_HIGH (requires lane switch). Hitting these triggers hit-stop, camera shake, red vignette, and removes 1 life.
+* **Power-Ups:** Magnets (pulls nearby coins) and Shields (absorbs one hit).
 
 ---
 
 ## 8. UI & Design Philosophy
-* **Glassmorphism & Blur:** UI elements heavily utilize `backdrop-filter: blur()` and semi-transparent backgrounds to ensure the 3D game world is always visible underneath.
-* **Typography:** Bold, clean sans-serif fonts. Font sizes were optimized (e.g., `1.6rem` headers) to prevent screen clutter.
-* **Responsiveness:** Popups are capped at specific max-widths with responsive paddings (strictly max `20px` padding on mobile/tablet).
-* **Button UX:** Primary buttons (`.btn-primary`) feature uppercase text, letter spacing, drop shadows, and physical push-down animations (`transform: translateY(-2px)`) on click/hover for tactile feedback.
+* **Responsive Framing:** The 3D camera dynamically solves the FOV to ensure the 3 playable lanes are perfectly framed on all screen sizes, from 4K TVs to portrait phones.
+* **Glassmorphism & Blur:** UI elements utilize `backdrop-filter: blur()` and semi-transparent backgrounds to ensure the 3D game world is visible underneath.
+* **Typography & UI:** Clean fonts, structured toasts, radial timers for power-ups, and animated score counters via GSAP.
+* **CSS Specificity:** Device-specific responsive overrides (e.g. `:global(html[data-size-class="phone-portrait"])`) are used extensively to adjust HUD layouts for mobile.
 
 ---
 
 ## 9. Audio & Music
-* Implemented a global `<audio>` tag playing an upbeat, royalty-free electronic synth track via an external reliable URL (SoundHelix).
-* Controlled via a global React context/state (`musicState`).
-* A sleek toggle button (🔊/🔇) lives in the `Landing` top-bar, allowing the user to initiate playback prior to starting the game.
+* Integrated a highly optimized `AudioManager.js` using a single SFX sprite map (`sfx-sprite.wav`) to minimize HTTP requests.
+* Uses `SoundHelix` for a looping music track.
+* Supports ducking under stingers (volume lowers when a powerup or hit sound plays) and a master mute button in the Lobby.
 
 ---
 
-## 10. Issues Log & Resolutions
-
-Throughout development, we encountered and resolved several critical roadblocks to ensure an optimal user experience:
-
-### Issue 1: Performance Lags with High-Fidelity Assets
-* **Problem:** We attempted to introduce photorealistic PBR materials. However, this caused massive frame drops, lag, and camera shaking, rendering the game unplayable on lower-end devices and mobile screens.
-* **Resolution:** We utilized Three.js's procedural `Sky` shader instead of a heavy HDR texture for the background. Crucially, we strictly capped the `renderer.setPixelRatio` to `1` on mobile screens. We also enabled `matrixAutoUpdate = false` on all static environment pieces (thousands of trees and buildings) and aggressively culled the `dirLight.shadow.camera` frustum to eliminate off-screen shadow mapping.
-
-### Issue 2: Mobile UI and Popup Bloat
-* **Problem:** The various UI popups were taking up too much screen real estate on mobile screens.
-* **Resolution:** We enforced a strict responsive CSS diet across all components, standardizing maximum widths, scaling fonts down, and compressing paddings to a maximum of `20px`.
-
-### Issue 3: Missing Building Textures
-* **Problem:** The large white buildings disappeared completely from the world after folder restructuring.
-* **Why:** The Normal Maps were renamed from `L1_Normal_OpenGL.png` to `L1_Normal.png`. The `Engine.js` hardcoded string was still looking for the old name, triggering a 404 crash in the loader.
-* **The Fix:** Always ensure the string paths in the `loadBuilding` function exactly match the raw filenames in the `public/assets/` folder.
-
-### Issue 4: The "Procedural Green Block" Async Bug
-* **Problem:** The game reverted to showing blocky procedural trees and buildings instead of the beautiful GLB models upon initial load.
-* **Why:** The `loadAssets()` function in Three.js is *asynchronous*. The `WorldGenerator` was building the first 15 chunks of the track *synchronously* during boot. Because the models weren't finished loading yet, it panicked and fell back to procedural blocks. 
-* **The Fix:** Added a forced repopulation loop (`this.world.trackPool.forEach`) that runs the absolute millisecond the background asset loader finishes, instantly swapping the blocks for the final 3D models.
-
-### Issue 5: Wild Model Scaling & Road Overlaps
-* **Problem:** Giant trees filled the screen, and the small house spawned directly in the middle of the road.
-* **Why:** 3D models from the internet have completely different origin points and internal scales. The engine was placing them blindly.
-* **The Fix:** We implemented a dynamic `Box3` mathematical calculation inside `WorldGenerator.js`. It now measures the *exact physical size* of any model you give it, normalizes its scale (e.g., forcing all trees to be exactly 15-25 units tall), finds its true geometric center, and pushes it safely outside the road boundaries (`x = ±25`).
-
-### Issue 6: Backwards Streetlights
-* **Problem:** Streetlights were facing parallel to the road instead of leaning over it, and were sticking out into the track.
-* **Why:** The GLB model was built facing along the X-axis, not the Z-axis. Rotating it 90 degrees (`Math.PI / 2`) pointed it in the wrong direction.
-* **The Fix:** Set the rotations to exactly `0` and `Math.PI` depending on the side of the road, and pushed their starting positions to `x = ±5.5` so they sit behind the metal railings perfectly.
-
----
-
-## 11. Summary of Development Progress
-* **Phase 1:** Engine scaffold, basic Three.js setup, camera follow, chunk generation.
-* **Phase 2:** UI overlay integration, State Machine setup, and GameContent data mapping. Integration of `public/models/Soldier.glb`.
-* **Phase 3:** Visual upgrades: custom character models, particle effects, lighting, and procedural cityscapes.
-* **Phase 4:** Performance Optimization: Scrapping heavy PBR textures in favor of low-poly aesthetics. Optimizing pixel ratios for mobile.
-* **Phase 5:** UI Polish: Shrinking the Game HUD, optimizing popup padding, refining font weights, fixing button UX.
-* **Phase 6:** Audio integration, complete documentation generation, and establishment of the incremental update protocol.
-* **Phase 7:** Aesthetic Overhaul & Optimization. Integrated procedural `Sky` atmosphere and `UnrealBloomPass`. 
-* **Phase 8:** Photorealistic Generation. Rewrote the procedural generation logic for the environment. Replaced basic Cone trees with organic branching.
-* **Phase 9:** Custom 3D Asset Pipeline. Replaced procedural track borders and skyscrapers with custom external `.glb` models loaded asynchronously via `GLTFLoader`. Implemented an asset caching layer in `Engine.js` that pre-loads models before initializing `WorldGenerator`, and utilized `SkeletonUtils.clone()` for efficient memory re-use.
-* **Phase 10:** Mathematical World Bounds & Restructuring. Cleaned up the `public/` directory into a strict `/assets/models` and `/assets/textures` architecture. Implemented Box3 bound calculation in `WorldGenerator.js` to dynamically scale, rotate, and center any external GLB, ensuring they always sit perfectly outside the road without manual tweaking. Eliminated procedural fallbacks with an async repopulation technique.
+## 10. Summary of Architectural Upgrades
+* **Phase 1-2:** Legacy generation. Procedural building, early State Machine.
+* **Phase 3-4 (Milestone 1-3):** Asset Optimization and Responsive Core. Introduced the `WorldStreamer`, `InstancedMesh`, `ViewportManager`, and `CameraRig`. Reduced asset payload from >400MB to <20MB.
+* **Phase 5-6 (Milestone 4-6):** Advanced Physics & Entities. Replaced legacy collision with fixed-timestep swept AABB checks. Added Jump/Slide states, sliding hitboxes, and buffered inputs. Added themed power-ups and sequential coin queues.
+* **Phase 7-8 (Milestone 7-8):** Characters & UI Polish. Replaced the legacy Soldier with 4 dynamic playable characters and a shared animation rig (`animations.glb`). Added complex UI animations, toasts, and a `PauseMenu`. Fixed CSS responsive regressions.
+* **Phase 9 (Milestone 9):** Juice & Immersion. Added hit-stop, camera shake, red vignettes, SFX sprites, and idle attract loops for booth displays. Added 8 new NPC characters for the lobby, rigorously fixing animation rest-pose distortions. Re-compressed the entire character suite via Draco.

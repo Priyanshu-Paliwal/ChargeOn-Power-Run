@@ -429,8 +429,8 @@ Ten milestones, each independently reviewable and demoable. Approve and execute 
 | **6** | **Coins, power-ups, scoring** | No-replacement feature queue (fixes the unwinnable level), coin-trail shapes, the two themed power-ups, `ScoreSystem` | Makes the game completable and rewarding |
 | **7** | **4 characters** | `CharacterLoader`, shared skeleton + single shared clip file, 4 optimized models, `CharacterSelect.vue` | Depends on the M1 pipeline |
 | **8** | **UI build-out and polish** | HUD upgrades + success-popup fix, `PauseMenu`, rebuilt `GameOver`, animated counters, power-up icons, **Lobby + Registration animation and responsiveness pass** | Needs M2's responsive tokens |
-| **9** | **Juice, audio, onboarding** | Particles, shake, hitstop, camera FX, transitions, `AudioManager` + local audio, tutorial, attract mode, idle timeout. **Content-script corrections** (drone lines, per-feature `exclusiveLine`). Unreferenced files (`MainMenu`, `DemoBooking`, `PrizeWheel`) **moved to `src/ui/_unused/`, not deleted** — `PrizeWheel` proposed for reuse as the Level Complete goodie reveal | The Subway-Surfers feel layer |
-| **10** | **Device QA, perf validation, docs** | Full device matrix pass, perf gates enforced, `initial_implementation_documentation.md` corrected and updated | Ship gate |
+| **9** | **Juice, audio, onboarding, NPCs** | Particles, shake, hitstop, camera FX, transitions, `AudioManager` + local audio, tutorial, attract mode, idle timeout. **Content-script corrections**. Added 8 NPC characters to Lobby with custom rest-pose animation retargeting. | The Subway-Surfers feel layer |
+| **10** | **Device QA, perf validation, docs** | Full device matrix pass, perf gates enforced, `initial_implementation_documentation.md` corrected and updated **(COMPLETED)** | Ship gate |
 
 ---
 
