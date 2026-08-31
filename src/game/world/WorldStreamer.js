@@ -208,6 +208,15 @@ export class WorldStreamer {
   // Called by Engine.js once loadAssets() has resolved. Builds every
   // InstancedMesh scenery pool and assigns each chunk's fixed slots.
   buildScenery() {
+    // Create the single jetpack pickup instance
+    this.jetpackPickupModel = new THREE.Group();
+    if (this.models.jetpack) {
+      const jp = this.models.jetpack.clone();
+      jp.scale.set(0.17, 0.17, 0.17); // ~10% larger than previous
+      jp.rotation.y = Math.PI;
+      this.jetpackPickupModel.add(jp);
+    }
+
     this.sceneryInstancer.build(this.models, this.poolSize, this.trackLength);
     for (let i = 0; i < this.poolSize; i++) {
       const manifest = this.sceneryInstancer.registerChunkSlots(i);
@@ -256,6 +265,7 @@ export class WorldStreamer {
       this.levelFeatures = levelData.features;
       this.featuresToSpawn = this._shuffledFeatureBag();
       this.blockersToSpawn = levelData.blockers;
+      this._jetpackSpawnedThisRun = false;
       // Start "already spaced" so the very first coin trail encountered
       // can deal a feature immediately, rather than making the player run
       // the first ~90 units with nothing to collect.
@@ -405,23 +415,26 @@ export class WorldStreamer {
 
     pattern.coins.forEach((coinDef, idx) => {
       if (idx >= coinSlots.length) return;
-      // Pace NEW feature dealing across the level's real run length (see
-      // FEATURE_SPACING_DISTANCE) -- without this gate, dense per-recycle
-      // coin-slot population deals all of a level's features within the
-      // first ~15s instead of across the plan's ~60-75s target. A slot
-      // that's gated simply shows no coin this time, which is a perfectly
-      // normal-looking sparser trail, not a broken/partial one.
-      if (this._distanceSinceLastFeature < FEATURE_SPACING_DISTANCE) return;
-      const featureData = this._nextFeature();
-      if (!featureData) return; // setLevel() never called yet -- defensive, shouldn't happen in practice
-      this._distanceSinceLastFeature = 0;
+      
+      let featureData = null;
+      if (!this._jetpackSpawnedThisRun && this.featuresToSpawn.length <= Math.max(0, this.levelFeatures.length - 5)) {
+        // Spawn Jetpack roughly after 5 regular features have been dealt
+        this._jetpackSpawnedThisRun = true;
+        featureData = { name: "Jetpack", category: "PowerUp" };
+        this._distanceSinceLastFeature = 0;
+      } else {
+        if (this._distanceSinceLastFeature < FEATURE_SPACING_DISTANCE) return;
+        featureData = this._nextFeature();
+        if (!featureData) return; // setLevel() never called yet
+        this._distanceSinceLastFeature = 0;
+      }
 
       const coin = coinSlots[idx];
-      // Power-ups (Milestone 6): both map onto specific real features in
-      // Level 2's list, keyed by exact name -- collecting that feature coin
-      // IS the power-up pickup. Gets a distinct glowing material instead of
-      // the usual admin/business gold-or-cyan so it reads as special
-      // in-world, before the player even knows what it does.
+      // Cleanup any previously attached jetpack model if this slot was reused
+      if (this.jetpackPickupModel && this.jetpackPickupModel.parent === coin.group) {
+        coin.group.remove(this.jetpackPickupModel);
+      }
+      
       const powerUpDef = POWER_UPS[featureData.name];
       const isAdmin = featureData.category.includes("Admin");
       const mat = powerUpDef
@@ -429,9 +442,25 @@ export class WorldStreamer {
         : isAdmin
           ? this.adminMat
           : this.businessMat;
-      coin.ring.material = mat;
-      coin.plate.material = mat;
-      coin.innerRing.material = mat;
+          
+      if (featureData.name === "Jetpack") {
+        // Render physical jetpack model, hide the coin meshes
+        coin.ring.visible = false;
+        coin.plate.visible = false;
+        coin.innerRing.visible = false;
+        if (this.jetpackPickupModel) {
+          coin.group.add(this.jetpackPickupModel);
+        }
+      } else {
+        // Standard feature/powerup coin
+        coin.ring.visible = true;
+        coin.plate.visible = true;
+        coin.innerRing.visible = true;
+        coin.ring.material = mat;
+        coin.plate.material = mat;
+        coin.innerRing.material = mat;
+      }
+      
       coin.baseY = coinDef.y ?? 1.2;
       coin.group.position.set(
         PLAYER_PHYSICS.lanes[coinDef.lane],
@@ -516,12 +545,9 @@ export class WorldStreamer {
       }
 
       if (chunk.position.z > this.activeZ + this.trackLength) {
-        let minZ = Infinity;
-        for (let j = 0; j < this.trackPool.length; j++) {
-          if (this.trackPool[j].position.z < minZ)
-            minZ = this.trackPool[j].position.z;
-        }
-        chunk.position.z = minZ - this.trackLength;
+        // Use mathematical wrapping to maintain perfect spacing
+        // and avoid loop-dependency drift which causes visual gaps.
+        chunk.position.z -= this.poolSize * this.trackLength;
 
         if (this.tutorialActive) {
           // Any OTHER chunk reaching its natural recycle threshold during

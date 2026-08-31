@@ -1,6 +1,7 @@
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-import { CHARACTERS, CHARACTER_ANIMATIONS_URL } from "../config/GameConfig.js";
+import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { CHARACTERS, CHARACTER_ANIMATIONS_URL, FLYING_ANIMATION_URL } from "../config/GameConfig.js";
 
 // Today's placeholder characters (Milestone 7) aren't Draco-compressed, so
 // this isn't strictly required yet -- but a real licensed replacement
@@ -25,13 +26,31 @@ export class CharacterLoader {
   constructor() {
     this._gltfLoader = new GLTFLoader();
     this._gltfLoader.setDRACOLoader(dracoLoader);
+    this._fbxLoader = new FBXLoader();
     this._animationsPromise = null;
     this._modelPromises = new Map(); // id -> Promise<GLTF>
   }
 
   loadAnimations() {
     if (!this._animationsPromise) {
-      this._animationsPromise = this._gltfLoader.loadAsync(CHARACTER_ANIMATIONS_URL).then((gltf) => gltf.animations);
+      this._animationsPromise = Promise.all([
+        this._gltfLoader.loadAsync(CHARACTER_ANIMATIONS_URL),
+        this._fbxLoader.loadAsync(FLYING_ANIMATION_URL)
+      ]).then(([gltf, fbx]) => {
+        const clips = [...gltf.animations];
+        if (fbx.animations && fbx.animations.length > 0) {
+          const flyingClip = fbx.animations[0];
+          flyingClip.name = "Flying"; // rename to ensure it matches what Player.js expects
+          
+          // The raw FBX animation contains root motion that pushes the character mesh
+          // away from its container (and thus separates it from the jetpack).
+          // Strip position tracks to make it an in-place animation!
+          flyingClip.tracks = flyingClip.tracks.filter(track => !track.name.endsWith('.position'));
+          
+          clips.push(flyingClip);
+        }
+        return clips;
+      });
     }
     return this._animationsPromise;
   }

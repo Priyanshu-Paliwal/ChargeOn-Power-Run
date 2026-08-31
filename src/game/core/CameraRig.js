@@ -162,10 +162,12 @@ export class CameraRig {
   }
 
   // Per-frame follow. `time` is the engine's elapsed clock time (used only
-  // for the lobby's slow idle orbit); `playerX` is the player's current
-  // lane position; `mode` is 'LOBBY' or 'PLAYING'.
-  update(delta, time, playerX, mode) {
+  // for the lobby's slow idle orbit); `playerPos` is the player's current
+  // position vector; `mode` is 'LOBBY' or 'PLAYING'.
+  update(delta, time, playerPos, mode) {
     const rig = this.rig;
+    const playerX = playerPos.x;
+    const playerY = playerPos.y;
 
     if (mode === "LOBBY") {
       this._targetPos.set(
@@ -175,8 +177,9 @@ export class CameraRig {
       );
       this._targetLookAt.set(LOBBY_ORBIT.lookAt.x, LOBBY_ORBIT.lookAt.y, LOBBY_ORBIT.lookAt.z);
     } else {
-      this._targetPos.set(playerX * rig.followFactor, rig.height, rig.distanceBehind);
-      this._targetLookAt.set(playerX, rig.lookAtHeight, -rig.lookAtForwardDistance);
+      // Follow the player's X (with followFactor) and Y (so the camera follows the jetpack/jumps smoothly)
+      this._targetPos.set(playerX * rig.followFactor, rig.height + playerY * 0.8, rig.distanceBehind);
+      this._targetLookAt.set(playerX, rig.lookAtHeight + playerY * 0.8, -rig.lookAtForwardDistance);
     }
 
     springDampVec3(this.position, this.positionVelocity, this._targetPos, CAMERA_SMOOTH_TIME.position, delta);

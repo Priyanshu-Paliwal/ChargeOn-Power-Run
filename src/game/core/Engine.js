@@ -254,6 +254,7 @@ export class Engine {
       if (hit.powerUp === "magnet")
         this.player.activateMagnet(hit.powerUpDurationMs);
       else if (hit.powerUp === "shield") this.player.activateShield();
+      else if (hit.powerUp === "jetpack") this.player.activateJetpack(hit.powerUpDurationMs);
       audioManager.playSFX(hit.powerUp ? "powerup" : "coin");
       if (hit.worldPosition) {
         this.effectsSystem.burst(
@@ -543,6 +544,7 @@ export class Engine {
         "/assets/models/buildings/ShoppingCenterBuilding.glb",
       ),
       loadModel("Cinema", "/assets/models/buildings/Cinema.glb"),
+      loadModel("jetpack", "/assets/JetpackModel/JetpackModel.gltf"),
       loadModel("railing", "/assets/models/environment/MetalRailing.glb"),
       loadModel(
         "desert",
@@ -1182,7 +1184,7 @@ export class Engine {
     this.cameraRig.update(
       rawDelta,
       time,
-      this.player.mesh.position.x,
+      this.player.mesh.position,
       this.mode,
     );
 

@@ -157,9 +157,14 @@ export class CollisionSystem {
   // Full 3D box test at the item's actual current transform (not a
   // synthetic swept box) for the sub-step's approximate z, matching the
   // original's exact collision semantics (Box3.setFromObject vs the
+  // original's exact collision semantics (Box3.setFromObject vs the
   // player's capsule-ish box) -- the swept interval above is purely a
   // cheap temporal cull, not a change to what "overlap" means.
   _overlapsPlayer(item, approxZ, player) {
+    if (item.userData.type === "blocker" && player.hasJetpack) {
+      return false; // Jetpack flies over blockers
+    }
+
     _itemBox.setFromObject(item);
     // Re-center the item's box on the sub-step's interpolated z so a
     // fast-moving item is tested at the moment it's actually swept through,

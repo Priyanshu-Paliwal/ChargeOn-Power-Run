@@ -7,12 +7,16 @@ import {
   SLIDE_RECOVERY_MS,
   HIT_REACTION_MS,
   CHARACTERS,
+  JETPACK_MODEL_URL,
+  JETPACK_FLIGHT_HEIGHT,
 } from "../config/GameConfig.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 export const PlayerMovementState = {
   RUNNING: "RUNNING",
   JUMPING: "JUMPING",
   SLIDING: "SLIDING",
+  JETPACK: "JETPACK",
 };
 
 const _hitboxCenter = new THREE.Vector3();
@@ -130,6 +134,27 @@ export class Player {
     this.magnetMesh.rotation.x = Math.PI / 2;
     this.magnetMesh.visible = false;
     this.mesh.add(this.magnetMesh);
+
+    // Jetpack setup
+    this.hasJetpack = false;
+    this._jetpackTimer = 0;
+    this._jetpackDurationMs = 0;
+    this.jetpackMesh = new THREE.Group();
+    this.jetpackMesh.visible = false;
+    // We attach jetpackMesh to the mesh. Since the character flies horizontally,
+    // we rotate the jetpack to lie flat against their back and adjust the height.
+    this.jetpackMesh.position.set(0, 0.8, -0.3); // back position for horizontal flight
+    this.jetpackMesh.rotation.x = -Math.PI / 2; // lie flat
+    this.mesh.add(this.jetpackMesh);
+
+    const loader = new GLTFLoader();
+    loader.load(JETPACK_MODEL_URL, (gltf) => {
+      const jp = gltf.scene;
+      // Adjust scale and rotation if necessary
+      jp.scale.set(0.17, 0.17, 0.17); 
+      jp.rotation.y = Math.PI; // Face backwards
+      this.jetpackMesh.add(jp);
+    });
   }
 
   // durationMs comes from GameConfig.js's POWER_UPS (via the coin's
@@ -146,6 +171,22 @@ export class Player {
     this.hasShield = true;
   }
 
+  activateJetpack(durationMs) {
+    if (this.movementState === PlayerMovementState.JETPACK) {
+      this._jetpackTimer = durationMs;
+      this._jetpackDurationMs = durationMs;
+      return;
+    }
+    this.hasJetpack = true;
+    this._jetpackTimer = durationMs;
+    this._jetpackDurationMs = durationMs;
+    this.movementState = PlayerMovementState.JETPACK;
+    this.jetpackMesh.visible = true;
+    
+    // Play the flying animation
+    this.setAnimation("Flying");
+  }
+
   // Small public read-only getter (Milestone 8's HUD radial timer) so the
   // Vue layer polls this instead of reaching for underscore-prefixed
   // "private" fields directly. Shield has no remaining/duration pair --
@@ -157,6 +198,9 @@ export class Player {
       magnetRemainingMs: this._magnetTimer,
       magnetDurationMs: this._magnetDurationMs,
       shieldActive: this.hasShield,
+      jetpackActive: this.hasJetpack,
+      jetpackRemainingMs: this._jetpackTimer,
+      jetpackDurationMs: this._jetpackDurationMs,
     };
   }
 
@@ -192,6 +236,35 @@ export class Player {
       this._slideTimer -= delta * 1000;
       if (this._slideTimer <= 0) {
         this._endSlide();
+      }
+    } else if (this.movementState === PlayerMovementState.JETPACK) {
+      this._jetpackTimer -= delta * 1000;
+      
+      const takeoffTime = 500;
+      const landingTime = 500;
+      const elapsed = this._jetpackDurationMs - this._jetpackTimer;
+      
+      let targetY = this.baseY;
+      if (elapsed < takeoffTime) {
+        // Smooth takeoff
+        const t = elapsed / takeoffTime;
+        // Ease out quad
+        const ease = t * (2 - t);
+        targetY = this.baseY + (JETPACK_FLIGHT_HEIGHT - this.baseY) * ease;
+      } else if (this._jetpackTimer < landingTime) {
+        // Smooth landing
+        const t = this._jetpackTimer / landingTime;
+        // Ease in out
+        const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        targetY = this.baseY + (JETPACK_FLIGHT_HEIGHT - this.baseY) * ease;
+      } else {
+        targetY = JETPACK_FLIGHT_HEIGHT;
+      }
+      
+      this.mesh.position.y = targetY;
+      
+      if (this._jetpackTimer <= 0) {
+        this._endJetpack();
       }
     }
 
@@ -297,6 +370,14 @@ export class Player {
   _endSlide() {
     this.movementState = PlayerMovementState.RUNNING;
     this._slideCooldown = SLIDE_RECOVERY_MS;
+    this.setAnimation("Run");
+  }
+
+  _endJetpack() {
+    this.hasJetpack = false;
+    this.jetpackMesh.visible = false;
+    this.mesh.position.y = this.baseY;
+    this.movementState = PlayerMovementState.RUNNING;
     this.setAnimation("Run");
   }
 

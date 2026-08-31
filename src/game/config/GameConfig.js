@@ -325,7 +325,12 @@ export const COIN_JUMP_REWARD_HEIGHT = 2.0;
 export const POWER_UPS = {
   "Automated Collection": { type: "magnet", durationMs: 8000 },
   "Payment Gateway Fallback Mechanism": { type: "shield" },
+  "Jetpack": { type: "jetpack", durationMs: 6000 }, // Special item, spawned exactly once per run
 };
+
+export const JETPACK_FLIGHT_HEIGHT = 8.0;
+export const JETPACK_MODEL_URL = "/assets/JetpackModel/JetpackModel.gltf";
+export const FLYING_ANIMATION_URL = "/assets/characters/motions/Flying.fbx";
 
 // Magnet pickup half-width: reuses FRAMING.laneSpanX (already "3 lanes + a
 // 1-unit margin each side" from Milestone 2) so an active magnet

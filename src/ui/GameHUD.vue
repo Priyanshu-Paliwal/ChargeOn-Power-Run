@@ -174,7 +174,7 @@ watch(
 // gameStats -- a countdown changes every frame, which doesn't belong in
 // Vue's coin/blocker event-driven reactive state the way score/features do.
 // -----------------------------------------------------------------------
-const powerUpState = reactive({ magnetActive: false, magnetPct: 0, shieldActive: false });
+const powerUpState = reactive({ magnetActive: false, magnetPct: 0, shieldActive: false, jetpackActive: false, jetpackPct: 0 });
 // Speed-lines overlay (Milestone 9): Engine.startLevel() sets a brief
 // window on the engine itself (isSpeedLinesActive), the same kind of
 // transient timed visual as the power-up countdown above -- polled here
@@ -192,6 +192,8 @@ function _pollPowerUps() {
     powerUpState.magnetActive = status.magnetActive;
     powerUpState.magnetPct = status.magnetDurationMs > 0 ? status.magnetRemainingMs / status.magnetDurationMs : 0;
     powerUpState.shieldActive = status.shieldActive;
+    powerUpState.jetpackActive = status.jetpackActive;
+    powerUpState.jetpackPct = status.jetpackDurationMs > 0 ? status.jetpackRemainingMs / status.jetpackDurationMs : 0;
   }
   speedLinesActive.value = !!props.engine?.isSpeedLinesActive;
   tutorialActive.value = !!props.engine?.world?.tutorialActive;
@@ -201,6 +203,7 @@ function _pollPowerUps() {
 const RING_RADIUS = 15;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 const magnetDashOffset = computed(() => RING_CIRCUMFERENCE * (1 - powerUpState.magnetPct));
+const jetpackDashOffset = computed(() => RING_CIRCUMFERENCE * (1 - powerUpState.jetpackPct));
 
 onMounted(() => {
   // Baseline consumption at the CURRENT feed length, not 0 -- toastFeed
@@ -261,6 +264,21 @@ onUnmounted(() => {
 
         <div v-if="powerUpState.shieldActive" class="powerup-icon shield-icon" title="Shield up">
           <span class="powerup-emoji">🛡️</span>
+        </div>
+
+        <div v-if="powerUpState.jetpackActive" class="powerup-icon jetpack-icon" title="Jetpack active">
+          <svg viewBox="0 0 36 36">
+            <circle class="ring-track" cx="18" cy="18" r="15" />
+            <circle
+              class="ring-fill"
+              cx="18"
+              cy="18"
+              r="15"
+              :stroke-dasharray="RING_CIRCUMFERENCE"
+              :stroke-dashoffset="jetpackDashOffset"
+            />
+          </svg>
+          <span class="powerup-emoji">🚀</span>
         </div>
 
         <button
