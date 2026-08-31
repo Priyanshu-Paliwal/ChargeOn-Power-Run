@@ -9,19 +9,16 @@ const props = defineProps({
 const emit = defineEmits(['next'])
 
 const levelData = computed(() => levels.find(l => l.id === props.levelId))
-const wonGoodie = ref('')
+const wonGoodie = computed(() => levelData.value?.goodie || '')
+const wonDiscount = computed(() => levelData.value?.discount || '')
 
 const getArticle = (item) => {
+  if (!item) return ''
   return item.toLowerCase().endsWith('s') ? 'some cool' : 'a cool'
 }
 
 onMounted(() => {
-    if (levelData.value) {
-    // Exclude goodies already won in previous levels so repeats can't happen
-    const pool = levelData.value.goodiesPool.filter(g => !props.previousGoodies.includes(g))
-    const finalPool = pool.length > 0 ? pool : levelData.value.goodiesPool // fallback if all exhausted
-    wonGoodie.value = finalPool[Math.floor(Math.random() * finalPool.length)]
-    
+  if (levelData.value) {
     // Save won goodie to localStorage for Redemption screen
     const stored = localStorage.getItem('chargeon_won_goodies')
     const goodiesList = stored ? JSON.parse(stored) : []
@@ -61,9 +58,10 @@ const copy = computed(() => {
       
       <div class="prize-reveal">
         <p>You have won {{ getArticle(wonGoodie) }} <span class="prize-name">{{ wonGoodie }}</span>!</p>
+        <p style="margin-top: 5px;">Plus an exclusive <span class="prize-name">{{ wonDiscount }}</span> discount!</p>
       </div>
       
-      <button class="btn-primary" @click="emit('next', wonGoodie)">{{ copy.button }}</button>
+      <button class="btn-primary" @click="emit('next')">{{ copy.button }}</button>
     </div>
   </div>
 </template>

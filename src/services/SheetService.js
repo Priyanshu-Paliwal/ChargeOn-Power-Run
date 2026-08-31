@@ -72,12 +72,13 @@ export const updateMainDiscount = (email) => {
  * @param {'Passed'|'Failed'} status
  * @param {string} goodie - The goodie won (empty string if failed)
  */
-export const updateLevelResult = (email, level, status, goodie = '') => {
+export const updateLevelResult = (email, level, status, goodie = '', discount = '') => {
   postToSheet({
     action: 'updateLevel',
     email,
     level,
     status,
     goodie,
+    discount,
   })
 }

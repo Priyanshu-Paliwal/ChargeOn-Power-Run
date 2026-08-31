@@ -343,11 +343,15 @@ const startLevel = () => {
   gameState.value = 'PLAYING'
 }
 
-const advanceLevel = (wonGoodie = '') => {
+const advanceLevel = () => {
+  const currentLevelData = levels.find(l => l.id === gameStats.currentLevelId)
+  const wonGoodie = currentLevelData?.goodie || ''
+  const wonDiscount = currentLevelData?.discount || ''
+
   // Track won goodie to prevent duplicates in subsequent levels
   if (wonGoodie) wonGoodies.value.push(wonGoodie)
   // Update the sheet: this level was Passed with the specific goodie won
-  updateLevelResult(userData.email, gameStats.currentLevelId, 'Passed', wonGoodie)
+  updateLevelResult(userData.email, gameStats.currentLevelId, 'Passed', wonGoodie, wonDiscount)
   if (gameStats.currentLevelId === 3) {
     saveScoreToLeaderboard()
     gameState.value = 'BOSS_BEAT'

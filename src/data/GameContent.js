@@ -6,7 +6,8 @@ export const levels = [
     speedTag: "Speed: 1.0x — High",
     speedMultiplier: 1.0,
     requiredCount: 22,
-    goodiesPool: ["Energy Bars", "Individual Stickers", "Fridge Magnets", "Bag Tags", "Cable Protector"],
+    goodie: "Energy Bar",
+    discount: "5% OFF",
     features: [
       { name: "Integration with Multiple Payment Gateways", category: "Admin" },
       { name: "Payment Types and Methods", category: "Business" },
@@ -52,7 +53,8 @@ export const levels = [
     speedTag: "Speed: 1.3x — Faster",
     speedMultiplier: 1.3,
     requiredCount: 22,
-    goodiesPool: ["Energy Bars", "Individual Stickers", "Fridge Magnets", "Bag Tags", "Cable Protector"],
+    goodie: "Fridge Magnet",
+    discount: "10% OFF",
     features: [
       { name: "Refund Reason & Notes Capture", category: "Business", isExclusive: true, exclusiveLine: "Every refund comes with a reason, built right in." },
       { name: "Recurring Payment Summary Preview", category: "Business", isExclusive: true, exclusiveLine: "See every future payment before you confirm a thing." },
@@ -92,7 +94,8 @@ export const levels = [
     speedTag: "Speed: 1.5x — Fastest",
     speedMultiplier: 1.5,
     requiredCount: 10,
-    goodiesPool: ["Premium Tote Bag"],
+    goodie: "Premium Tote Bag",
+    discount: "15% OFF",
     features: [
       { name: "Invoice PDF Customization", category: "Admin" },
       { name: "3D Secure Card Enablement", category: "Admin" },
