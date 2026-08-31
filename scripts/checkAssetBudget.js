@@ -51,10 +51,14 @@ function main() {
   }
 
   console.log("Asset budget check — public/ contents:");
-  for (const [folder, size] of Object.entries(byFolder).sort((a, b) => b[1] - a[1])) {
+  for (const [folder, size] of Object.entries(byFolder).sort(
+    (a, b) => b[1] - a[1],
+  )) {
     console.log(`  ${folder.padEnd(20)} ${fmtBytes(size)}`);
   }
-  console.log(`  ${"TOTAL".padEnd(20)} ${fmtBytes(total)}  (budget: ${fmtBytes(BUDGET_BYTES)})`);
+  console.log(
+    `  ${"TOTAL".padEnd(20)} ${fmtBytes(total)}  (budget: ${fmtBytes(BUDGET_BYTES)})`,
+  );
 
   if (total > BUDGET_BYTES) {
     console.error(
@@ -64,8 +68,14 @@ function main() {
     files
       .sort((a, b) => b.size - a.size)
       .slice(0, 10)
-      .forEach((f) => console.error(`  ${fmtBytes(f.size).padStart(10)}  ${path.relative(PUBLIC, f.path)}`));
-    console.error("\nBuild blocked. See docs/IMPLEMENTATION_PLAN.md, Milestone 1.");
+      .forEach((f) =>
+        console.error(
+          `  ${fmtBytes(f.size).padStart(10)}  ${path.relative(PUBLIC, f.path)}`,
+        ),
+      );
+    console.error(
+      "\nBuild blocked. See docs/IMPLEMENTATION_PLAN.md, Milestone 1.",
+    );
     process.exit(1);
   }
 
