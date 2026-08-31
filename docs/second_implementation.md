@@ -63,3 +63,4 @@ This document contains a comprehensive, line-by-line summary of every task, feat
   * Level 2: Fridge Magnet + 10% OFF
   * Level 3: Premium Tote Bag + 15% OFF
   * `LevelComplete.vue` was updated to explicitly show both the won item and the discount value. `SheetService.js` and `App.vue` were updated to dispatch the specific `discount` value to the backend, which required a matching update to the Google Apps Script column layout.
+* **Workspace Cleanup:** Deleted obsolete animation debug scripts (`check_bones.cjs`, `inspect_glb.cjs`, `casual_bones.txt`, etc.) from the root directory to maintain a clean project structure.

@@ -7,9 +7,6 @@ The following tree represents the complete folder and file structure for the **C
 │   └── settings.local.json
 ├── .gitattributes
 ├── .gitignore
-├── casual_bones.txt
-├── check_bones.cjs
-├── check_tracks.js
 ├── docs
 │   ├── Character-Images.png
 │   ├── ChargeOn_Power_Run_Content_Script (1).docx
@@ -18,10 +15,9 @@ The following tree represents the complete folder and file structure for the **C
 │   ├── IMPLEMENTATION_PLAN.md
 │   ├── initial_implementation_documentation.md
 │   ├── PROCESS_TRACKER.md
+│   ├── PROJECT_STRUCTURE.md
 │   └── second_implementation.md
-├── get_bones_server.cjs
 ├── index.html
-├── inspect_glb.cjs
 ├── package-lock.json
 ├── package.json
 ├── public
@@ -209,7 +205,5 @@ The following tree represents the complete folder and file structure for the **C
 │       ├── StoryBeat.vue
 │       ├── style.css
 │       └── Victory.vue
-├── test_props.cjs
-├── thalapathy_bones.txt
 └── vite.config.js
 ```
