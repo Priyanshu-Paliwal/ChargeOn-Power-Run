@@ -292,7 +292,7 @@ export const REACTION_BASE_SPEED = 30;
 // tightly-spaced combo pattern (e.g. two obstacles 6 units apart) once
 // speed climbs high enough that 6 units stops being a fair gap, falling
 // a hard per-obstacle-pair requirement most reference runners use anyway.
-export const MIN_OBSTACLE_GAP_SECONDS = 0.55; // increased to ensure feasible connections
+export const MIN_OBSTACLE_GAP_SECONDS = 0.60; // increased to ensure feasible connections
 // A pattern can't be selected again until this many chunk-spawns have
 // passed, so the same shape doesn't repeat back-to-back.
 export const PATTERN_NO_REPEAT_WINDOW = 4;

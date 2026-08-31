@@ -89,8 +89,8 @@ export const levels = [
     id: 3,
     title: "Level 3: Enterprise & AI Finale",
     subtext: "Final 10 features. Everything, all at once.",
-    speedTag: "Speed: 1.6x — Fastest",
-    speedMultiplier: 1.6,
+    speedTag: "Speed: 1.5x — Fastest",
+    speedMultiplier: 1.5,
     requiredCount: 10,
     goodiesPool: ["Premium Tote Bag"],
     features: [

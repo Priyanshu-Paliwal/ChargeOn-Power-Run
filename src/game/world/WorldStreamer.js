@@ -269,7 +269,7 @@ export class WorldStreamer {
       // Start "already spaced" so the very first coin trail encountered
       // can deal a feature immediately, rather than making the player run
       // the first ~90 units with nothing to collect.
-      this._distanceSinceLastFeature = FEATURE_SPACING_DISTANCE;
+      this._distanceSinceLastFeature = this.currentLevel === 3 ? 45 : 35;
     }
   }
 
@@ -292,7 +292,7 @@ export class WorldStreamer {
 
       const sceneryChance = Math.min(
         0.9,
-        0.5 * this.spawnDirector.getDensityFactor(),
+        0.4 * this.spawnDirector.getDensityFactor(),
       );
       this._refreshChunkContent(i, Math.random() < sceneryChance);
     }
@@ -423,7 +423,8 @@ export class WorldStreamer {
         featureData = { name: "Jetpack", category: "PowerUp" };
         this._distanceSinceLastFeature = 0;
       } else {
-        if (this._distanceSinceLastFeature < FEATURE_SPACING_DISTANCE) return;
+        const spacingReq = this.currentLevel === 3 ? 45 : 35;
+        if (this._distanceSinceLastFeature < spacingReq) return;
         featureData = this._nextFeature();
         if (!featureData) return; // setLevel() never called yet
         this._distanceSinceLastFeature = 0;
@@ -559,12 +560,12 @@ export class WorldStreamer {
             this.sceneryInstancer.rerollChunk(this.chunkManifests[i], true);
           this._refreshChunkContent(i, true, "empty-coin-trail");
         } else {
-          // Base ~50% density, scaled toward 0.5*densityRampMultiplier as the
+          // Base ~40% density, scaled toward 0.4*densityRampMultiplier as the
           // level progresses, capped well under 1.0 so "breather" chunks with
           // no content never disappear entirely even at max ramp.
           const sceneryChance = Math.min(
             0.9,
-            0.5 * this.spawnDirector.getDensityFactor(),
+            0.4 * this.spawnDirector.getDensityFactor(),
           );
           let hasScenery = Math.random() < sceneryChance;
           if (sceneryReady) {
