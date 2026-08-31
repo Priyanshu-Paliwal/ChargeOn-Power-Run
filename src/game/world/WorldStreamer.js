@@ -270,6 +270,22 @@ export class WorldStreamer {
       // can deal a feature immediately, rather than making the player run
       // the first ~90 units with nothing to collect.
       this._distanceSinceLastFeature = this.currentLevel === 3 ? 45 : 35;
+
+      // Clear all existing obstacles and coins from the track to provide a safe 
+      // "breather" runway (a few seconds of empty track) at the start of the level.
+      for (let i = 0; i < this.poolSize; i++) {
+        // Clear coins
+        for (const coin of this.chunkCoins[i]) {
+          coin.group.visible = false;
+        }
+        // Clear obstacles
+        for (const slot of this.chunkObstacles[i]) {
+          if (slot.activeType) {
+            slot.variants[slot.activeType].group.visible = false;
+          }
+          slot.activeType = null;
+        }
+      }
     }
   }
 
