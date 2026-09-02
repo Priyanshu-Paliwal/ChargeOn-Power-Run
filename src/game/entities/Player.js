@@ -143,7 +143,7 @@ export class Player {
     this.jetpackMesh.visible = false;
     // We attach jetpackMesh to the mesh. Since the character flies horizontally,
     // we rotate the jetpack to lie flat against their back and adjust the height.
-    this.jetpackMesh.position.set(0, 0.8, -0.3); // back position for horizontal flight
+    this.jetpackMesh.position.set(0, 1.5, 0); // back position for horizontal flight
     this.jetpackMesh.rotation.x = -Math.PI / 2; // lie flat
     this.mesh.add(this.jetpackMesh);
 
@@ -151,8 +151,8 @@ export class Player {
     loader.load(JETPACK_MODEL_URL, (gltf) => {
       const jp = gltf.scene;
       // Adjust scale and rotation if necessary
-      jp.scale.set(0.17, 0.17, 0.17); 
-      jp.rotation.y = Math.PI; // Face backwards
+      jp.scale.set(0.14, 0.14, 0.14);
+      jp.rotation.y = Math.PI / 2; // Face backwards
       this.jetpackMesh.add(jp);
     });
   }
@@ -182,7 +182,7 @@ export class Player {
     this._jetpackDurationMs = durationMs;
     this.movementState = PlayerMovementState.JETPACK;
     this.jetpackMesh.visible = true;
-    
+
     // Play the flying animation
     this.setAnimation("Flying");
   }
@@ -239,11 +239,11 @@ export class Player {
       }
     } else if (this.movementState === PlayerMovementState.JETPACK) {
       this._jetpackTimer -= delta * 1000;
-      
+
       const takeoffTime = 500;
       const landingTime = 500;
       const elapsed = this._jetpackDurationMs - this._jetpackTimer;
-      
+
       let targetY = this.baseY;
       if (elapsed < takeoffTime) {
         // Smooth takeoff
@@ -260,9 +260,9 @@ export class Player {
       } else {
         targetY = JETPACK_FLIGHT_HEIGHT;
       }
-      
+
       this.mesh.position.y = targetY;
-      
+
       if (this._jetpackTimer <= 0) {
         this._endJetpack();
       }
@@ -488,7 +488,11 @@ export class Player {
   // here means it's automatically reapplied in _loadCharacterModel().
   setFacing(rotationY) {
     this._facingY = rotationY;
-    if (this.model) this.model.rotation.y = rotationY;
+    if (this.model) {
+      const def = CHARACTERS.find((c) => c.id === this.characterId);
+      const offset = def && def.rotationOffset ? def.rotationOffset : 0;
+      this.model.rotation.y = rotationY + offset;
+    }
   }
 
   // Swaps the visible character model (id from GameConfig.js's CHARACTERS).
@@ -516,10 +520,13 @@ export class Player {
 
     this.model = gltf.scene;
     this._isPlaceholder = false;
-    // Contract (see GameConfig.js's CHARACTERS comment): every character is
-    // already authored ~1.8 units tall at the origin, so no rescaling hack
-    // is needed here the way Soldier.glb (1.5x) used to require.
-    this.model.rotation.y = this._facingY;
+    const def = CHARACTERS.find((c) => c.id === id);
+    const offset = def && def.rotationOffset ? def.rotationOffset : 0;
+    this.model.rotation.y = this._facingY + offset;
+
+    // Apply custom scale from GameConfig, defaulting to 1.0
+    const scale = def && def.scale ? def.scale : 1.0;
+    this.model.scale.set(scale, scale, scale);
 
     this.model.traverse((child) => {
       if (child.isMesh) {
@@ -540,8 +547,35 @@ export class Player {
 
     this.mixer = new THREE.AnimationMixer(this.model);
     this.animations = {};
+
+    // Get all actual bone names in this specific character's skeleton
+    const modelBones = [];
+    this.model.traverse((child) => {
+      if (child.isBone) modelBones.push(child.name);
+    });
+
     clips.forEach((clip) => {
-      this.animations[clip.name] = this.mixer.clipAction(clip);
+      const clonedClip = clip.clone();
+
+      // Retarget each track in the animation to match this character's bones
+      clonedClip.tracks.forEach((track) => {
+        const parts = track.name.split(".");
+        const origBone = parts[0];
+        const prop = parts[1];
+
+        let coreName = origBone.replace(/^mixamorig[:_]?/i, "");
+        const regex = new RegExp(
+          `^(mixamorig[:_]?)?${coreName}(_[0-9]+)?$`,
+          "i",
+        );
+
+        const match = modelBones.find((b) => regex.test(b));
+        if (match) {
+          track.name = match + "." + prop;
+        }
+      });
+
+      this.animations[clip.name] = this.mixer.clipAction(clonedClip);
     });
 
     // Resume whatever was already playing (Idle on first load; Idle/Run on

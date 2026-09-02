@@ -1,5 +1,13 @@
 import * as THREE from "three";
-import { OBSTACLE_TYPES } from "../config/GameConfig.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { OBSTACLE_TYPES, DRONE_CONFIG } from "../config/GameConfig.js";
+
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath("/draco/");
+
+const gltfLoader = new GLTFLoader();
+gltfLoader.setDRACOLoader(dracoLoader);
 
 // Visual factories for the 4 obstacle types (Milestone 5). Each type's
 // height band is defined in GameConfig.js's OBSTACLE_TYPES, tuned jointly
@@ -26,6 +34,32 @@ export class ObstacleFactory {
     this._buildBarricadeLowAssets();
     this._buildBarricadeWideAssets();
     this._buildDroneAssets();
+    this._pendingDroneInstances = [];
+    this._droneTemplate = null;
+    this._loadDroneModel();
+  }
+
+  _loadDroneModel() {
+    if (!DRONE_CONFIG || !DRONE_CONFIG.url) return;
+    gltfLoader.load(
+      DRONE_CONFIG.url,
+      (gltf) => {
+        this._droneTemplate = gltf.scene;
+        this._droneTemplate.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+
+        this._pendingDroneInstances.forEach((fn) => fn(this._droneTemplate));
+        this._pendingDroneInstances = [];
+      },
+      undefined,
+      (err) => {
+        console.warn("Failed to load drone GLB model:", err);
+      }
+    );
   }
 
   createInstance(type) {
@@ -212,25 +246,62 @@ export class ObstacleFactory {
 
   _createDrone(band, typeName, hasSkirt) {
     const group = new THREE.Group();
-    const bodyY = band.heightMax - 0.5;
+    const isLow = typeName === "DRONE_LOW";
+    const defaultY = isLow ? DRONE_CONFIG.lowDroneHeight : DRONE_CONFIG.highDroneHeight;
+    const bodyY = defaultY !== undefined ? defaultY : band.heightMax - 0.5;
 
-    const body = new THREE.Mesh(this.droneBodyGeo, this.droneBodyMat);
-    body.position.set(0, bodyY, 0);
-    body.scale.set(1, 0.6, 1); // flattened, disc-like
-    group.add(body);
+    const droneContainer = new THREE.Group();
+    droneContainer.position.set(
+      DRONE_CONFIG.positionOffset?.x || 0,
+      bodyY + (DRONE_CONFIG.positionOffset?.y || 0),
+      DRONE_CONFIG.positionOffset?.z || 0
+    );
+    group.add(droneContainer);
 
-    const rotorRing = new THREE.Mesh(this.droneRotorRingGeo, this.droneRotorRingMat);
-    rotorRing.position.set(0, bodyY + 0.05, 0);
-    rotorRing.rotation.x = Math.PI / 2;
-    group.add(rotorRing);
+    let rotorMeshes = [];
 
-    const downLight = new THREE.Mesh(this.droneLightGeo, this.droneLightMat.clone());
-    downLight.position.set(0, bodyY - 0.32, 0);
-    group.add(downLight);
+    const applyModel = (template) => {
+      const droneMesh = template.clone(true);
+      const s = DRONE_CONFIG.scale || 1.0;
+      droneMesh.scale.set(s, s, s);
+      droneMesh.rotation.set(
+        DRONE_CONFIG.rotationOffset?.x || 0,
+        DRONE_CONFIG.rotationOffset?.y || 0,
+        DRONE_CONFIG.rotationOffset?.z || 0
+      );
+      droneContainer.add(droneMesh);
+
+      // Find any rotor/propeller children if available to animate spin
+      droneMesh.traverse((child) => {
+        if (child.isMesh && /rotor|propeller|blade|fan|spin/i.test(child.name)) {
+          rotorMeshes.push(child);
+        }
+      });
+    };
+
+    if (this._droneTemplate) {
+      applyModel(this._droneTemplate);
+    } else {
+      // Fallback procedural visual while loading
+      const fallbackBody = new THREE.Mesh(this.droneBodyGeo, this.droneBodyMat);
+      fallbackBody.scale.set(1, 0.6, 1);
+      droneContainer.add(fallbackBody);
+
+      const fallbackRotor = new THREE.Mesh(this.droneRotorRingGeo, this.droneRotorRingMat);
+      fallbackRotor.position.set(0, 0.05, 0);
+      fallbackRotor.rotation.x = Math.PI / 2;
+      droneContainer.add(fallbackRotor);
+
+      this._pendingDroneInstances.push((template) => {
+        droneContainer.remove(fallbackBody);
+        droneContainer.remove(fallbackRotor);
+        applyModel(template);
+      });
+    }
 
     if (hasSkirt) {
       const skirtTop = bodyY - 0.3;
-      const skirtHeight = skirtTop - band.heightMin;
+      const skirtHeight = Math.max(0.2, skirtTop - band.heightMin);
       const skirtGeo = new THREE.PlaneGeometry(2.2, skirtHeight);
       const skirt = new THREE.Mesh(skirtGeo, this.skirtMat);
       skirt.position.set(0, band.heightMin + skirtHeight / 2, 0.01);
@@ -241,8 +312,10 @@ export class ObstacleFactory {
       group,
       type: typeName,
       update(time) {
-        rotorRing.rotation.z = time * 20;
-        downLight.material.emissiveIntensity = 0.8 + Math.sin(time * 3) * 0.4;
+        const spinSpeed = DRONE_CONFIG.rotorSpinSpeed || 25;
+        rotorMeshes.forEach((rotor) => {
+          rotor.rotation.y += spinSpeed * 0.016;
+        });
       },
     };
   }

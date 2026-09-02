@@ -247,10 +247,39 @@ export const COLLISION_Z_BAND = 2; // matches the original's "worldPos.z > 2 || 
 // cross-check in the Milestone 5 verification script.
 // -----------------------------------------------------------------------
 export const OBSTACLE_TYPES = {
-  BARRICADE_LOW: { laneSpan: 1, heightMin: 0.0, heightMax: 1.0, escape: "jump" },
-  BARRICADE_WIDE: { laneSpan: 2, heightMin: 0.0, heightMax: 2.6, escape: "switch" },
+  BARRICADE_LOW: {
+    laneSpan: 1,
+    heightMin: 0.0,
+    heightMax: 1.0,
+    escape: "jump",
+  },
+  BARRICADE_WIDE: {
+    laneSpan: 2,
+    heightMin: 0.0,
+    heightMax: 2.6,
+    escape: "switch",
+  },
   DRONE_LOW: { laneSpan: 1, heightMin: 1.1, heightMax: 3.0, escape: "slide" },
-  DRONE_HIGH: { laneSpan: 1, heightMin: 0.35, heightMax: 2.6, escape: "switch" },
+  DRONE_HIGH: {
+    laneSpan: 1,
+    heightMin: 0.35,
+    heightMax: 2.6,
+    escape: "switch",
+  },
+};
+
+// -----------------------------------------------------------------------
+// 🚁 DRONE CONFIGURATION
+// Full control over the drone 3D model, scale, position, direction, and heights.
+// -----------------------------------------------------------------------
+export const DRONE_CONFIG = {
+  url: "/assets/models/environment/drone.glb",
+  scale: 2, // Overall 3D model size (increase or decrease as desired)
+  positionOffset: { x: 1, y: 0, z: 0 }, // Fine-tune position (X: left/right, Y: up/down, Z: forward/back)
+  rotationOffset: { x: 0, y: Math.PI, z: 0 }, // Direction/Facing rotation in radians (Math.PI = faces oncoming player)
+  lowDroneHeight: 1.6, // Height (Y) for DRONE_LOW (high enough to slide under)
+  highDroneHeight: 1.6, // Height (Y) for DRONE_HIGH (has the hazard skirt hanging down)
+  rotorSpinSpeed: 25.0, // Rotation speed for propellers/rotors
 };
 
 // -----------------------------------------------------------------------
@@ -292,7 +321,7 @@ export const REACTION_BASE_SPEED = 30;
 // tightly-spaced combo pattern (e.g. two obstacles 6 units apart) once
 // speed climbs high enough that 6 units stops being a fair gap, falling
 // a hard per-obstacle-pair requirement most reference runners use anyway.
-export const MIN_OBSTACLE_GAP_SECONDS = 0.60; // increased to ensure feasible connections
+export const MIN_OBSTACLE_GAP_SECONDS = 0.6; // increased to ensure feasible connections
 // A pattern can't be selected again until this many chunk-spawns have
 // passed, so the same shape doesn't repeat back-to-back.
 export const PATTERN_NO_REPEAT_WINDOW = 4;
@@ -325,7 +354,7 @@ export const COIN_JUMP_REWARD_HEIGHT = 2.0;
 export const POWER_UPS = {
   "Automated Collection": { type: "magnet", durationMs: 8000 },
   "Payment Gateway Fallback Mechanism": { type: "shield" },
-  "Jetpack": { type: "jetpack", durationMs: 6000 }, // Special item, spawned exactly once per run
+  Jetpack: { type: "jetpack", durationMs: 6000 }, // Special item, spawned exactly once per run
 };
 
 export const JETPACK_FLIGHT_HEIGHT = 8.0;
@@ -363,10 +392,58 @@ export const SCORE_POINTS = {
 // itself -- all clips live only in CHARACTER_ANIMATIONS_URL.
 // -----------------------------------------------------------------------
 export const CHARACTERS = [
-  { id: 0, key: "male_suit", name: "Alex Rivera", role: "Enterprise AE", url: "/assets/characters/male_suit.glb" },
-  { id: 1, key: "female_suit", name: "Maya Chen", role: "Solutions Engineer", url: "/assets/characters/female_suit.glb" },
-  { id: 2, key: "anime_tech", name: "Kito", role: "Tech Explorer", url: "/assets/characters/anime_tech.glb" },
-  { id: 3, key: "anime_wizard", name: "Luna", role: "Digital Wizard", url: "/assets/characters/anime_wizard.glb" },
+  // {
+  //   id: 0,
+  //   key: "male_suit",
+  //   name: "Alex Rivera",
+  //   role: "Enterprise AE",
+  //   url: "/assets/characters/male_suit.glb",
+  //   rotationOffset: -Math.PI,
+  //   scale: 1.0,
+  // },
+  {
+    id: 0,
+    key: "female_suit",
+    name: "Maya Chen",
+    role: "Solutions Engineer",
+    url: "/assets/characters/female_suit.glb",
+    rotationOffset: -Math.PI,
+    scale: 1.2,
+  },
+  {
+    id: 1,
+    key: "anime_tech",
+    name: "Kito",
+    role: "Tech Explorer",
+    url: "/assets/characters/anime_tech.glb",
+    rotationOffset: -Math.PI,
+    scale: 1.0,
+  },
+  // {
+  //   id: 3,
+  //   key: "anime_wizard",
+  //   name: "Luna",
+  //   role: "Digital Wizard",
+  //   url: "/assets/characters/anime_wizard.glb",
+  //   rotationOffset: -Math.PI,
+  //   scale: 1.0,
+  // },
+  {
+    id: 2,
+    key: "npc_businessman",
+    name: "Ankit",
+    role: "Corporate Leader",
+    url: "/assets/characters/businessman_character_ankit_rigged.glb",
+    scale: 1.2,
+  },
+  {
+    id: 3,
+    key: "npc_indian_man",
+    name: "Rajat",
+    role: "Tech Professional",
+    url: "/assets/characters/indian-man-with-suit.glb",
+    scale: 1.2,
+  },
 ];
 
 export const CHARACTER_ANIMATIONS_URL = "/assets/characters/animations.glb";
@@ -379,7 +456,16 @@ export const CHARACTER_ANIMATIONS_URL = "/assets/characters/animations.glb";
 // are authored into animations.glb for Milestone 8 (victory screens) and
 // Milestone 9 (juice/hit-reactions) to wire up later without touching the
 // animation asset again.
-export const CHARACTER_CLIP_NAMES = ["Idle", "Run", "Jump", "Fall", "Land", "Slide", "Stumble", "Celebrate"];
+export const CHARACTER_CLIP_NAMES = [
+  "Idle",
+  "Run",
+  "Jump",
+  "Fall",
+  "Land",
+  "Slide",
+  "Stumble",
+  "Celebrate",
+];
 
 // Minimum world-distance between two NEW features being dealt from the
 // bag. Without this, WorldStreamer's dense per-recycle coin-slot
@@ -398,7 +484,8 @@ export const FEATURE_SPACING_DISTANCE = 45; // Reduced from 90 — coins appear 
 // Google Sheets Integration (via Apps Script Web App)
 // Replace this URL after deploying the Apps Script (see docs/SHEETS_SETUP.md)
 // -----------------------------------------------------------------------
-export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxc1j5CXFwT_NDBx-0ItJiongPtvrs57J-gAFsCSckzs5GHy4MyZDP5qCjAsFNz62acOA/exec';
+export const APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbxc1j5CXFwT_NDBx-0ItJiongPtvrs57J-gAFsCSckzs5GHy4MyZDP5qCjAsFNz62acOA/exec";
 
 // -----------------------------------------------------------------------
 // Audio (Milestone 9, real audio added post-launch-review). AudioManager.js
@@ -426,7 +513,8 @@ export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxc1j5CX
 // "/audio/music-loop.wav" and no other code changes are needed.
 // -----------------------------------------------------------------------
 export const SFX_SPRITE_URL = "/audio/sfx-sprite.wav";
-export const MUSIC_LOOP_URL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3";
+export const MUSIC_LOOP_URL =
+  "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3";
 export const SFX_GAP_SECONDS = 0.05; // silent buffer between sprite segments, avoids any bleed between cues
 export const SFX_DURATIONS = {
   coin: 0.25,
@@ -500,7 +588,8 @@ export const IDLE_RESET_MS = 15000; // additional idle time after the prompt -> 
 // TV attract mode: shown on Landing.vue when ViewportManager's size class
 // is 'tv' (big screen, no fine pointer -- the booth's attract-mode
 // display). Caption lines are exact content-script text.
-export const TV_ATTRACT_LINE_1 = "Someone's outrunning payment problems right now.";
+export const TV_ATTRACT_LINE_1 =
+  "Someone's outrunning payment problems right now.";
 export const TV_ATTRACT_LINE_2 = "Try it yourself. Tap the tablet.";
 
 // -----------------------------------------------------------------------
@@ -536,7 +625,11 @@ export const TUTORIAL_DISTANCE = 200; // world units the slowdown + random-patte
 // the player. Chunks 6 and 9 (z=-110, -170) space the next two ~60 units
 // apart -- several real seconds apiece at the slowed pace.
 export const TUTORIAL_CHUNK_INDICES = [3, 6, 9];
-export const TUTORIAL_PATTERN_SEQUENCE = ["solo-barricade-low", "solo-drone-low", "solo-barricade-wide"]; // jump, slide, switch
+export const TUTORIAL_PATTERN_SEQUENCE = [
+  "solo-barricade-low",
+  "solo-drone-low",
+  "solo-barricade-wide",
+]; // jump, slide, switch
 export const TUTORIAL_MECHANIC_BY_PATTERN = {
   "solo-barricade-low": "jump",
   "solo-drone-low": "slide",
@@ -545,7 +638,8 @@ export const TUTORIAL_MECHANIC_BY_PATTERN = {
 // A single combined banner (not 3 sequential prompts, which would need
 // precisely tracking which specific seeded obstacle the player is nearest
 // to) -- shown for the whole slowed opening stretch.
-export const TUTORIAL_BANNER = "First run: jump the low barricade, slide under the drone, switch lanes around the wide one.";
+export const TUTORIAL_BANNER =
+  "First run: jump the low barricade, slide under the drone, switch lanes around the wide one.";
 // A miss on one of the 3 seeded tutorial obstacles never costs a life --
 // this is a first-ever-controls practice window, not a fair test yet, and
 // 3 unlucky misses in a row shouldn't be able to end the run before it

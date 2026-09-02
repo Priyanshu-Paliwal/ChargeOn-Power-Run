@@ -254,7 +254,8 @@ export class Engine {
       if (hit.powerUp === "magnet")
         this.player.activateMagnet(hit.powerUpDurationMs);
       else if (hit.powerUp === "shield") this.player.activateShield();
-      else if (hit.powerUp === "jetpack") this.player.activateJetpack(hit.powerUpDurationMs);
+      else if (hit.powerUp === "jetpack")
+        this.player.activateJetpack(hit.powerUpDurationMs);
       audioManager.playSFX(hit.powerUp ? "powerup" : "coin");
       if (hit.worldPosition) {
         this.effectsSystem.burst(
@@ -620,6 +621,14 @@ export class Engine {
           return setupModel(scene);
         },
       ),
+      loadModel(
+        "npc_indian_man",
+        "/assets/characters/indian-man-with-suit.glb",
+        (scene) => {
+          scene.scale.set(1.5, 1.5, 1.5);
+          return setupModel(scene);
+        },
+      ),
       loadModel("npc_dog", "/assets/characters/dog/source/dog.glb", (scene) => {
         // Dog natively might be right sized, scaling to 1.0 just in case.
         scene.scale.set(1.0, 1.0, 1.0);
@@ -687,13 +696,9 @@ export class Engine {
       const ps1Model = this.models["npc_ps1_male"];
       const malePhoneModel = this.models["npc_male_phone"];
       const femalePhoneModel = this.models["npc_female_phone"];
+      const indianManModel = this.models["npc_indian_man"];
 
       const thalapathyBones = [];
-      const businessmanBones = [];
-      const ps1Bones = [];
-      const malePhoneBones = [];
-      const femalePhoneBones = [];
-
       if (thalapathyModel) {
         if (!thalapathyModel.animations) thalapathyModel.animations = [];
         thalapathyModel.traverse((c) => {
@@ -701,6 +706,7 @@ export class Engine {
         });
       }
 
+      const businessmanBones = [];
       if (businessmanModel) {
         if (!businessmanModel.animations) businessmanModel.animations = [];
         businessmanModel.traverse((c) => {
@@ -708,6 +714,7 @@ export class Engine {
         });
       }
 
+      const ps1Bones = [];
       if (ps1Model) {
         if (!ps1Model.animations) ps1Model.animations = [];
         ps1Model.traverse((c) => {
@@ -715,6 +722,7 @@ export class Engine {
         });
       }
 
+      const malePhoneBones = [];
       if (malePhoneModel) {
         if (!malePhoneModel.animations) malePhoneModel.animations = [];
         malePhoneModel.traverse((c) => {
@@ -722,25 +730,19 @@ export class Engine {
         });
       }
 
+      const femalePhoneBones = [];
       if (femalePhoneModel) {
         if (!femalePhoneModel.animations) femalePhoneModel.animations = [];
         femalePhoneModel.traverse((c) => {
           if (c.isBone) femalePhoneBones.push(c.name);
-          if (c.name === "bip_Pelvis" || c.name === "bip") {
-            console.log(
-              `[Female Phone] ${c.name} rest pos:`,
-              c.position.x,
-              c.position.y,
-              c.position.z,
-            );
-            console.log(
-              `[Female Phone] ${c.name} rest quat:`,
-              c.quaternion.x,
-              c.quaternion.y,
-              c.quaternion.z,
-              c.quaternion.w,
-            );
-          }
+        });
+      }
+
+      const indianManBones = [];
+      if (indianManModel) {
+        if (!indianManModel.animations) indianManModel.animations = [];
+        indianManModel.traverse((c) => {
+          if (c.isBone) indianManBones.push(c.name);
         });
       }
 
@@ -765,7 +767,8 @@ export class Engine {
         businessmanModel ||
         ps1Model ||
         malePhoneModel ||
-        femalePhoneModel
+        femalePhoneModel ||
+        indianManModel
       ) {
         const motionFiles = [
           "jogging.fbx",
@@ -851,10 +854,10 @@ export class Engine {
               if (bipedMap[coreName]) searchName = bipedMap[coreName];
             }
 
-            // Match the core name exactly, or with an underscore and numbers (e.g. Hips_01 or Hips_53),
+            // Match the core name exactly, or with any trailing characters like _01, _02, etc.
             // AND optionally allow the 'mixamorig:' prefix for standard FBX models!
             const regex = new RegExp(
-              `^(mixamorig[:_]?)?${searchName}(_\\d+)?$`,
+              `^(mixamorig[:_]?)?${searchName}(.*)$`,
               "i",
             );
             const matchingBone = targetBones.find((b) => regex.test(b));
@@ -987,6 +990,7 @@ export class Engine {
         processEmbeddedAnims(thalapathyModel, thalapathyBones);
         processEmbeddedAnims(businessmanModel, businessmanBones);
         processEmbeddedAnims(ps1Model, ps1Bones);
+        processEmbeddedAnims(indianManModel, indianManBones);
         // processEmbeddedAnims(malePhoneModel, malePhoneBones); // Temporarily disable to stop freezing
 
         if (malePhoneModel) {
@@ -1053,6 +1057,15 @@ export class Engine {
                 console.log(
                   `[Retargeting] Applied ${clip.name} to Female Phone`,
                 );
+              }
+              if (indianManModel) {
+                const retargeted = retargetClip(
+                  clip.clone(),
+                  indianManBones,
+                  indianManModel,
+                );
+                indianManModel.animations.push(retargeted);
+                console.log(`[Retargeting] Applied ${clip.name} to Indian Man`);
               }
             }
           } catch (err) {
@@ -1133,10 +1146,10 @@ export class Engine {
     this.mode = newMode;
     if (this.mode === "LOBBY") {
       this.player.setAnimation("Idle");
-      this.player.setFacing(Math.PI); // Face the camera
+      this.player.setFacing(0); // Face the camera
     } else if (this.mode === "PLAYING") {
       this.player.setAnimation("Run");
-      this.player.setFacing(0); // Face the track
+      this.player.setFacing(Math.PI); // Face the track
     }
   }
 
@@ -1174,6 +1187,12 @@ export class Engine {
     // Only move the world if playing
     if (this.mode === "PLAYING") {
       this.world.update(delta);
+      if (this.groundMat && this.groundMat.map && this.world.speed) {
+        // Plane is 2000 units, repeating 200 times. 1 repeat = 10 world units.
+        // The track moves towards the camera (-Z), so we scroll the texture
+        // vertically by the exact same distance to lock it to the world.
+        this.groundMat.map.offset.y += (this.world.speed * delta) / 10;
+      }
     } else {
       // In LOBBY, we want pedestrians to keep walking/animating even though the world is stationary
       if (this.world && this.world.propSystem) {
@@ -1181,12 +1200,7 @@ export class Engine {
       }
     }
 
-    this.cameraRig.update(
-      rawDelta,
-      time,
-      this.player.mesh.position,
-      this.mode,
-    );
+    this.cameraRig.update(rawDelta, time, this.player.mesh.position, this.mode);
 
     if (this.quality.recordFrame(rawDelta)) {
       this._applyQualityTier();

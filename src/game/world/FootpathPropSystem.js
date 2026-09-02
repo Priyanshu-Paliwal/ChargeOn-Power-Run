@@ -7,7 +7,7 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 export const PROP_CONFIG = {
   SLOT_SPACING: 10,
   GROUND_PROP_SPACING: 150,
-  CURB_ROW_OFFSET: 6.0,
+  CURB_ROW_OFFSET: 7.5, // Increased from 6.0 to push characters further from the track/railing
   BUILDING_ROW_OFFSET: 10.0,
   MANHOLE_OFFSET: 7.85,
   SPAWN_CHANCE_BUILDING: 0.1,
@@ -222,14 +222,14 @@ export class FootpathPropSystem {
       "npc_female_phone",
       "npc_male_phone",
       "npc_dog",
-
-      // High frequency characters (3x weight)
+      "npc_thalapathy",
+      "npc_thalapathy",
+      "npc_indian_man",
+      "npc_indian_man",
+      "npc_indian_man",
       "npc_businessman",
       "npc_businessman",
       "npc_businessman",
-      "npc_thalapathy",
-      "npc_thalapathy",
-      "npc_thalapathy",
     ];
 
     // Override the random selection with the currently tested character
@@ -248,20 +248,39 @@ export class FootpathPropSystem {
     this.reserveRange(side, z, radius);
 
     const mesh = SkeletonUtils.clone(model);
-
     const embeddedAnims = this.models[charKey].animations || [];
+    let box = new THREE.Box3().setFromObject(mesh);
 
-    const box = new THREE.Box3().setFromObject(mesh);
+    // Check if the model is gigantic
+    if (
+      charKey === "npc_gentleman" ||
+      charKey === "npc_indian_man" ||
+      charKey === "npc_businessman"
+    ) {
+      const height = box.max.y - box.min.y;
+      console.log(
+        `[Trace] ${charKey} original height: ${height.toFixed(2)}, min: ${box.min.x.toFixed(2)}, ${box.min.y.toFixed(2)}, ${box.min.z.toFixed(2)} max: ${box.max.x.toFixed(2)}, ${box.max.y.toFixed(2)}, ${box.max.z.toFixed(2)}`,
+      );
+    }
+
     mesh.position.set(0, -box.min.y, 0);
 
     if (charKey === "npc_dog") {
       console.log(
         `[Dog Debug] Bounding Box: min(${box.min.x.toFixed(2)}, ${box.min.y.toFixed(2)}, ${box.min.z.toFixed(2)}) max(${box.max.x.toFixed(2)}, ${box.max.y.toFixed(2)}, ${box.max.z.toFixed(2)})`,
       );
-      console.log(
-        `[Dog Debug] Anims:`,
-        embeddedAnims.map((a) => a.name).join(", "),
-      );
+      if (charKey === "npc_dog") {
+        console.log(
+          `[Dog Debug] Anims:`,
+          embeddedAnims.map((a) => a.name).join(", "),
+        );
+      }
+
+      mesh.traverse((child) => {
+        if (child.isMesh || child.isSkinnedMesh) {
+          child.frustumCulled = false;
+        }
+      });
     }
 
     // Fix dog mesh orientation (model is exported facing sideways)
@@ -290,25 +309,33 @@ export class FootpathPropSystem {
 
       // Filter out 'idle' and 'looking' animations for all characters as requested
       let validAnims = embeddedAnims.filter(
-        (a) => !a.name.toLowerCase().includes("idle") && !a.name.toLowerCase().includes("looking")
+        (a) =>
+          !a.name.toLowerCase().includes("idle") &&
+          !a.name.toLowerCase().includes("looking"),
       );
-      
+
       // If we are in the lobby, ONLY allow professional animations (no jogging, running, fast walks, or sitting)
       if (this.engine && this.engine.mode === "LOBBY") {
         validAnims = validAnims.filter((a) => {
           const n = a.name.toLowerCase();
-          if (n.includes("jogging") || n.includes("running") || n.includes("fast") || n.includes("sit")) return false;
-          
+          if (
+            n.includes("jogging") ||
+            n.includes("running") ||
+            n.includes("fast") ||
+            n.includes("sit")
+          )
+            return false;
+
           // The user requested to reduce basic walking in the lobby and mostly keep texting/pacing/waving.
           // We give basic walking and strut walking only a 20% chance of making it into the pool per spawn.
           if (n === "walking" || n === "strut_walking") {
-            return Math.random() < 0.20; 
+            return Math.random() < 0.2;
           }
-          
+
           return true;
         });
       }
-      
+
       // Fallback to embeddedAnims if there are no valid animations left
       const animsToUse = validAnims.length > 0 ? validAnims : embeddedAnims;
 
@@ -333,6 +360,23 @@ export class FootpathPropSystem {
       } else if (charKey === "npc_thalapathy") {
         this._thalapathyAnimIndex = (this._thalapathyAnimIndex || 0) + 1;
         walkClip = animsToUse[this._thalapathyAnimIndex % animsToUse.length];
+
+        if (walkClip) {
+          const nameLower = walkClip.name.toLowerCase();
+          if (
+            nameLower.includes("sit") ||
+            nameLower.includes("pacing") ||
+            nameLower.includes("talking") ||
+            nameLower.includes("waving") ||
+            nameLower.includes("looking")
+          ) {
+            isLocomotion = false;
+          }
+        }
+      } else if (charKey === "npc_indian_man") {
+        // Let's reuse the profMaleAnimIndex or a generic animIndex
+        this._genericAnimIndex = (this._genericAnimIndex || 0) + 1;
+        walkClip = animsToUse[this._genericAnimIndex % animsToUse.length];
 
         if (walkClip) {
           const nameLower = walkClip.name.toLowerCase();
@@ -442,6 +486,7 @@ export class FootpathPropSystem {
         "npc_businessman",
         "npc_ps1_male",
         "npc_male_basic",
+        "npc_prof_male",
       ];
       if (trackedChars.includes(charKey) && walkClip) {
         debugStr += `\nTrks:${walkClip.tracks.length}`;
@@ -488,7 +533,8 @@ export class FootpathPropSystem {
       ui.style.zIndex = "999999";
       ui.style.fontFamily = "monospace";
       ui.style.minWidth = "250px";
-      ui.style.display = "none";
+      // ui.style.display = "block"; // Make the UI visible!
+      ui.style.display = "none"; // Hide UI!
 
       const title = document.createElement("div");
       title.id = "char-debug-title";
@@ -524,7 +570,7 @@ export class FootpathPropSystem {
         ui.appendChild(row);
       };
 
-      let debugScale = 0.015;
+      let debugScale = 1.0;
       let debugRotX = 0;
       let debugRotY = 0;
       let debugRotZ = 0;
@@ -532,31 +578,66 @@ export class FootpathPropSystem {
 
       const updateAllWalkers = () => {
         this.spawnedWalkers.forEach((w) => {
-          if (w.wrapper.children[0]) {
-            w.wrapper.children[0].scale.set(debugScale, debugScale, debugScale);
+          // ONLY apply debug scale/rotation to the professional male so we don't break old characters!
+          if (w.charKey === "npc_prof_male") {
+            if (w.wrapper.children[0]) {
+              w.wrapper.children[0].scale.set(
+                debugScale,
+                debugScale,
+                debugScale,
+              );
+            }
+            w.wrapper.rotation.x = debugRotX;
+            w.wrapper.position.y = debugPosY;
+            w.wrapper.rotation.z = debugRotZ;
           }
-          w.wrapper.rotation.x = debugRotX;
-          w.wrapper.position.y = debugPosY;
-          w.wrapper.rotation.z = debugRotZ;
         });
       };
 
-      createSlider("Scale", 0.001, 0.05, 0.001, debugScale, (v) => {
+      createSlider("Scale", 0.1, 10.0, 0.1, debugScale, (v) => {
         debugScale = v;
         updateAllWalkers();
       });
+
       createSlider("RotX", -Math.PI, Math.PI, 0.1, debugRotX, (v) => {
         debugRotX = v;
         updateAllWalkers();
       });
+
       createSlider("RotZ", -Math.PI, Math.PI, 0.1, debugRotZ, (v) => {
         debugRotZ = v;
         updateAllWalkers();
       });
-      createSlider("PosY", -20, 20, 0.5, debugPosY, (v) => {
+
+      createSlider("PosY", -50.0, 50.0, 0.5, debugPosY, (v) => {
         debugPosY = v;
         updateAllWalkers();
       });
+
+      // Helper button to calculate real bounding box
+      const debugBtn = document.createElement("button");
+      debugBtn.innerText = "Log Bounding Box (F12 Console)";
+      debugBtn.style.marginTop = "10px";
+      debugBtn.style.padding = "5px";
+      debugBtn.style.cursor = "pointer";
+      debugBtn.onclick = () => {
+        if (this.spawnedWalkers.length > 0) {
+          const w = this.spawnedWalkers[0];
+          const box = new THREE.Box3().setFromObject(w.wrapper);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+          console.warn("--- ACTUAL WORLD SIZE OF CHARACTER ---");
+          console.warn(`Width (X): ${size.x}`);
+          console.warn(`Height (Y): ${size.y}`);
+          console.warn(`Depth (Z): ${size.z}`);
+          console.warn(
+            "If these are ~0.01, increase Scale. If these are > 100, decrease Scale.",
+          );
+        } else {
+          console.warn("No characters spawned yet.");
+        }
+      };
+      ui.appendChild(debugBtn);
 
       document.body.appendChild(ui);
 
