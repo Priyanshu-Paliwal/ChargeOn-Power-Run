@@ -86,7 +86,12 @@ export class WorldStreamer {
     );
     this.chunkManifests = []; // parallel to trackPool, filled in by buildScenery()
 
-    this.propSystem = new FootpathPropSystem(this.scene, this.models, [], this.engine);
+    this.propSystem = new FootpathPropSystem(
+      this.scene,
+      this.models,
+      [],
+      this.engine,
+    );
 
     this.obstacleFactory = new ObstacleFactory();
     this.spawnDirector = new SpawnDirector();
@@ -214,6 +219,28 @@ export class WorldStreamer {
       const jp = this.models.jetpack.clone();
       jp.scale.set(0.17, 0.17, 0.17); // ~10% larger than previous
       jp.rotation.y = Math.PI;
+
+      // Add a bluish glowing PointLight for the pickup instance
+      const jetpackLight = new THREE.PointLight(0x00aaff, 3, 5);
+
+      jp.traverse((child) => {
+        if (child.name === "Nucleo") {
+          child.add(jetpackLight);
+        }
+
+        if (child.isMesh && child.material) {
+          const materials = Array.isArray(child.material)
+            ? child.material
+            : [child.material];
+          materials.forEach((mat) => {
+            if (mat.name === "Material.003") {
+              mat.emissive = new THREE.Color(0x00aaff);
+              mat.emissiveIntensity = 2.0;
+            }
+          });
+        }
+      });
+
       this.jetpackPickupModel.add(jp);
     }
 
@@ -271,7 +298,7 @@ export class WorldStreamer {
       // the first ~90 units with nothing to collect.
       this._distanceSinceLastFeature = this.currentLevel === 3 ? 45 : 35;
 
-      // Clear all existing obstacles and coins from the track to provide a safe 
+      // Clear all existing obstacles and coins from the track to provide a safe
       // "breather" runway (a few seconds of empty track) at the start of the level.
       for (let i = 0; i < this.poolSize; i++) {
         // Clear coins
@@ -431,9 +458,13 @@ export class WorldStreamer {
 
     pattern.coins.forEach((coinDef, idx) => {
       if (idx >= coinSlots.length) return;
-      
+
       let featureData = null;
-      if (!this._jetpackSpawnedThisRun && this.featuresToSpawn.length <= Math.max(0, this.levelFeatures.length - 5)) {
+      if (
+        !this._jetpackSpawnedThisRun &&
+        this.featuresToSpawn.length <=
+          Math.max(0, this.levelFeatures.length - 5)
+      ) {
         // Spawn Jetpack roughly after 5 regular features have been dealt
         this._jetpackSpawnedThisRun = true;
         featureData = { name: "Jetpack", category: "PowerUp" };
@@ -448,10 +479,13 @@ export class WorldStreamer {
 
       const coin = coinSlots[idx];
       // Cleanup any previously attached jetpack model if this slot was reused
-      if (this.jetpackPickupModel && this.jetpackPickupModel.parent === coin.group) {
+      if (
+        this.jetpackPickupModel &&
+        this.jetpackPickupModel.parent === coin.group
+      ) {
         coin.group.remove(this.jetpackPickupModel);
       }
-      
+
       const powerUpDef = POWER_UPS[featureData.name];
       const isAdmin = featureData.category.includes("Admin");
       const mat = powerUpDef
@@ -459,7 +493,7 @@ export class WorldStreamer {
         : isAdmin
           ? this.adminMat
           : this.businessMat;
-          
+
       if (featureData.name === "Jetpack") {
         // Render physical jetpack model, hide the coin meshes
         coin.ring.visible = false;
@@ -477,7 +511,7 @@ export class WorldStreamer {
         coin.plate.material = mat;
         coin.innerRing.material = mat;
       }
-      
+
       coin.baseY = coinDef.y ?? 1.2;
       coin.group.position.set(
         PLAYER_PHYSICS.lanes[coinDef.lane],
@@ -523,6 +557,10 @@ export class WorldStreamer {
 
       // Generate a new 200 unit chunk every time we travel 200 units
       if (this.distanceTraveledProps > 200) {
+        // Shift the bench spawn cursor by +200 because the old window is gone,
+        // and we are about to evaluate the exact same absolute bounds again!
+        this.propSystem.nextBenchZ[1] += 200;
+        this.propSystem.nextBenchZ["-1"] += 200;
         this.propSystem.generateChunk(-800, -1000);
         this.distanceTraveledProps -= 200;
       }

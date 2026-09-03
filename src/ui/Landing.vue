@@ -18,7 +18,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["start", "character-selected"]);
+const emit = defineEmits(["start", "character-selected", "dev-start"]);
 
 const musicState = inject("musicState");
 
@@ -153,6 +153,7 @@ onMounted(() => {
 
       <div class="action-buttons">
         <button class="btn-primary" @click="emit('start')">START RUN</button>
+        <button class="btn-primary" style="margin-left: 10px; background-color: #ff3b3b; color: white;" @click="emit('dev-start')">DEV START</button>
       </div>
     </footer>
 

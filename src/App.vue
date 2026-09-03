@@ -410,6 +410,7 @@ const quitToLobby = () => {
           :userData="userData"
           :selectedCharacterId="selectedCharacterId"
           @start="gameState = 'REGISTRATION'"
+          @dev-start="startLevel"
           @character-selected="handleCharacterSelected"
         />
         

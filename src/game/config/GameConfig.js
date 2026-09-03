@@ -283,6 +283,14 @@ export const DRONE_CONFIG = {
 };
 
 // -----------------------------------------------------------------------
+// 🏆 LOBBY SHOWCASE PROPS (Leaderboard Billboard & Three.js Flag)
+// Full control over position, scale, rotation, and visibility in Lobby.
+// -----------------------------------------------------------------------
+export const LOBBY_PROPS_CONFIG = {
+  // Lobby props removed to save repo size
+};
+
+// -----------------------------------------------------------------------
 // Difficulty ramp. Per-level BASE speed (1.0x/1.3x/1.6x) already lives in
 // GameContent.js's levels array -- this is the ADDITIONAL, smooth ramp
 // that happens WITHIN a level as the player travels through it, capped so

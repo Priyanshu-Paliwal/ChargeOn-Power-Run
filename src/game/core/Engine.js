@@ -12,6 +12,7 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { viewportManager } from "./ViewportManager.js";
 import { CameraRig } from "./CameraRig.js";
 import { QualityManager } from "./QualityManager.js";
+import GUI from "lil-gui";
 import { InputManager } from "../systems/InputManager.js";
 import { CollisionSystem } from "../systems/CollisionSystem.js";
 import { ScoreSystem } from "../systems/ScoreSystem.js";
@@ -29,6 +30,7 @@ import {
   TUTORIAL_LEVEL_ID,
   TUTORIAL_PATTERN_SEQUENCE,
   TUTORIAL_CHUNK_INDICES,
+  LOBBY_PROPS_CONFIG,
 } from "../config/GameConfig.js";
 
 export class Engine {
@@ -115,6 +117,7 @@ export class Engine {
 
     // --- REAL ATMOSPHERE (SKY & GROUND) ---
     this.initAtmosphere();
+    this.initLobbyProps();
 
     // Input: keyboard + touch, bound to the canvas container (not window) so
     // UI button taps -- captured by the UI layer sitting in front -- never
@@ -572,7 +575,46 @@ export class Engine {
 
       // Footpath props
       loadModel("atm", "/assets/models/environment/props/atm.glb"),
-      loadModel("bench", "/assets/models/environment/props/bench.glb"),
+      loadModel(
+        "bench",
+        "/assets/models/environment/bench_folio.glb",
+        (scene) => {
+          let benchMesh = null;
+          scene.traverse((child) => {
+            if (child.isMesh && !benchMesh) {
+              benchMesh = child.clone();
+            }
+          });
+
+          if (benchMesh) {
+            const group = new THREE.Group();
+
+            // Reset the world offset baked into Bruno's scene
+            benchMesh.position.set(0, 0, 0);
+            benchMesh.rotation.set(0, 0, 0);
+            benchMesh.scale.set(1, 1, 1);
+
+            // Load the folio palette
+            const paletteTex = texLoader.load("/textures/palette.png");
+            paletteTex.minFilter = THREE.NearestFilter;
+            paletteTex.magFilter = THREE.NearestFilter;
+            paletteTex.colorSpace = THREE.SRGBColorSpace;
+            paletteTex.flipY = false;
+
+            benchMesh.material = new THREE.MeshStandardMaterial({
+              map: paletteTex,
+              roughness: 0.9,
+            });
+
+            benchMesh.castShadow = true;
+            benchMesh.receiveShadow = true;
+
+            group.add(benchMesh);
+            return group;
+          }
+          return setupModel(scene);
+        },
+      ),
       loadModel("bus_stop", "/assets/models/environment/props/bus_stop.glb"),
       loadModel(
         "coffee_food_cart",
@@ -603,6 +645,7 @@ export class Engine {
         "utility_box",
         "/assets/models/environment/props/utility_box.glb",
       ),
+      loadModel("airdancer", "/assets/models/environment/airdancer.glb"),
 
       // ----- Native Characters (with embedded animations) -----
       loadModel(
@@ -966,10 +1009,10 @@ export class Engine {
           });
 
           if (unmatched.size > 0) {
-            console.warn(
-              `[Retargeting] ${clip.name} unmatched bones:`,
-              Array.from(unmatched).join(", "),
-            );
+            // console.warn(
+            //   `[Retargeting] ${clip.name} unmatched bones:`,
+            //   Array.from(unmatched).join(", "),
+            // );
           }
 
           clip.tracks = retargetedTracks;
@@ -994,7 +1037,7 @@ export class Engine {
         // processEmbeddedAnims(malePhoneModel, malePhoneBones); // Temporarily disable to stop freezing
 
         if (malePhoneModel) {
-          console.log("Male Phone Bones length:", malePhoneBones.length);
+          // console.log("Male Phone Bones length:", malePhoneBones.length);
         }
 
         for (const file of motionFiles) {
@@ -1014,7 +1057,7 @@ export class Engine {
                   thalapathyModel,
                 );
                 thalapathyModel.animations.push(retargeted);
-                console.log(`[Retargeting] Applied ${clip.name} to Thalapathy`);
+                // console.log(`[Retargeting] Applied ${clip.name} to Thalapathy`);
               }
 
               if (businessmanModel) {
@@ -1024,9 +1067,9 @@ export class Engine {
                   businessmanModel,
                 );
                 businessmanModel.animations.push(retargeted);
-                console.log(
-                  `[Retargeting] Applied ${clip.name} to Businessman`,
-                );
+                // console.log(
+                //   `[Retargeting] Applied ${clip.name} to Businessman`,
+                // );
               }
               if (ps1Model) {
                 const retargeted = retargetClip(
@@ -1035,7 +1078,7 @@ export class Engine {
                   ps1Model,
                 );
                 ps1Model.animations.push(retargeted);
-                console.log(`[Retargeting] Applied ${clip.name} to PS1 Male`);
+                // console.log(`[Retargeting] Applied ${clip.name} to PS1 Male`);
               }
 
               if (malePhoneModel) {
@@ -1045,7 +1088,7 @@ export class Engine {
                   malePhoneModel,
                 );
                 malePhoneModel.animations.push(retargeted);
-                console.log(`[Retargeting] Applied ${clip.name} to Male Phone`);
+                // console.log(`[Retargeting] Applied ${clip.name} to Male Phone`);
               }
               if (femalePhoneModel) {
                 const retargeted = retargetClip(
@@ -1054,9 +1097,9 @@ export class Engine {
                   femalePhoneModel,
                 );
                 femalePhoneModel.animations.push(retargeted);
-                console.log(
-                  `[Retargeting] Applied ${clip.name} to Female Phone`,
-                );
+                // console.log(
+                //   `[Retargeting] Applied ${clip.name} to Female Phone`,
+                // );
               }
               if (indianManModel) {
                 const retargeted = retargetClip(
@@ -1065,7 +1108,7 @@ export class Engine {
                   indianManModel,
                 );
                 indianManModel.animations.push(retargeted);
-                console.log(`[Retargeting] Applied ${clip.name} to Indian Man`);
+                // console.log(`[Retargeting] Applied ${clip.name} to Indian Man`);
               }
             }
           } catch (err) {
@@ -1142,8 +1185,18 @@ export class Engine {
     this.scene.add(ground);
   }
 
+  initLobbyProps() {
+    this.lobbyPropsGroup = new THREE.Group();
+    this.lobbyPropsGroup.name = "LobbyPropsGroup";
+    this.scene.add(this.lobbyPropsGroup);
+  }
+  }
+
   setMode(newMode) {
     this.mode = newMode;
+    if (this.lobbyPropsGroup) {
+      this.lobbyPropsGroup.visible = newMode === "LOBBY";
+    }
     if (this.mode === "LOBBY") {
       this.player.setAnimation("Idle");
       this.player.setFacing(0); // Face the camera

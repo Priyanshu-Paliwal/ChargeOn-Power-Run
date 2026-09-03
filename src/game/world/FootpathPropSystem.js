@@ -13,7 +13,7 @@ export const PROP_CONFIG = {
   SPAWN_CHANCE_BUILDING: 0.1,
   SPAWN_CHANCE_CURB: 0.1,
   SPAWN_CHANCE_BENCH: 0.05,
-  SPAWN_CHANCE_WALKER: 10.0, // Temporarily very high so the user sees lots of characters
+  SPAWN_CHANCE_WALKER: 0.25, // Restored to a reasonable density so the footpath isn't overcrowded
   SCALES: {
     coffee_food_cart: 1.5,
     ice_cream_food_cart: 1.5,
@@ -21,14 +21,18 @@ export const PROP_CONFIG = {
     utility_box: 0.015,
     storm_drain: 0.015,
     manhole: 0.015,
-    bench: 0.015,
+    bench: 1.125,
     trash_large: 0.015,
     trash_small: 0.015,
     postbox: 0.015,
     hydrant: 0.015,
+    airdancer: 1.0,
   },
   CUSTOM_OFFSETS: {
-    bench: { x: 0, y: 0, z: 0, rotY: Math.PI / 2 },
+    bench: { x: 2.6, y: 0, z: 0, rotY: 0 },
+    sitter0: { x: 2.1, y: -0.2, z: 1.0, rotY: -0.291592653589795 },
+    sitter1: { x: 2.1, y: -0.3, z: -0.4, rotY: -0.141592653589795 },
+    airdancer: { x: -0.6, y: 0, z: 6.5, rotY: 0.30845998458419435 },
   },
   FOOTPRINTS: {
     bench: 2.5,
@@ -40,11 +44,13 @@ export const PROP_CONFIG = {
     stop_sign: 1,
     coffee_food_cart: 2.5,
     ice_cream_food_cart: 2.5,
+    airdancer: 2,
   },
   WEIGHTS: {
     BUILDING_ROW: {
       utility_box: 5,
       postbox: 15,
+      airdancer: 20,
     },
     CURB_ROW: {
       trash_large: 5,
@@ -71,6 +77,8 @@ export class FootpathPropSystem {
     };
     this.lastSpawnedBuilding = { 1: null, "-1": null };
     this.lastSpawnedCurb = { 1: null, "-1": null };
+    // Deterministic bench spawn tracking: stagger them so they don't face each other
+    this.nextBenchZ = { 1: -25, "-1": -75 };
   }
 
   pickRandomProp(weightTable, lastPicked) {
@@ -149,6 +157,63 @@ export class FootpathPropSystem {
     mesh.position.y -= box.min.y - center.y;
     const scale = PROP_CONFIG.SCALES[propName] || 0.015;
     const wrapper = new THREE.Group();
+
+    if (propName === "airdancer") {
+      mesh.traverse((child) => {
+        if (child.isMesh) {
+          child.material = child.material.clone();
+          child.material.userData.time = { value: 0 };
+          child.material.onBeforeCompile = (shader) => {
+            shader.uniforms.uTime = child.material.userData.time;
+            shader.vertexShader = `
+              uniform float uTime;
+              ${shader.vertexShader}
+            `.replace(
+              "#include <begin_vertex>",
+              `
+              #include <begin_vertex>
+              float height = 5.0; 
+              float localTime = uTime * 4.0;
+              float intensity = abs( fract( localTime * 0.34 - position.y / (height * 2.0) ) - 0.5 ) * 2.0;
+              float heightFade = position.y / height;
+              float rotation1 = sin(localTime * 0.678) * 0.7;
+              float rotation2 = sin(localTime * 1.4) * 0.35;
+              float rotation3 = sin(localTime * 2.4) * 0.2;
+              float rot = (rotation1 + rotation2 + rotation3) * heightFade * intensity * 0.8;
+              
+              float c = cos(rot);
+              float s = sin(rot);
+              mat2 rotMat = mat2(c, -s, s, c);
+              transformed.xy = rotMat * transformed.xy;
+              `,
+            );
+
+            shader.vertexShader = shader.vertexShader.replace(
+              "#include <beginnormal_vertex>",
+              `
+              #include <beginnormal_vertex>
+              float n_height = 5.0; 
+              float n_localTime = uTime * 4.0;
+              float n_intensity = abs( fract( n_localTime * 0.34 - position.y / (n_height * 2.0) ) - 0.5 ) * 2.0;
+              float n_heightFade = position.y / n_height;
+              float n_rotation1 = sin(n_localTime * 0.678) * 0.7;
+              float n_rotation2 = sin(n_localTime * 1.4) * 0.35;
+              float n_rotation3 = sin(n_localTime * 2.4) * 0.2;
+              float n_rot = (n_rotation1 + n_rotation2 + n_rotation3) * n_heightFade * n_intensity * 0.8;
+              
+              float n_c = cos(n_rot);
+              float n_s = sin(n_rot);
+              mat2 n_rotMat = mat2(n_c, -n_s, n_s, n_c);
+              objectNormal.xy = n_rotMat * objectNormal.xy;
+              `,
+            );
+          };
+          this.airDancerMaterials = this.airDancerMaterials || [];
+          this.airDancerMaterials.push(child.material);
+        }
+      });
+    }
+
     wrapper.add(mesh);
     let finalX = x;
     let finalY = 0.35;
@@ -163,12 +228,24 @@ export class FootpathPropSystem {
     wrapper.scale.set(scale, scale, scale);
     if (isCar) {
       wrapper.rotation.y = side === 1 ? Math.PI : 0;
-    } else if (faceRoad) {
+    } else if (faceRoad && propName !== "airdancer") {
       wrapper.rotation.y = side === 1 ? -Math.PI / 2 : Math.PI / 2;
+    } else {
+      wrapper.rotation.y = 0;
     }
-    if (customOffset && customOffset.rotY) {
+
+    if (customOffset && customOffset.rotY !== undefined) {
       wrapper.rotation.y += customOffset.rotY;
     }
+    wrapper.userData = {
+      propName,
+      baseX: x,
+      baseZ: z,
+      side,
+      faceRoad,
+      isCar,
+      totalMoved: 0,
+    };
     this.scene.add(wrapper);
     this.spawnedMeshes.push(wrapper);
     return wrapper;
@@ -206,7 +283,74 @@ export class FootpathPropSystem {
       side,
       true,
     );
+
+    const numSitters = Math.floor(Math.random() * 2) + 1; // 1 or 2 sitters
+    if (numSitters === 1) {
+      this.spawnSitter(z, side, Math.floor(Math.random() * 2));
+    } else {
+      this.spawnSitter(z, side, 0);
+      this.spawnSitter(z, side, 1);
+    }
+
     return true;
+  }
+
+  spawnSitter(benchZ, side, seatIndex) {
+    const characters = ["npc_businessman", "npc_thalapathy", "npc_indian_man"];
+    const charKey = characters[Math.floor(Math.random() * characters.length)];
+    const model = this.models[charKey];
+    if (!model) return;
+
+    const mesh = SkeletonUtils.clone(model);
+    const embeddedAnims = model.animations || [];
+
+    // Find sitting animations
+    const sittingAnims = embeddedAnims.filter((a) =>
+      a.name.toLowerCase().includes("sit"),
+    );
+    if (sittingAnims.length === 0) return;
+
+    const anim = sittingAnims[Math.floor(Math.random() * sittingAnims.length)];
+
+    // Setup model
+    let box = new THREE.Box3().setFromObject(mesh);
+    mesh.position.set(0, -box.min.y, 0);
+
+    const wrapper = new THREE.Group();
+    wrapper.add(mesh);
+
+    const propName = `sitter${seatIndex}`;
+    wrapper.userData = {
+      propName,
+      baseX: side * PROP_CONFIG.CURB_ROW_OFFSET,
+      baseZ: benchZ,
+      side,
+      totalMoved: 0,
+      seatIndex,
+      isSitter: true,
+    };
+
+    const offset = PROP_CONFIG.CUSTOM_OFFSETS[propName];
+    let finalX = wrapper.userData.baseX + side * offset.x;
+    let finalY = offset.y;
+    let finalZ = wrapper.userData.baseZ + offset.z;
+
+    wrapper.position.set(finalX, finalY, finalZ);
+    wrapper.rotation.y =
+      (side === 1 ? -Math.PI / 2 : Math.PI / 2) + offset.rotY;
+
+    this.scene.add(wrapper);
+
+    let mixer = new THREE.AnimationMixer(mesh);
+    mixer.clipAction(anim).play();
+
+    this.spawnedWalkers.push({
+      wrapper,
+      mixer,
+      isLocomotion: false,
+      speed: 0,
+      charKey,
+    });
   }
 
   spawnWalker(z, side) {
@@ -258,22 +402,22 @@ export class FootpathPropSystem {
       charKey === "npc_businessman"
     ) {
       const height = box.max.y - box.min.y;
-      console.log(
-        `[Trace] ${charKey} original height: ${height.toFixed(2)}, min: ${box.min.x.toFixed(2)}, ${box.min.y.toFixed(2)}, ${box.min.z.toFixed(2)} max: ${box.max.x.toFixed(2)}, ${box.max.y.toFixed(2)}, ${box.max.z.toFixed(2)}`,
-      );
+      // console.log(
+      //   `[Trace] ${charKey} original height: ${height.toFixed(2)}, min: ${box.min.x.toFixed(2)}, ${box.min.y.toFixed(2)}, ${box.min.z.toFixed(2)} max: ${box.max.x.toFixed(2)}, ${box.max.y.toFixed(2)}, ${box.max.z.toFixed(2)}`,
+      // );
     }
 
     mesh.position.set(0, -box.min.y, 0);
 
     if (charKey === "npc_dog") {
-      console.log(
-        `[Dog Debug] Bounding Box: min(${box.min.x.toFixed(2)}, ${box.min.y.toFixed(2)}, ${box.min.z.toFixed(2)}) max(${box.max.x.toFixed(2)}, ${box.max.y.toFixed(2)}, ${box.max.z.toFixed(2)})`,
-      );
+      // console.log(
+      //   `[Dog Debug] Bounding Box: min(${box.min.x.toFixed(2)}, ${box.min.y.toFixed(2)}, ${box.min.z.toFixed(2)}) max(${box.max.x.toFixed(2)}, ${box.max.y.toFixed(2)}, ${box.max.z.toFixed(2)})`,
+      // );
       if (charKey === "npc_dog") {
-        console.log(
-          `[Dog Debug] Anims:`,
-          embeddedAnims.map((a) => a.name).join(", "),
-        );
+        // console.log(
+        //   `[Dog Debug] Anims:`,
+        //   embeddedAnims.map((a) => a.name).join(", "),
+        // );
       }
 
       mesh.traverse((child) => {
@@ -308,10 +452,12 @@ export class FootpathPropSystem {
       mixer = new THREE.AnimationMixer(mesh);
 
       // Filter out 'idle' and 'looking' animations for all characters as requested
+      // Also completely filter out 'sit' animations so they never spawn on the path!
       let validAnims = embeddedAnims.filter(
         (a) =>
           !a.name.toLowerCase().includes("idle") &&
-          !a.name.toLowerCase().includes("looking"),
+          !a.name.toLowerCase().includes("looking") &&
+          !a.name.toLowerCase().includes("sit"),
       );
 
       // If we are in the lobby, ONLY allow professional animations (no jogging, running, fast walks, or sitting)
@@ -516,25 +662,26 @@ export class FootpathPropSystem {
       animName: currentAnimName,
     });
 
-    console.log(
-      `[FootpathPropSystem] Spawned: ${charKey} | Anim: ${currentAnimName} | Locomotion: ${isLocomotion} | Z: ${z.toFixed(1)}`,
-    );
+    // console.log(
+    //   `[FootpathPropSystem] Spawned: ${charKey} | Anim: ${currentAnimName} | Locomotion: ${isLocomotion} | Z: ${z.toFixed(1)}`,
+    // );
 
     // --- START DEBUG UI ---
     if (!window.characterDebugUIAdded) {
       window.characterDebugUIAdded = true;
       const ui = document.createElement("div");
       ui.style.position = "absolute";
-      ui.style.top = "10px";
+      ui.style.top = "50px";
       ui.style.right = "10px";
       ui.style.background = "rgba(0,0,0,0.8)";
       ui.style.color = "white";
       ui.style.padding = "10px";
       ui.style.zIndex = "999999";
       ui.style.fontFamily = "monospace";
-      ui.style.minWidth = "250px";
-      // ui.style.display = "block"; // Make the UI visible!
-      ui.style.display = "none"; // Hide UI!
+      ui.style.minWidth = "200px";
+      ui.style.width = "200px";
+      ui.style.display = "block"; // Make the UI visible!
+      // ui.style.display = "none"; // Hide UI!
 
       const title = document.createElement("div");
       title.id = "char-debug-title";
@@ -592,6 +739,9 @@ export class FootpathPropSystem {
             w.wrapper.rotation.z = debugRotZ;
           }
         });
+        if (this.engine && !this.engine.isRunning && this.engine.composer) {
+          this.engine.composer.render();
+        }
       };
 
       createSlider("Scale", 0.1, 10.0, 0.1, debugScale, (v) => {
@@ -613,6 +763,100 @@ export class FootpathPropSystem {
         debugPosY = v;
         updateAllWalkers();
       });
+
+      // --- AIRDANCER DEBUG UI ---
+      const airdancerTitle = document.createElement("div");
+      airdancerTitle.innerHTML = "<br/><b>Airdancer Offsets</b><br/>";
+      ui.appendChild(airdancerTitle);
+
+      const updateAllAirdancers = () => {
+        this.spawnedMeshes.forEach((w) => {
+          if (w.userData && w.userData.propName === "airdancer") {
+            const scale = PROP_CONFIG.SCALES.airdancer;
+            w.scale.set(scale, scale, scale);
+
+            let finalX = w.userData.baseX;
+            let finalY = 0.35;
+            let finalZ = w.userData.baseZ + (w.userData.totalMoved || 0);
+            const customOffset = PROP_CONFIG.CUSTOM_OFFSETS.airdancer;
+            if (customOffset) {
+              finalX += w.userData.side * customOffset.x;
+              finalY += customOffset.y;
+              finalZ += customOffset.z;
+            }
+            w.position.set(finalX, finalY, finalZ);
+
+            w.rotation.y = 0; // Airdancers don't flip based on side
+            if (customOffset && customOffset.rotY !== undefined) {
+              w.rotation.y += customOffset.rotY;
+            }
+          }
+        });
+
+        console.log(
+          `[Airdancer Config] Scale: ${PROP_CONFIG.SCALES.airdancer.toFixed(2)}, X: ${PROP_CONFIG.CUSTOM_OFFSETS.airdancer.x.toFixed(2)}, Y: ${PROP_CONFIG.CUSTOM_OFFSETS.airdancer.y.toFixed(2)}, Z: ${PROP_CONFIG.CUSTOM_OFFSETS.airdancer.z.toFixed(2)}, RotY: ${PROP_CONFIG.CUSTOM_OFFSETS.airdancer.rotY.toFixed(2)}`,
+        );
+
+        if (this.engine && !this.engine.isRunning && this.engine.composer) {
+          this.engine.composer.render();
+        }
+      };
+
+      createSlider(
+        "A Scale",
+        0.1,
+        5.0,
+        0.05,
+        PROP_CONFIG.SCALES.airdancer,
+        (v) => {
+          PROP_CONFIG.SCALES.airdancer = v;
+          updateAllAirdancers();
+        },
+      );
+      createSlider(
+        "A X",
+        -10,
+        10,
+        0.1,
+        PROP_CONFIG.CUSTOM_OFFSETS.airdancer.x,
+        (v) => {
+          PROP_CONFIG.CUSTOM_OFFSETS.airdancer.x = v;
+          updateAllAirdancers();
+        },
+      );
+      createSlider(
+        "A Y",
+        -5,
+        5,
+        0.1,
+        PROP_CONFIG.CUSTOM_OFFSETS.airdancer.y,
+        (v) => {
+          PROP_CONFIG.CUSTOM_OFFSETS.airdancer.y = v;
+          updateAllAirdancers();
+        },
+      );
+      createSlider(
+        "A Z",
+        -10,
+        10,
+        0.1,
+        PROP_CONFIG.CUSTOM_OFFSETS.airdancer.z,
+        (v) => {
+          PROP_CONFIG.CUSTOM_OFFSETS.airdancer.z = v;
+          updateAllAirdancers();
+        },
+      );
+      createSlider(
+        "A RotY",
+        -Math.PI,
+        Math.PI,
+        0.05,
+        PROP_CONFIG.CUSTOM_OFFSETS.airdancer.rotY,
+        (v) => {
+          PROP_CONFIG.CUSTOM_OFFSETS.airdancer.rotY = v;
+          updateAllAirdancers();
+        },
+      );
 
       // Helper button to calculate real bounding box
       const debugBtn = document.createElement("button");
@@ -671,6 +915,9 @@ export class FootpathPropSystem {
   }
 
   generateChunk(startZ, endZ) {
+    // Clear old reservations so they don't block spawns in this new chunk!
+    this.reservedSlots = { 1: [], "-1": [] };
+    
     const sides = [1, -1];
     for (let z = startZ; z > endZ; z -= PROP_CONFIG.GROUND_PROP_SPACING) {
       if (this.models["manhole"]) {
@@ -691,16 +938,25 @@ export class FootpathPropSystem {
     }
     sides.forEach((side) => {
       for (let z = startZ; z > endZ; z -= PROP_CONFIG.SLOT_SPACING) {
-        // Add random stagger to Z to prevent perfect grid alignment
         const staggerZ = z + (Math.random() - 0.5) * 10;
 
+        let spawnedBenchThisSlot = false;
+
+        // Spawn benches exactly every 100 units deterministically!
+        if (z <= this.nextBenchZ[side]) {
+          // If the exact spot is occupied (e.g. by a huge building overlapping), this will return false.
+          // In that case, we don't decrement nextBenchZ yet; we'll try again on the very next z slot!
+          const success = this.spawnBenchCluster(staggerZ, side);
+          if (success) {
+            this.nextBenchZ[side] -= 100;
+            spawnedBenchThisSlot = true;
+          }
+        }
+
         const rand = Math.random();
-        if (rand < PROP_CONFIG.SPAWN_CHANCE_BENCH) {
-          this.spawnBenchCluster(staggerZ, side);
-        } else if (
-          rand <
-          PROP_CONFIG.SPAWN_CHANCE_BENCH + PROP_CONFIG.SPAWN_CHANCE_BUILDING
-        ) {
+        if (spawnedBenchThisSlot) {
+          // Already spawned a bench here, don't spawn a building inside it
+        } else if (rand < PROP_CONFIG.SPAWN_CHANCE_BUILDING) {
           const bProp = this.pickRandomProp(
             PROP_CONFIG.WEIGHTS.BUILDING_ROW,
             this.lastSpawnedBuilding[side],
@@ -721,9 +977,7 @@ export class FootpathPropSystem {
           }
         } else if (
           rand <
-          PROP_CONFIG.SPAWN_CHANCE_BENCH +
-            PROP_CONFIG.SPAWN_CHANCE_BUILDING +
-            PROP_CONFIG.SPAWN_CHANCE_CURB
+          PROP_CONFIG.SPAWN_CHANCE_BUILDING + PROP_CONFIG.SPAWN_CHANCE_CURB
         ) {
           const cProp = this.pickRandomProp(
             PROP_CONFIG.WEIGHTS.CURB_ROW,
@@ -748,8 +1002,7 @@ export class FootpathPropSystem {
           }
         } else if (
           rand <
-          PROP_CONFIG.SPAWN_CHANCE_BENCH +
-            PROP_CONFIG.SPAWN_CHANCE_BUILDING +
+          PROP_CONFIG.SPAWN_CHANCE_BUILDING +
             PROP_CONFIG.SPAWN_CHANCE_CURB +
             PROP_CONFIG.SPAWN_CHANCE_WALKER
         ) {
@@ -761,9 +1014,19 @@ export class FootpathPropSystem {
 
   update(speed, delta, limitZ) {
     const moveDist = speed * delta;
+
+    if (this.airDancerMaterials) {
+      const time = performance.now() * 0.001;
+      for (let mat of this.airDancerMaterials) {
+        if (mat.userData.time) mat.userData.time.value = time;
+      }
+    }
+
     for (let i = this.spawnedMeshes.length - 1; i >= 0; i--) {
       const mesh = this.spawnedMeshes[i];
       mesh.position.z += moveDist;
+      if (mesh.userData)
+        mesh.userData.totalMoved = (mesh.userData.totalMoved || 0) + moveDist;
       if (mesh.position.z > limitZ) {
         this.scene.remove(mesh);
         this.spawnedMeshes.splice(i, 1);
@@ -785,6 +1048,11 @@ export class FootpathPropSystem {
         walker.wrapper.position.z += moveDist + walker.speed * delta;
       } else {
         walker.wrapper.position.z += moveDist;
+      }
+
+      if (walker.wrapper.userData) {
+        walker.wrapper.userData.totalMoved =
+          (walker.wrapper.userData.totalMoved || 0) + moveDist;
       }
 
       if (walker.wrapper.position.z > limitZ) {

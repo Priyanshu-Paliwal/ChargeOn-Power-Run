@@ -153,6 +153,30 @@ export class Player {
       // Adjust scale and rotation if necessary
       jp.scale.set(0.14, 0.14, 0.14);
       jp.rotation.y = Math.PI / 2; // Face backwards
+
+      // Add a bluish glowing PointLight for the active jetpack effect
+      const jetpackLight = new THREE.PointLight(0x00aaff, 3, 5);
+
+      jp.traverse((child) => {
+        // 'Nucleo' is the white circle core on the back
+        if (child.name === "Nucleo") {
+          child.add(jetpackLight);
+        }
+
+        // Ensure the core material itself is highly emissive
+        if (child.isMesh && child.material) {
+          const materials = Array.isArray(child.material)
+            ? child.material
+            : [child.material];
+          materials.forEach((mat) => {
+            if (mat.name === "Material.003") {
+              mat.emissive = new THREE.Color(0x00aaff);
+              mat.emissiveIntensity = 2.0; // Boost glow intensity
+            }
+          });
+        }
+      });
+
       this.jetpackMesh.add(jp);
     });
   }
