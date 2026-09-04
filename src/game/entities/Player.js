@@ -348,16 +348,24 @@ export class Player {
       else if (dir > 0 && this.currentLane < 2) this.currentLane++;
     }
     if (laneReqs.length > 0) this.targetX = this.lanes[this.currentLane];
-
-    // Jump/slide can only be INITIATED from RUNNING (matches the original
-    // guard on both), and not during the post-slide recovery cooldown.
-    if (
-      this.movementState === PlayerMovementState.RUNNING &&
-      this._slideCooldown <= 0
-    ) {
-      if (this.inputManager.consumeBuffered("jump")) {
+    // Jump and Slide input handling with animation cancelling (Subway Surfers style)
+    if (this.inputManager.consumeBuffered("jump")) {
+      if (
+        (this.movementState === PlayerMovementState.RUNNING && this._slideCooldown <= 0) ||
+        this.movementState === PlayerMovementState.SLIDING
+      ) {
+        // Jump normally, or cancel a slide into a jump
         this._startJump();
-      } else if (this.inputManager.consumeBuffered("slide")) {
+      }
+    } else if (this.inputManager.consumeBuffered("slide")) {
+      if (
+        (this.movementState === PlayerMovementState.RUNNING && this._slideCooldown <= 0) ||
+        this.movementState === PlayerMovementState.JUMPING
+      ) {
+        if (this.movementState === PlayerMovementState.JUMPING) {
+          // Quick drop: Cancel jump and slam to the ground instantly
+          this.mesh.position.y = this.baseY;
+        }
         this._startSlide();
       }
     }

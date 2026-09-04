@@ -614,22 +614,48 @@ export class WorldStreamer {
             this.sceneryInstancer.rerollChunk(this.chunkManifests[i], true);
           this._refreshChunkContent(i, true, "empty-coin-trail");
         } else {
-          // Base ~40% density, scaled toward 0.4*densityRampMultiplier as the
-          // level progresses, capped well under 1.0 so "breather" chunks with
-          // no content never disappear entirely even at max ramp.
-          const sceneryChance = Math.min(
-            0.9,
-            0.4 * this.spawnDirector.getDensityFactor(),
-          );
+          // Scenery (background dressing)
+          const sceneryChance = 0.8;
           let hasScenery = Math.random() < sceneryChance;
           if (sceneryReady) {
             this.sceneryInstancer.rerollChunk(
               this.chunkManifests[i],
               hasScenery,
             );
-            hasScenery = this.chunkManifests[i].hasScenery;
           }
-          this._refreshChunkContent(i, hasScenery);
+
+          // Gameplay Density (obstacles and coins)
+          const gameplayChance = Math.min(
+            0.9,
+            0.5 * this.spawnDirector.getDensityFactor(),
+          );
+          
+          let hasGameplay = Math.random() < gameplayChance;
+          
+          // Enforce consistent spacing (Subway Surfers style)
+          // Prevent too many empty chunks in a row, or too many full chunks in a row
+          if (hasGameplay) {
+            this.consecutiveEmptyChunks = 0;
+            this.consecutiveFullChunks = (this.consecutiveFullChunks || 0) + 1;
+            if (this.consecutiveFullChunks > 3) { // Max 3 obstacle chunks in a row
+              hasGameplay = false;
+              this.consecutiveFullChunks = 0;
+            }
+          } else {
+            this.consecutiveFullChunks = 0;
+            this.consecutiveEmptyChunks = (this.consecutiveEmptyChunks || 0) + 1;
+            if (this.consecutiveEmptyChunks > 1) { // Max 1 empty chunk in a row
+              hasGameplay = true;
+              this.consecutiveEmptyChunks = 0;
+            }
+          }
+
+          if (hasGameplay) {
+            this._refreshChunkContent(i, true);
+          } else {
+            // Provide a breather chunk with just a coin trail, no obstacles
+            this._refreshChunkContent(i, true, "empty-coin-trail");
+          }
         }
       }
 
