@@ -680,8 +680,8 @@ export class FootpathPropSystem {
       ui.style.fontFamily = "monospace";
       ui.style.minWidth = "200px";
       ui.style.width = "200px";
-      ui.style.display = "block"; // Make the UI visible!
-      // ui.style.display = "none"; // Hide UI!
+      // ui.style.display = "block"; // Make the UI visible!
+      ui.style.display = "none"; // sHide UI!
 
       const title = document.createElement("div");
       title.id = "char-debug-title";

@@ -1190,7 +1190,6 @@ export class Engine {
     this.lobbyPropsGroup.name = "LobbyPropsGroup";
     this.scene.add(this.lobbyPropsGroup);
   }
-  }
 
   setMode(newMode) {
     this.mode = newMode;
