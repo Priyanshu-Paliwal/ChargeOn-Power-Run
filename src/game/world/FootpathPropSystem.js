@@ -13,7 +13,7 @@ export const PROP_CONFIG = {
   SPAWN_CHANCE_BUILDING: 0.1,
   SPAWN_CHANCE_CURB: 0.1,
   SPAWN_CHANCE_BENCH: 0.05,
-  SPAWN_CHANCE_WALKER: 0.25, // Restored to a reasonable density so the footpath isn't overcrowded
+  SPAWN_CHANCE_WALKER: 0.15, // Increased back to a reasonable density now that Object Pooling prevents lag
   SCALES: {
     coffee_food_cart: 1.5,
     ice_cream_food_cart: 1.5,
@@ -79,6 +79,7 @@ export class FootpathPropSystem {
     this.lastSpawnedCurb = { 1: null, "-1": null };
     // Deterministic bench spawn tracking: stagger them so they don't face each other
     this.nextBenchZ = { 1: -25, "-1": -75 };
+    this.pool = { props: {}, walkers: {} };
   }
 
   pickRandomProp(weightTable, lastPicked) {
@@ -147,74 +148,82 @@ export class FootpathPropSystem {
       console.warn(`[FootpathPropSystem] Missing model: ${propName}`);
       return;
     }
-    const mesh = SkeletonUtils.clone(this.models[propName]);
-    mesh.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(mesh);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    const nativeSize = box.getSize(new THREE.Vector3());
-    mesh.position.sub(center);
-    mesh.position.y -= box.min.y - center.y;
+
+    let wrapper;
     const scale = PROP_CONFIG.SCALES[propName] || 0.015;
-    const wrapper = new THREE.Group();
 
-    if (propName === "airdancer") {
-      mesh.traverse((child) => {
-        if (child.isMesh) {
-          child.material = child.material.clone();
-          child.material.userData.time = { value: 0 };
-          child.material.onBeforeCompile = (shader) => {
-            shader.uniforms.uTime = child.material.userData.time;
-            shader.vertexShader = `
-              uniform float uTime;
-              ${shader.vertexShader}
-            `.replace(
-              "#include <begin_vertex>",
-              `
-              #include <begin_vertex>
-              float height = 5.0; 
-              float localTime = uTime * 4.0;
-              float intensity = abs( fract( localTime * 0.34 - position.y / (height * 2.0) ) - 0.5 ) * 2.0;
-              float heightFade = position.y / height;
-              float rotation1 = sin(localTime * 0.678) * 0.7;
-              float rotation2 = sin(localTime * 1.4) * 0.35;
-              float rotation3 = sin(localTime * 2.4) * 0.2;
-              float rot = (rotation1 + rotation2 + rotation3) * heightFade * intensity * 0.8;
-              
-              float c = cos(rot);
-              float s = sin(rot);
-              mat2 rotMat = mat2(c, -s, s, c);
-              transformed.xy = rotMat * transformed.xy;
-              `,
-            );
+    if (this.pool.props[propName] && this.pool.props[propName].length > 0) {
+      wrapper = this.pool.props[propName].pop();
+      wrapper.visible = true;
+    } else {
+      const mesh = SkeletonUtils.clone(this.models[propName]);
+      mesh.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(mesh);
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      mesh.position.sub(center);
+      mesh.position.y -= box.min.y - center.y;
 
-            shader.vertexShader = shader.vertexShader.replace(
-              "#include <beginnormal_vertex>",
-              `
-              #include <beginnormal_vertex>
-              float n_height = 5.0; 
-              float n_localTime = uTime * 4.0;
-              float n_intensity = abs( fract( n_localTime * 0.34 - position.y / (n_height * 2.0) ) - 0.5 ) * 2.0;
-              float n_heightFade = position.y / n_height;
-              float n_rotation1 = sin(n_localTime * 0.678) * 0.7;
-              float n_rotation2 = sin(n_localTime * 1.4) * 0.35;
-              float n_rotation3 = sin(n_localTime * 2.4) * 0.2;
-              float n_rot = (n_rotation1 + n_rotation2 + n_rotation3) * n_heightFade * n_intensity * 0.8;
-              
-              float n_c = cos(n_rot);
-              float n_s = sin(n_rot);
-              mat2 n_rotMat = mat2(n_c, -n_s, n_s, n_c);
-              objectNormal.xy = n_rotMat * objectNormal.xy;
-              `,
-            );
-          };
-          this.airDancerMaterials = this.airDancerMaterials || [];
-          this.airDancerMaterials.push(child.material);
-        }
-      });
+      wrapper = new THREE.Group();
+
+      if (propName === "airdancer") {
+        mesh.traverse((child) => {
+          if (child.isMesh) {
+            child.material = child.material.clone();
+            child.material.userData.time = { value: 0 };
+            child.material.onBeforeCompile = (shader) => {
+              shader.uniforms.uTime = child.material.userData.time;
+              shader.vertexShader = `
+                uniform float uTime;
+                ${shader.vertexShader}
+              `.replace(
+                "#include <begin_vertex>",
+                `
+                #include <begin_vertex>
+                float height = 5.0; 
+                float localTime = uTime * 4.0;
+                float intensity = abs( fract( localTime * 0.34 - position.y / (height * 2.0) ) - 0.5 ) * 2.0;
+                float heightFade = position.y / height;
+                float rotation1 = sin(localTime * 0.678) * 0.7;
+                float rotation2 = sin(localTime * 1.4) * 0.35;
+                float rotation3 = sin(localTime * 2.4) * 0.2;
+                float rot = (rotation1 + rotation2 + rotation3) * heightFade * intensity * 0.8;
+                
+                float c = cos(rot);
+                float s = sin(rot);
+                mat2 rotMat = mat2(c, -s, s, c);
+                transformed.xy = rotMat * transformed.xy;
+                `,
+              );
+              shader.vertexShader = shader.vertexShader.replace(
+                "#include <beginnormal_vertex>",
+                `
+                #include <beginnormal_vertex>
+                float n_height = 5.0; 
+                float n_localTime = uTime * 4.0;
+                float n_intensity = abs( fract( n_localTime * 0.34 - position.y / (n_height * 2.0) ) - 0.5 ) * 2.0;
+                float n_heightFade = position.y / n_height;
+                float n_rotation1 = sin(n_localTime * 0.678) * 0.7;
+                float n_rotation2 = sin(n_localTime * 1.4) * 0.35;
+                float n_rotation3 = sin(n_localTime * 2.4) * 0.2;
+                float n_rot = (n_rotation1 + n_rotation2 + n_rotation3) * n_heightFade * n_intensity * 0.8;
+                
+                float n_c = cos(n_rot);
+                float n_s = sin(n_rot);
+                mat2 n_rotMat = mat2(n_c, -n_s, n_s, n_c);
+                objectNormal.xy = n_rotMat * objectNormal.xy;
+                `,
+              );
+            };
+            this.airDancerMaterials = this.airDancerMaterials || [];
+            this.airDancerMaterials.push(child.material);
+          }
+        });
+      }
+      wrapper.add(mesh);
+      this.scene.add(wrapper);
     }
 
-    wrapper.add(mesh);
     let finalX = x;
     let finalY = 0.35;
     let finalZ = z;
@@ -246,7 +255,6 @@ export class FootpathPropSystem {
       isCar,
       totalMoved: 0,
     };
-    this.scene.add(wrapper);
     this.spawnedMeshes.push(wrapper);
     return wrapper;
   }
@@ -301,23 +309,35 @@ export class FootpathPropSystem {
     const model = this.models[charKey];
     if (!model) return;
 
-    const mesh = SkeletonUtils.clone(model);
     const embeddedAnims = model.animations || [];
-
-    // Find sitting animations
     const sittingAnims = embeddedAnims.filter((a) =>
       a.name.toLowerCase().includes("sit"),
     );
     if (sittingAnims.length === 0) return;
-
     const anim = sittingAnims[Math.floor(Math.random() * sittingAnims.length)];
 
-    // Setup model
-    let box = new THREE.Box3().setFromObject(mesh);
-    mesh.position.set(0, -box.min.y, 0);
+    let pooledWalker = null;
+    if (this.pool.walkers[charKey] && this.pool.walkers[charKey].length > 0) {
+      pooledWalker = this.pool.walkers[charKey].pop();
+      pooledWalker.wrapper.visible = true;
+    }
 
-    const wrapper = new THREE.Group();
-    wrapper.add(mesh);
+    let wrapper;
+    let mesh;
+    let mixer;
+    if (pooledWalker) {
+      wrapper = pooledWalker.wrapper;
+      mesh = wrapper.children[0];
+      mixer = pooledWalker.mixer;
+      if (mixer) mixer.stopAllAction();
+    } else {
+      mesh = SkeletonUtils.clone(model);
+      let box = new THREE.Box3().setFromObject(mesh);
+      mesh.position.set(0, -box.min.y, 0);
+      wrapper = new THREE.Group();
+      wrapper.add(mesh);
+      this.scene.add(wrapper);
+    }
 
     const propName = `sitter${seatIndex}`;
     wrapper.userData = {
@@ -339,9 +359,7 @@ export class FootpathPropSystem {
     wrapper.rotation.y =
       (side === 1 ? -Math.PI / 2 : Math.PI / 2) + offset.rotY;
 
-    this.scene.add(wrapper);
-
-    let mixer = new THREE.AnimationMixer(mesh);
+    if (!mixer) mixer = new THREE.AnimationMixer(mesh);
     mixer.clipAction(anim).play();
 
     this.spawnedWalkers.push({
@@ -391,49 +409,30 @@ export class FootpathPropSystem {
     if (this.isRangeReserved(side, z, radius)) return false;
     this.reserveRange(side, z, radius);
 
-    const mesh = SkeletonUtils.clone(model);
-    const embeddedAnims = this.models[charKey].animations || [];
-    let box = new THREE.Box3().setFromObject(mesh);
-
-    // Check if the model is gigantic
-    if (
-      charKey === "npc_gentleman" ||
-      charKey === "npc_indian_man" ||
-      charKey === "npc_businessman"
-    ) {
-      const height = box.max.y - box.min.y;
-      // console.log(
-      //   `[Trace] ${charKey} original height: ${height.toFixed(2)}, min: ${box.min.x.toFixed(2)}, ${box.min.y.toFixed(2)}, ${box.min.z.toFixed(2)} max: ${box.max.x.toFixed(2)}, ${box.max.y.toFixed(2)}, ${box.max.z.toFixed(2)}`,
-      // );
+    let pooledWalker = null;
+    if (this.pool.walkers[charKey] && this.pool.walkers[charKey].length > 0) {
+      pooledWalker = this.pool.walkers[charKey].pop();
+      pooledWalker.wrapper.visible = true;
     }
 
-    mesh.position.set(0, -box.min.y, 0);
-
-    if (charKey === "npc_dog") {
-      // console.log(
-      //   `[Dog Debug] Bounding Box: min(${box.min.x.toFixed(2)}, ${box.min.y.toFixed(2)}, ${box.min.z.toFixed(2)}) max(${box.max.x.toFixed(2)}, ${box.max.y.toFixed(2)}, ${box.max.z.toFixed(2)})`,
-      // );
+    let wrapper;
+    let mesh;
+    if (pooledWalker) {
+      wrapper = pooledWalker.wrapper;
+      mesh = wrapper.children[0];
+    } else {
+      mesh = SkeletonUtils.clone(model);
+      let box = new THREE.Box3().setFromObject(mesh);
+      mesh.position.set(0, -box.min.y, 0);
       if (charKey === "npc_dog") {
-        // console.log(
-        //   `[Dog Debug] Anims:`,
-        //   embeddedAnims.map((a) => a.name).join(", "),
-        // );
+        mesh.rotation.y = Math.PI;
       }
-
-      mesh.traverse((child) => {
-        if (child.isMesh || child.isSkinnedMesh) {
-          child.frustumCulled = false;
-        }
-      });
+      wrapper = new THREE.Group();
+      wrapper.add(mesh);
+      this.scene.add(wrapper);
     }
 
-    // Fix dog mesh orientation (model is exported facing sideways)
-    if (charKey === "npc_dog") {
-      mesh.rotation.y = Math.PI;
-    }
-
-    const wrapper = new THREE.Group();
-    wrapper.add(mesh);
+    const embeddedAnims = this.models[charKey].animations || [];
 
     const xOffset = (Math.random() - 0.5) * 3;
 
@@ -441,7 +440,7 @@ export class FootpathPropSystem {
     const yPos = charKey === "npc_flamingo" ? 15.0 + Math.random() * 5.0 : 0.4;
     wrapper.position.set(side * PROP_CONFIG.CURB_ROW_OFFSET + xOffset, yPos, z);
 
-    let mixer = null;
+    let mixer = pooledWalker ? pooledWalker.mixer : null;
     let walkClip = null;
     let isLocomotion = true;
     let walksSameDirectionAsPlayer = Math.random() > 0.5;
@@ -449,7 +448,8 @@ export class FootpathPropSystem {
     const speed = 5 + Math.random() * 5;
 
     if (embeddedAnims.length > 0) {
-      mixer = new THREE.AnimationMixer(mesh);
+      if (!mixer) mixer = new THREE.AnimationMixer(mesh);
+      else mixer.stopAllAction(); // Reset mixer for reuse
 
       // Filter out 'idle' and 'looking' animations for all characters as requested
       // Also completely filter out 'sit' animations so they never spawn on the path!
@@ -917,7 +917,7 @@ export class FootpathPropSystem {
   generateChunk(startZ, endZ) {
     // Clear old reservations so they don't block spawns in this new chunk!
     this.reservedSlots = { 1: [], "-1": [] };
-    
+
     const sides = [1, -1];
     for (let z = startZ; z > endZ; z -= PROP_CONFIG.GROUND_PROP_SPACING) {
       if (this.models["manhole"]) {
@@ -1028,7 +1028,10 @@ export class FootpathPropSystem {
       if (mesh.userData)
         mesh.userData.totalMoved = (mesh.userData.totalMoved || 0) + moveDist;
       if (mesh.position.z > limitZ) {
-        this.scene.remove(mesh);
+        mesh.visible = false;
+        const pName = mesh.userData.propName;
+        if (!this.pool.props[pName]) this.pool.props[pName] = [];
+        this.pool.props[pName].push(mesh);
         this.spawnedMeshes.splice(i, 1);
       }
     }
@@ -1060,7 +1063,10 @@ export class FootpathPropSystem {
           // LOBBY MODE: Ground isn't moving, so wrap them back to the start so the lobby stays populated!
           walker.wrapper.position.z -= 400;
         } else {
-          this.scene.remove(walker.wrapper);
+          walker.wrapper.visible = false;
+          const charKey = walker.charKey;
+          if (!this.pool.walkers[charKey]) this.pool.walkers[charKey] = [];
+          this.pool.walkers[charKey].push(walker);
           this.spawnedWalkers.splice(i, 1);
         }
       }
