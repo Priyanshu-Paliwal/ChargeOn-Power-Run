@@ -6,6 +6,8 @@ import {
   SLIDE_DURATION_MS,
   SLIDE_RECOVERY_MS,
   HIT_REACTION_MS,
+  HIT_STUMBLE_MS,
+  HIT_INVULNERABILITY_MS,
   CHARACTERS,
   JETPACK_MODEL_URL,
   JETPACK_FLIGHT_HEIGHT,
@@ -94,10 +96,11 @@ export class Player {
     this._slideTimer = 0;
     this._slideCooldown = 0;
 
-    // Hit-reaction overlay (separate from movementState -- see class comment)
+    // Hit-reaction overlay & invulnerability grace period
     this.lives = 3;
     this.isHit = false;
     this._hitTimer = 0;
+    this._invulnerableTimer = 0;
 
     // Power-ups (Milestone 6). Both are themed to real ChargeOn features
     // (see GameConfig.js's POWER_UPS) -- collecting that specific feature
@@ -514,9 +517,13 @@ export class Player {
       this._slideCooldown -= delta * 1000;
     }
 
+    if (this._invulnerableTimer > 0) {
+      this._invulnerableTimer -= delta * 1000;
+    }
+
     if (this.inputManager) {
       this.inputManager.prune();
-      if (enabled && !this.isHit) {
+      if (enabled) {
         this._processInput();
       }
     }
@@ -524,18 +531,11 @@ export class Player {
     if (this.isHit) {
       this._hitTimer -= delta * 1000;
       if (this._hitTimer <= 0) {
-        this.isHit = false;
-        this._clearHitFlash();
-        // Stumble's own authored duration (0.5s) is shorter than
-        // HIT_REACTION_MS (1s), so clampWhenFinished has been holding its
-        // end pose since Stumble finished playing -- without this, a
-        // player hit while just running would stay stuck in that pose
-        // indefinitely (nothing else calls setAnimation("Run") until the
-        // next lane switch/jump/slide). Only recover to Run if the state
-        // machine is genuinely idle-running -- a hit taken mid-jump/slide
-        // must NOT stomp that in-progress action's own animation.
-        if (this.movementState === PlayerMovementState.RUNNING)
+        this._cancelHitReaction();
+        // Stumble clip finished or expired naturally -- recover smoothly back to Run/Surfing
+        if (this.movementState === PlayerMovementState.RUNNING) {
           this.setAnimation(this.hasBoard ? "Surfing" : "Run");
+        }
       }
     }
 
@@ -606,16 +606,25 @@ export class Player {
     this.mesh.rotation.y = (this.mesh.position.x - this.targetX) * -0.15;
   }
 
+  _cancelHitReaction() {
+    if (!this.isHit) return;
+    this.isHit = false;
+    this._hitTimer = 0;
+    this._clearHitFlash();
+  }
+
   _processInput() {
     // Board activation input (double-tap or 'B' key or on-screen button)
     if (this.inputManager.consumeBuffered("board")) {
       if (!this.hasBoard && this._boardCooldown <= 0) {
+        if (this.isHit) this._cancelHitReaction();
         this.activateBoard();
       }
     }
 
     // Quick hoverboard cycle input ('H' key or on-screen switcher)
     if (this.inputManager.consumeBuffered("cycle_board")) {
+      if (this.isHit) this._cancelHitReaction();
       this.cycleHoverboard();
     }
 
@@ -624,10 +633,26 @@ export class Player {
       if (dir < 0 && this.currentLane > 0) this.currentLane--;
       else if (dir > 0 && this.currentLane < 2) this.currentLane++;
     }
-    if (laneReqs.length > 0) this.targetX = this.lanes[this.currentLane];
+    if (laneReqs.length > 0) {
+      this.targetX = this.lanes[this.currentLane];
+      // Responsive cancel: swiping or pressing lane switch immediately interrupts stumble
+      if (this.isHit) {
+        this._cancelHitReaction();
+        if (this.movementState === PlayerMovementState.RUNNING) {
+          this.setAnimation(this.hasBoard ? "Surfing" : "Run");
+        }
+      }
+    }
+
     // Jump and Slide input handling with animation cancelling (Subway Surfers style)
     if (this.inputManager.consumeBuffered("jump")) {
-      if (
+      if (this.isHit) {
+        // Immediate override: cancel stumble into jump
+        this._cancelHitReaction();
+        if (this.movementState !== PlayerMovementState.JUMPING) {
+          this._startJump();
+        }
+      } else if (
         (this.movementState === PlayerMovementState.RUNNING &&
           this._slideCooldown <= 0) ||
         this.movementState === PlayerMovementState.SLIDING
@@ -636,7 +661,15 @@ export class Player {
         this._startJump();
       }
     } else if (this.inputManager.consumeBuffered("slide")) {
-      if (
+      if (this.isHit) {
+        // Immediate override: cancel stumble into slide
+        this._cancelHitReaction();
+        if (this.movementState === PlayerMovementState.JUMPING) {
+          // Quick drop: Cancel jump and slam to the ground instantly
+          this.mesh.position.y = this.baseY;
+        }
+        this._startSlide();
+      } else if (
         (this.movementState === PlayerMovementState.RUNNING &&
           this._slideCooldown <= 0) ||
         this.movementState === PlayerMovementState.JUMPING
@@ -717,10 +750,12 @@ export class Player {
   // damage) or "shielded" (absorbed) -- App.vue's authoritative life
   // counter and game-over check depend on knowing which happened.
   takeHit() {
-    if (this.isHit) return false;
+    // Damage invulnerability: prevents unfair back-to-back damage
+    if (this._invulnerableTimer > 0) return false;
 
     if (this.hasShield) {
       this.hasShield = false;
+      this._invulnerableTimer = 500; // brief grace period after shield breaks
       return false; // absorbed -- no life lost, no hit-reaction lock/flash
     }
 
@@ -728,20 +763,24 @@ export class Player {
     if (this.hasBoard) {
       this._endBoard();
       this.isHit = true;
-      this._hitTimer = HIT_REACTION_MS;
+      this._hitTimer = HIT_STUMBLE_MS;
+      this._invulnerableTimer = HIT_INVULNERABILITY_MS;
       this._playOneShot("Stumble");
-      this.model.traverse((child) => {
-        if (child.isMesh && child.material) {
-          child.material.emissive.setHex(0x00e5ff);
-          child.material.emissiveIntensity = 2;
-        }
-      });
+      if (this.model) {
+        this.model.traverse((child) => {
+          if (child.isMesh && child.material) {
+            child.material.emissive.setHex(0x00e5ff);
+            child.material.emissiveIntensity = 2;
+          }
+        });
+      }
       return "board_saved";
     }
 
     this.isHit = true;
     this.lives--;
-    this._hitTimer = HIT_REACTION_MS;
+    this._hitTimer = HIT_STUMBLE_MS;
+    this._invulnerableTimer = HIT_INVULNERABILITY_MS;
 
     // Real Stumble clip now that every character carries one (Milestone 7
     // authored it; Milestone 9 is what actually wires it in, as flagged in
@@ -751,19 +790,23 @@ export class Player {
     // so a hit taken mid-jump still gets a stumble reaction layered on top.
     this._playOneShot("Stumble");
 
-    this.model.traverse((child) => {
-      if (child.isMesh && child.material) {
-        child.material.emissive.setHex(0xff0000);
-        child.material.emissiveIntensity = 2;
-      }
-    });
+    if (this.model) {
+      this.model.traverse((child) => {
+        if (child.isMesh && child.material) {
+          child.material.emissive.setHex(0xff0000);
+          child.material.emissiveIntensity = 2;
+        }
+      });
+    }
     return true;
   }
 
   _clearHitFlash() {
+    if (!this.model) return;
     this.model.traverse((child) => {
       if (child.isMesh && child.material) {
         child.material.emissive.setHex(0x000000);
+        child.material.emissiveIntensity = 0;
       }
     });
   }
@@ -778,7 +821,12 @@ export class Player {
     if (currentAction) {
       newAction.reset();
       newAction.play();
-      newAction.crossFadeFrom(currentAction, 0.5, true);
+      const isLoopTransition =
+        (this.currentActionName === "Idle" && animName === "Run") ||
+        (this.currentActionName === "Run" && animName === "Idle") ||
+        (this.currentActionName === "Surfing" && animName === "Run") ||
+        (this.currentActionName === "Run" && animName === "Surfing");
+      newAction.crossFadeFrom(currentAction, isLoopTransition ? 0.3 : 0.15, isLoopTransition);
     } else {
       newAction.play();
     }

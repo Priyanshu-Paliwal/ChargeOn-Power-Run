@@ -236,6 +236,8 @@ export class Engine {
   startLevel(levelId) {
     this.world.setLevel(levelId);
     this.player.lives = 3;
+    this.player._cancelHitReaction?.();
+    this.player._invulnerableTimer = 0;
     this.cameraRig.triggerFovKick(SPEED_KICK_FOV_BOOST, SPEED_KICK_DURATION);
     this._speedLinesUntil = performance.now() + SPEED_LINES_DURATION_MS;
 
@@ -263,6 +265,8 @@ export class Engine {
   resetRun() {
     this.scoreSystem.reset();
     this.player.lives = 3;
+    this.player._cancelHitReaction?.();
+    this.player._invulnerableTimer = 0;
     this._tutorialShownThisRun = false;
     this.player.hasBoard = false;
     this.player.setBoardPreview(false);

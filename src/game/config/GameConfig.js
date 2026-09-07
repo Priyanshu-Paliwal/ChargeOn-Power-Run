@@ -193,9 +193,12 @@ export const SLIDE_DURATION_MS = 700;
 // real, perceptible anti-spam pause.
 export const SLIDE_RECOVERY_MS = 100;
 
-// Hit-reaction lock: how long input is ignored and the character flashes
-// red after taking a blocker hit (matches the original's 1000ms lock).
-export const HIT_REACTION_MS = 1000;
+// Hit-reaction & invulnerability:
+// HIT_STUMBLE_MS: authored stumble duration before natural recovery (Mixamo stumble is ~0.45s).
+// HIT_INVULNERABILITY_MS: grace period to prevent multi-hit damage from the same obstacle hazard.
+export const HIT_STUMBLE_MS = 450;
+export const HIT_INVULNERABILITY_MS = 1000;
+export const HIT_REACTION_MS = 450;
 
 // -----------------------------------------------------------------------
 // Input: keyboard + touch, with buffering for the two actions that have a
