@@ -13,7 +13,9 @@ const props = defineProps({ stats: Object });
 const emit = defineEmits(["retry"]);
 
 const TOTAL_FEATURES = levels.reduce((sum, l) => sum + l.requiredCount, 0);
-const collectedCount = computed(() => props.stats?.featuresCollected?.length || 0);
+const collectedCount = computed(
+  () => props.stats?.featuresCollected?.length || 0,
+);
 
 const displayScore = ref(0);
 const chipsEl = ref(null);
@@ -27,7 +29,13 @@ onMounted(() => {
     onUpdate: () => (displayScore.value = Math.round(_scoreTween.value)),
   });
   if (chipsEl.value) {
-    gsap.from(chipsEl.value.children, { opacity: 0, y: 10, duration: 0.3, stagger: 0.025, delay: 0.3 });
+    gsap.from(chipsEl.value.children, {
+      opacity: 0,
+      y: 10,
+      duration: 0.3,
+      stagger: 0.025,
+      delay: 0.3,
+    });
   }
 });
 </script>
@@ -35,8 +43,16 @@ onMounted(() => {
 <template>
   <div class="game-over-overlay">
     <div class="game-over-card">
+      <svg class="icon-header" viewBox="0 0 24 24" width="48" height="48" style="margin: 0 auto; filter: drop-shadow(0 0 10px rgba(231,76,60,0.5));">
+        <path d="M12 2L22 20H2L12 2Z" fill="none" stroke="#e74c3c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="9" x2="12" y2="13" stroke="#e74c3c" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="17" r="1.5" fill="#e74c3c"/>
+      </svg>
       <h1 class="title">RUN FAILED</h1>
-      <p class="desc">Too many payment blockers slowed you down. Reboot your systems and try again.</p>
+      <p class="desc">
+        Too many payment blockers slowed you down. Reboot your systems and try
+        again.
+      </p>
 
       <div class="stat-row">
         <div class="stat">
@@ -48,7 +64,9 @@ onMounted(() => {
           <div class="stat-label">Level Reached</div>
         </div>
         <div class="stat">
-          <div class="stat-value">{{ collectedCount }} / {{ TOTAL_FEATURES }}</div>
+          <div class="stat-value">
+            {{ collectedCount }} / {{ TOTAL_FEATURES }}
+          </div>
           <div class="stat-label">Features Collected</div>
         </div>
       </div>
@@ -60,33 +78,56 @@ onMounted(() => {
             v-for="feature in stats.featuresCollected"
             :key="feature.name"
             class="feature-chip"
-            :class="feature.category === 'Admin' ? 'admin-chip' : 'business-chip'"
+            :class="
+              feature.category === 'Admin' ? 'admin-chip' : 'business-chip'
+            "
           >
             {{ feature.name }}
           </div>
         </div>
       </div>
 
-      <button class="btn-primary" @click="emit('retry')">TRY AGAIN</button>
+      <button class="btn-primary" @click="emit('retry')">
+        <svg class="btn-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <polyline points="1 4 1 10 7 10" />
+          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+        </svg>
+        TRY AGAIN
+      </button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .game-over-overlay {
+  position: fixed !important;
+  z-index: 9999 !important;
+  transform: translateZ(0);
   width: 100%;
   height: 100%;
-  background: rgba(13, 45, 64, 0.85);
-  backdrop-filter: blur(10px);
+  background: rgba(4, 20, 40, 0.65);
+  backdrop-filter: blur(15px) !important;
+  -webkit-backdrop-filter: blur(15px) !important;
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 20px;
   box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
 }
 
 .game-over-card {
-  background: #FFFFFF;
+  background: linear-gradient(
+    135deg,
+    rgb(0 0 0 / 50%) 0%,
+    rgb(0 0 0 / 5%) 100%
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0px 4px 45px 0px rgba(0, 0, 0, 0.45),
+    inset 0 1px 2px rgb(0 0 0 / 50%);
   padding: 25px;
   border-radius: 12px;
   text-align: center;
@@ -94,18 +135,27 @@ onMounted(() => {
   max-width: 100%;
   max-height: 100%;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  color: #fff;
   border-top: 5px solid #e74c3c;
   animation: dropIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 @keyframes dropIn {
-  from { opacity: 0; transform: translateY(-50px) scale(0.9); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .title {
-  font-family: 'Raleway', sans-serif;
+  font-family: "Goldman", sans-serif;
   font-size: 1.6rem;
   font-weight: 600;
   color: #e74c3c;
@@ -115,7 +165,7 @@ onMounted(() => {
 
 .desc {
   font-size: 0.95rem;
-  color: #4A5568;
+  color: #ccc;
   line-height: 1.5;
   margin-bottom: 20px;
 }
@@ -124,7 +174,8 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  background: rgba(13, 45, 64, 0.04);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 10px;
   padding: 14px 10px;
   margin-bottom: 18px;
@@ -135,10 +186,10 @@ onMounted(() => {
 }
 
 .stat-value {
-  font-family: 'Raleway', sans-serif;
+  font-family: "Goldman", sans-serif;
   font-weight: 800;
   font-size: 1.3rem;
-  color: #0d2d40;
+  color: #f4c775;
 }
 
 .stat-label {
@@ -146,7 +197,7 @@ onMounted(() => {
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: #4a5568;
+  color: #ccc;
   margin-top: 2px;
 }
 
@@ -156,9 +207,10 @@ onMounted(() => {
 }
 
 .recap h3 {
+  font-family: "Goldman", sans-serif;
   font-size: 0.85rem;
   letter-spacing: 1px;
-  color: #1e4860;
+  color: #f4c775;
   margin-bottom: 10px;
   text-transform: uppercase;
 }
@@ -173,48 +225,61 @@ onMounted(() => {
 }
 
 .feature-chip {
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-size: 0.75rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #fff;
   white-space: nowrap;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.feature-chip:hover {
+  transform: translateY(-2px);
 }
 
 .admin-chip {
-  background: #F4C775;
-  color: #042C53;
+  background: linear-gradient(135deg, rgba(244, 199, 117, 0.8) 0%, rgba(200, 160, 90, 0.9) 100%);
+  color: #042c53;
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .business-chip {
-  background: #042C53;
+  background: linear-gradient(135deg, rgba(111, 166, 224, 0.6) 0%, rgba(21, 97, 177, 0.8) 100%);
+  border: 1px solid rgba(111, 166, 224, 0.4);
 }
 
 .btn-primary {
-  background: #0d2d40;
-  color: white;
+  background: linear-gradient(180deg, #6fa6e0 0%, #1561b1 100%);
+  color: #fff;
   border: none;
   padding: 12px 25px;
   border-radius: 8px;
-  font-weight: 700;
-  font-size: 1.05rem;
+  font-family: "Goldman", sans-serif;
+  font-weight: 400;
+  font-size: 1.2rem;
   text-transform: uppercase;
   letter-spacing: 1px;
   cursor: pointer;
   width: 100%;
-  box-shadow: 0 4px 15px rgba(13, 45, 64, 0.4);
-  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 .btn-primary:hover {
-  background: #154563;
+  background: linear-gradient(180deg, #81b4e9 0%, #1a71cd 100%);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(13, 45, 64, 0.6);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 .btn-primary:active {
-  transform: translateY(1px);
-  box-shadow: 0 2px 10px rgba(13, 45, 64, 0.4);
+  transform: translateY(0);
 }
-
 
 @media (max-width: 1024px) {
   .game-over-card {
@@ -238,7 +303,7 @@ onMounted(() => {
   }
   .btn-primary {
     padding: 10px 15px;
-    font-size: 0.95rem;
+    font-size: 1rem;
   }
 }
 
@@ -258,3 +323,4 @@ onMounted(() => {
   }
 }
 </style>
+

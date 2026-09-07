@@ -1043,16 +1043,18 @@ export class FootpathPropSystem {
       if (walker.mixer) {
         // Assume camera is near z=0, looking towards negative z
         const dist = Math.abs(walker.wrapper.position.z);
-        
+
         if (!walker.accumulatedDelta) walker.accumulatedDelta = 0;
         walker.accumulatedDelta += delta;
 
         // Determine update frequency based on distance
         let updateThreshold = 0; // Close range: every frame
-        if (dist > 150) updateThreshold = 1.0; // Far: barely update (1 FPS)
-        else if (dist > 100) updateThreshold = 0.2; // Medium-far: 5 FPS
+        if (dist > 150)
+          updateThreshold = 1.0; // Far: barely update (1 FPS)
+        else if (dist > 100)
+          updateThreshold = 0.2; // Medium-far: 5 FPS
         else if (dist > 50) updateThreshold = 0.1; // Medium: 10 FPS
-        
+
         if (walker.accumulatedDelta >= updateThreshold) {
           walker.mixer.update(walker.accumulatedDelta);
           walker.accumulatedDelta = 0;

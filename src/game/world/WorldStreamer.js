@@ -128,6 +128,7 @@ export class WorldStreamer {
     this._tutorialDistanceRemaining = 0;
     this.tutorialActive = false;
     this.tutorialMechanic = null;
+    this._tutorialSpeedBlend = 1.0;
 
     this.chunkCoins = []; // [chunkIndex][slotIndex]
     this.chunkObstacles = []; // [chunkIndex][slotIndex] -> { activeType, variants: { TYPE: instance } }
@@ -217,10 +218,38 @@ export class WorldStreamer {
     // 4 Aerial Coins: 2 Blue (+100) and 2 Gold (+150) in a zigzag lane sequence
     // requiring active lane switching in the air while flying.
     const configs = [
-      { lane: 0, zOffset: -25, mat: this.businessMat, coinType: "blue", name: "Aerial Blue Coin", category: "Business" },
-      { lane: 2, zOffset: -50, mat: this.adminMat, coinType: "gold", name: "Aerial Gold Coin", category: "Admin" },
-      { lane: 1, zOffset: -75, mat: this.businessMat, coinType: "blue", name: "Aerial Blue Coin", category: "Business" },
-      { lane: 0, zOffset: -100, mat: this.adminMat, coinType: "gold", name: "Aerial Gold Coin", category: "Admin" },
+      {
+        lane: 0,
+        zOffset: -25,
+        mat: this.businessMat,
+        coinType: "blue",
+        name: "Aerial Blue Coin",
+        category: "Business",
+      },
+      {
+        lane: 2,
+        zOffset: -50,
+        mat: this.adminMat,
+        coinType: "gold",
+        name: "Aerial Gold Coin",
+        category: "Admin",
+      },
+      {
+        lane: 1,
+        zOffset: -75,
+        mat: this.businessMat,
+        coinType: "blue",
+        name: "Aerial Blue Coin",
+        category: "Business",
+      },
+      {
+        lane: 0,
+        zOffset: -100,
+        mat: this.adminMat,
+        coinType: "gold",
+        name: "Aerial Gold Coin",
+        category: "Admin",
+      },
     ];
 
     for (const cfg of configs) {
@@ -600,9 +629,27 @@ export class WorldStreamer {
     // While the tutorial is active, a flat slowdown REPLACES the ramped
     // speed entirely (see GameConfig.js's TUTORIAL_SPEED_MULTIPLIER
     // comment for why this is a slowdown, not a hard freeze).
-    this.speed = this.tutorialActive
-      ? this.levelBaseSpeed * TUTORIAL_SPEED_MULTIPLIER
-      : this.spawnDirector.getRampedSpeed(this.levelBaseSpeed);
+    // After the tutorial, smoothly blend to the target speed over ~1.6s
+    let targetSpeed;
+    if (this.tutorialActive) {
+      targetSpeed = this.levelBaseSpeed * TUTORIAL_SPEED_MULTIPLIER;
+      this._tutorialSpeedBlend = 0.0;
+    } else {
+      targetSpeed = this.spawnDirector.getRampedSpeed(this.levelBaseSpeed);
+    }
+
+    if (!this.tutorialActive && this._tutorialSpeedBlend < 1.0) {
+      this._tutorialSpeedBlend = Math.min(
+        1.0,
+        this._tutorialSpeedBlend + delta * 0.6,
+      );
+      const tutorialSpeed = this.levelBaseSpeed * TUTORIAL_SPEED_MULTIPLIER;
+      const t = this._tutorialSpeedBlend;
+      const ease = t * t * (3 - 2 * t); // smoothstep
+      this.speed = tutorialSpeed + (targetSpeed - tutorialSpeed) * ease;
+    } else {
+      this.speed = targetSpeed;
+    }
     const moveDist = this.speed * delta;
     this.spawnDirector.advance(moveDist);
     this._distanceSinceLastFeature += moveDist;
@@ -704,22 +751,25 @@ export class WorldStreamer {
             0.9,
             0.5 * this.spawnDirector.getDensityFactor(),
           );
-          
+
           let hasGameplay = Math.random() < gameplayChance;
-          
+
           // Enforce consistent spacing (Subway Surfers style)
           // Prevent too many empty chunks in a row, or too many full chunks in a row
           if (hasGameplay) {
             this.consecutiveEmptyChunks = 0;
             this.consecutiveFullChunks = (this.consecutiveFullChunks || 0) + 1;
-            if (this.consecutiveFullChunks > 3) { // Max 3 obstacle chunks in a row
+            if (this.consecutiveFullChunks > 3) {
+              // Max 3 obstacle chunks in a row
               hasGameplay = false;
               this.consecutiveFullChunks = 0;
             }
           } else {
             this.consecutiveFullChunks = 0;
-            this.consecutiveEmptyChunks = (this.consecutiveEmptyChunks || 0) + 1;
-            if (this.consecutiveEmptyChunks > 1) { // Max 1 empty chunk in a row
+            this.consecutiveEmptyChunks =
+              (this.consecutiveEmptyChunks || 0) + 1;
+            if (this.consecutiveEmptyChunks > 1) {
+              // Max 1 empty chunk in a row
               hasGameplay = true;
               this.consecutiveEmptyChunks = 0;
             }

@@ -373,7 +373,8 @@ export const POWER_UPS = {
 export const JETPACK_FLIGHT_HEIGHT = 8.0;
 export const JETPACK_MODEL_URL = "/assets/JetpackModel/JetpackModel.gltf";
 export const FLYING_ANIMATION_URL = "/assets/characters/motions/Flying.fbx";
-export const SURFING_ANIMATION_URL = "/assets/characters/motions/surfing_motion.fbx";
+export const SURFING_ANIMATION_URL =
+  "/assets/characters/motions/surfing_motion.fbx";
 
 // Board / Surfboard / Skateboard settings (Subway Surfers-style board mechanic)
 export const HOVERBOARDS = [
@@ -384,11 +385,11 @@ export const HOVERBOARDS = [
     url: "/assets/skateboard.glb",
     scale: 0.18,
     rotation: [0, Math.PI / 2, 0],
-    deckThickness: 0.180,
+    deckThickness: 0.18,
     footOffset: -0.01,
     glowColor: 0x00e5ff,
     badgeColor: "#00e5ff",
-    emoji: "🛹"
+    emoji: "🛹",
   },
   {
     id: "futuristic",
@@ -398,10 +399,10 @@ export const HOVERBOARDS = [
     scale: 0.38,
     rotation: [0, 0, 0],
     deckThickness: 0.341,
-    footOffset: 0.00,
+    footOffset: 0.0,
     glowColor: 0x39ff14,
     badgeColor: "#39ff14",
-    emoji: "⚡"
+    emoji: "⚡",
   },
   {
     id: "bttf",
@@ -411,10 +412,10 @@ export const HOVERBOARDS = [
     scale: 0.078,
     rotation: [0, Math.PI / 2, 0],
     deckThickness: 0.135,
-    footOffset: 0.00,
+    footOffset: 0.0,
     glowColor: 0xff007f,
     badgeColor: "#ff007f",
-    emoji: "🚀"
+    emoji: "🚀",
   },
   {
     id: "fortnite",
@@ -423,11 +424,11 @@ export const HOVERBOARDS = [
     url: "/assets/fortnite_hoverboard.glb",
     scale: 1.15,
     rotation: [0, Math.PI / 2, 0],
-    deckThickness: 0.170,
-    footOffset: 0.00,
+    deckThickness: 0.17,
+    footOffset: 0.0,
     glowColor: 0x9d4edd,
     badgeColor: "#9d4edd",
-    emoji: "💜"
+    emoji: "💜",
   },
   {
     id: "subway_surfers",
@@ -437,11 +438,11 @@ export const HOVERBOARDS = [
     scale: 0.48,
     rotation: [0, -Math.PI / 2, -Math.PI / 2],
     deckThickness: 0.079,
-    footOffset: 0.00,
+    footOffset: 0.0,
     glowColor: 0xffaa00,
     badgeColor: "#ffaa00",
-    emoji: "🔥"
-  }
+    emoji: "🔥",
+  },
 ];
 
 export function getHoverboardConfig(id) {
@@ -742,7 +743,7 @@ export const TUTORIAL_MECHANIC_BY_PATTERN = {
 // precisely tracking which specific seeded obstacle the player is nearest
 // to) -- shown for the whole slowed opening stretch.
 export const TUTORIAL_BANNER =
-  "First run: jump the low barricade, slide under the drone, switch lanes around the wide one.";
+  "Tutorial run: jump the low barricade, slide under the drone, switch lanes around the wide one.";
 // A miss on one of the 3 seeded tutorial obstacles never costs a life --
 // this is a first-ever-controls practice window, not a fair test yet, and
 // 3 unlucky misses in a row shouldn't be able to end the run before it

@@ -1,7 +1,10 @@
 :root {
-  --color-primary: #042C53; /* Dark Navy */
-  --color-secondary: #F4C775; /* Gold */
-  --color-accent: #00B0FF; /* Neon Blue */
+  --color-primary: #042C53;
+  /* Dark Navy */
+  --color-secondary: #F4C775;
+  /* Gold */
+  --color-accent: #00B0FF;
+  /* Neon Blue */
   --color-bg: #0A0A0A;
   --color-surface: rgba(10, 10, 10, 0.7);
   --color-surface-light: rgba(255, 255, 255, 0.1);
@@ -46,20 +49,29 @@ body {
   font-family: var(--font-body);
   background-color: var(--color-bg);
   color: var(--color-text);
-  overflow: hidden; /* Prevent scrolling in a game */
+  overflow: hidden;
+  /* Prevent scrolling in a game */
   user-select: none;
 }
 
-h1, h2, h3, h4, h5, h6, .rajdhani {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.rajdhani {
   font-family: var(--font-heading);
   text-transform: uppercase;
 }
 
 #app {
   width: 100vw;
-  height: 100vh; /* fallback for browsers without dvh support */
+  height: 100vh;
+  /* fallback for browsers without dvh support */
   width: 100dvw;
-  height: 100dvh; /* excludes the mobile URL bar's animated overlay area */
+  height: 100dvh;
+  /* excludes the mobile URL bar's animated overlay area */
   position: relative;
   overflow: hidden;
 }
@@ -98,15 +110,18 @@ h1, h2, h3, h4, h5, h6, .rajdhani {
   text-transform: uppercase;
   letter-spacing: 2px;
 }
+
 .btn:hover {
   background: var(--color-accent);
   border-color: var(--color-accent);
   box-shadow: 0 0 15px rgba(0, 176, 255, 0.4);
 }
+
 .btn-gold {
   background: var(--color-secondary);
   color: var(--color-primary);
 }
+
 .btn-gold:hover {
   background: #ffdb99;
   box-shadow: 0 0 15px rgba(244, 199, 117, 0.4);

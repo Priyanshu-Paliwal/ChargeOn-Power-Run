@@ -1,6 +1,5 @@
 <script setup>
 import { ref } from "vue";
-import HowToPlay from "./HowToPlay.vue";
 
 const emit = defineEmits(["resume", "restart-level", "quit"]);
 
@@ -21,7 +20,7 @@ const startResumeCountdown = () => {
     countdown.value--;
     if (countdown.value === 0) {
       clearInterval(timer);
-      emit('resume');
+      emit("resume");
     }
   }, 1000);
 };
@@ -30,24 +29,38 @@ const startResumeCountdown = () => {
 <template>
   <div class="pause-overlay">
     <div v-if="view === 'menu' && countdown === 0" class="pause-card">
+      <svg class="icon-header" viewBox="0 0 24 24" width="48" height="48" style="margin: 0 auto; drop-shadow(0 0 10px rgba(244,199,117,0.5));">
+        <rect x="6" y="4" width="4" height="16" fill="#F4C775" rx="1" />
+        <rect x="14" y="4" width="4" height="16" fill="#F4C775" rx="1" />
+      </svg>
       <h2>Paused</h2>
-      <button class="pause-option primary" @click="startResumeCountdown">Resume</button>
-      <button class="pause-option" @click="emit('restart-level')">Restart Level</button>
-      <button class="pause-option" @click="view = 'how-to-play'">How to Play</button>
-      <button class="pause-option danger" @click="emit('quit')">Quit</button>
+      <button class="pause-option primary" @click="startResumeCountdown">
+        <svg class="btn-icon" viewBox="0 0 24 24" width="20" height="20">
+          <polygon points="6,4 19,12 6,20" fill="currentColor" />
+        </svg>
+        Resume
+      </button>
+      <button class="pause-option danger" @click="emit('quit')">
+        <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+        Quit
+      </button>
     </div>
-    
+
     <div v-else-if="countdown > 0" class="countdown-display">
       {{ countdown }}
     </div>
-    <!-- HowToPlay emits 'next' when its own button is pressed -- from Pause
-         that just returns to the menu rather than advancing the game flow. -->
-    <HowToPlay v-else @next="view = 'menu'" />
   </div>
 </template>
 
 <style scoped>
 .pause-overlay {
+  position: fixed !important;
+  z-index: 9999 !important;
+  transform: translateZ(0);
   /* Absolute, not normal flow -- this renders as a SECOND simultaneous
      child of .ui-layer alongside whichever screen the main Transition is
      showing (GameHUD stays mounted underneath, by design). Every other
@@ -62,8 +75,9 @@ const startResumeCountdown = () => {
   inset: 0;
   width: 100%;
   height: 100%;
-  background: rgba(13, 45, 64, 0.85);
-  backdrop-filter: blur(10px);
+  background: rgba(4, 20, 40, 0.65);
+  backdrop-filter: blur(15px) !important;
+  -webkit-backdrop-filter: blur(15px) !important;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -72,9 +86,19 @@ const startResumeCountdown = () => {
 }
 
 .pause-card {
-  background: #ffffff;
+  background: linear-gradient(
+    135deg,
+    rgb(0 0 0 / 50%) 0%,
+    rgb(0 0 0 / 5%) 100%
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0px 4px 45px 0px rgba(0, 0, 0, 0.45),
+    inset 0 1px 2px rgb(0 0 0 / 50%);
   padding: 30px;
-  border-radius: 16px;
+  border-radius: 12px;
   width: 340px;
   max-width: 100%;
   text-align: center;
@@ -86,8 +110,14 @@ const startResumeCountdown = () => {
 }
 
 @keyframes dropIn {
-  from { opacity: 0; transform: translateY(-30px) scale(0.9); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .countdown-display {
@@ -99,23 +129,32 @@ const startResumeCountdown = () => {
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.1); opacity: 0.8; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 h2 {
-  font-family: "Raleway", sans-serif;
-  color: #0d2d40;
+  font-family: "Goldman", sans-serif;
+  color: #fff;
   font-size: 1.6rem;
   margin-bottom: 6px;
   letter-spacing: 1px;
 }
 
 .pause-option {
-  background: #f0f4f8;
-  color: #0d2d40;
-  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   padding: 14px;
   border-radius: 8px;
   font-weight: 700;
@@ -124,9 +163,13 @@ h2 {
   transition: all 0.2s;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 .pause-option:hover {
-  background: #e2e8f0;
+  background: rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
 }
 .pause-option:active {
@@ -134,22 +177,25 @@ h2 {
 }
 
 .pause-option.primary {
-  background: #ffd164;
-  color: #0d2d40;
-  box-shadow: 0 4px 15px rgba(255, 209, 100, 0.4);
+  background: linear-gradient(180deg, #6fa6e0 0%, #1561b1 100%);
+  color: #fff;
+  border: none;
+  font-family: "Goldman", sans-serif;
+  font-weight: 400;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 .pause-option.primary:hover {
-  background: #ffdb99;
-  box-shadow: 0 6px 20px rgba(255, 209, 100, 0.6);
+  background: linear-gradient(180deg, #81b4e9 0%, #1a71cd 100%);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
 .pause-option.danger {
   background: transparent;
-  color: #e74c3c;
-  border: 1px solid rgba(231, 76, 60, 0.3);
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 107, 107, 0.4);
 }
 .pause-option.danger:hover {
-  background: rgba(231, 76, 60, 0.08);
+  background: rgba(255, 107, 107, 0.15);
 }
 
 @media (max-height: 600px) {
@@ -162,3 +208,4 @@ h2 {
   }
 }
 </style>
+

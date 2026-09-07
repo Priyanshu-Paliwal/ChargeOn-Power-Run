@@ -538,10 +538,7 @@ const quitToLobby = () => {
           @next="gameState = 'STORY_BEAT'"
         />
 
-        <StoryBeat
-          v-else-if="gameState === 'STORY_BEAT'"
-          @next="startLevel"
-        />
+        <StoryBeat v-else-if="gameState === 'STORY_BEAT'" @next="startLevel" />
 
         <LevelIntro
           v-else-if="gameState === 'LEVEL_INTRO'"
@@ -561,6 +558,7 @@ const quitToLobby = () => {
         <LevelComplete
           v-else-if="gameState === 'LEVEL_COMPLETE'"
           :levelId="gameStats.currentLevelId"
+          :stats="gameStats"
           :previousGoodies="wonGoodies"
           @next="advanceLevel"
         />

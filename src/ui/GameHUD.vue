@@ -1,5 +1,14 @@
 <script setup>
-import { computed, reactive, ref, watch, onMounted, onUnmounted, nextTick, inject } from "vue";
+import {
+  computed,
+  reactive,
+  ref,
+  watch,
+  onMounted,
+  onUnmounted,
+  nextTick,
+  inject,
+} from "vue";
 import { gsap } from "gsap";
 import { levels } from "../data/GameContent.js";
 import {
@@ -24,7 +33,9 @@ const props = defineProps({
 });
 const emit = defineEmits(["pause", "hoverboard-selected"]);
 
-const currentLevelData = computed(() => levels.find((l) => l.id === props.stats.currentLevelId) || levels[0]);
+const currentLevelData = computed(
+  () => levels.find((l) => l.id === props.stats.currentLevelId) || levels[0],
+);
 
 // -----------------------------------------------------------------------
 // Screen-edge vignette. Shared by hit reactions (red) and power-up pickups
@@ -55,7 +66,7 @@ watch(
       ease: "power2.out",
       onUpdate: () => (vignetteOpacity.value = _vignetteTween.value),
     });
-  }
+  },
 );
 
 // -----------------------------------------------------------------------
@@ -85,7 +96,7 @@ watch(
       ease: "power2.out",
       onUpdate: () => (displayScore.value = Math.round(_scoreTween.value)),
     });
-  }
+  },
 );
 
 watch(
@@ -95,9 +106,10 @@ watch(
       value: val,
       duration: 0.4,
       ease: "power2.out",
-      onUpdate: () => (displayFeatureCount.value = Math.round(_featureTween.value)),
+      onUpdate: () =>
+        (displayFeatureCount.value = Math.round(_featureTween.value)),
     });
-  }
+  },
 );
 
 // Combo badge pop (Milestone 9). Only pops on an INCREASE -- popping on the
@@ -110,17 +122,28 @@ watch(
     if (val <= prev) return;
     nextTick(() => {
       if (!comboEl.value) return;
-      gsap.fromTo(comboEl.value, { scale: 1.4 }, { scale: 1, duration: 0.3, ease: "back.out(2)" });
+      gsap.fromTo(
+        comboEl.value,
+        { scale: 1.4 },
+        { scale: 1, duration: 0.3, ease: "back.out(2)" },
+      );
     });
-  }
+  },
 );
 
-const progressPct = computed(() => (displayFeatureCount.value / currentLevelData.value.requiredCount) * 100);
+const progressPct = computed(
+  () =>
+    (displayFeatureCount.value / currentLevelData.value.requiredCount) * 100,
+);
 
 const barFillEl = ref(null);
 watch(progressPct, (pct) => {
   if (!barFillEl.value) return;
-  gsap.to(barFillEl.value, { width: `${pct}%`, duration: 0.5, ease: "back.out(1.5)" });
+  gsap.to(barFillEl.value, {
+    width: `${pct}%`,
+    duration: 0.5,
+    ease: "back.out(1.5)",
+  });
 });
 
 // -----------------------------------------------------------------------
@@ -148,7 +171,10 @@ const _toastTimeouts = new Set();
 let _consumedToastCount = 0;
 
 function _promoteToasts() {
-  while (activeToasts.value.length < _maxConcurrentToasts() && _pendingToasts.length) {
+  while (
+    activeToasts.value.length < _maxConcurrentToasts() &&
+    _pendingToasts.length
+  ) {
     const toast = _pendingToasts.shift();
     activeToasts.value.push(toast);
     const timeoutId = setTimeout(() => {
@@ -163,10 +189,11 @@ function _promoteToasts() {
 watch(
   () => props.stats.toastFeed.length,
   (len) => {
-    for (let i = _consumedToastCount; i < len; i++) _pendingToasts.push(props.stats.toastFeed[i]);
+    for (let i = _consumedToastCount; i < len; i++)
+      _pendingToasts.push(props.stats.toastFeed[i]);
     _consumedToastCount = len;
     _promoteToasts();
-  }
+  },
 );
 
 // -----------------------------------------------------------------------
@@ -185,7 +212,9 @@ const powerUpState = reactive({
   currentHoverboardId: props.selectedHoverboardId || DEFAULT_HOVERBOARD_ID,
 });
 
-const currentHoverboard = computed(() => getHoverboardConfig(powerUpState.currentHoverboardId));
+const currentHoverboard = computed(() =>
+  getHoverboardConfig(powerUpState.currentHoverboardId),
+);
 
 const cycleHoverboard = () => {
   if (props.engine) {
@@ -212,13 +241,25 @@ function _pollPowerUps() {
   if (player) {
     const status = player.getPowerUpStatus();
     powerUpState.magnetActive = status.magnetActive;
-    powerUpState.magnetPct = status.magnetDurationMs > 0 ? status.magnetRemainingMs / status.magnetDurationMs : 0;
+    powerUpState.magnetPct =
+      status.magnetDurationMs > 0
+        ? status.magnetRemainingMs / status.magnetDurationMs
+        : 0;
     powerUpState.shieldActive = status.shieldActive;
     powerUpState.jetpackActive = status.jetpackActive;
-    powerUpState.jetpackPct = status.jetpackDurationMs > 0 ? status.jetpackRemainingMs / status.jetpackDurationMs : 0;
+    powerUpState.jetpackPct =
+      status.jetpackDurationMs > 0
+        ? status.jetpackRemainingMs / status.jetpackDurationMs
+        : 0;
     powerUpState.boardActive = status.boardActive;
-    powerUpState.boardPct = status.boardDurationMs > 0 ? status.boardRemainingMs / status.boardDurationMs : 0;
-    if (status.currentHoverboardId && status.currentHoverboardId !== powerUpState.currentHoverboardId) {
+    powerUpState.boardPct =
+      status.boardDurationMs > 0
+        ? status.boardRemainingMs / status.boardDurationMs
+        : 0;
+    if (
+      status.currentHoverboardId &&
+      status.currentHoverboardId !== powerUpState.currentHoverboardId
+    ) {
       powerUpState.currentHoverboardId = status.currentHoverboardId;
       emit("hoverboard-selected", status.currentHoverboardId);
     }
@@ -230,9 +271,15 @@ function _pollPowerUps() {
 
 const RING_RADIUS = 15;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-const magnetDashOffset = computed(() => RING_CIRCUMFERENCE * (1 - powerUpState.magnetPct));
-const jetpackDashOffset = computed(() => RING_CIRCUMFERENCE * (1 - powerUpState.jetpackPct));
-const boardDashOffset = computed(() => RING_CIRCUMFERENCE * (1 - powerUpState.boardPct));
+const magnetDashOffset = computed(
+  () => RING_CIRCUMFERENCE * (1 - powerUpState.magnetPct),
+);
+const jetpackDashOffset = computed(
+  () => RING_CIRCUMFERENCE * (1 - powerUpState.jetpackPct),
+);
+const boardDashOffset = computed(
+  () => RING_CIRCUMFERENCE * (1 - powerUpState.boardPct),
+);
 
 const triggerBoard = () => {
   props.engine?.inputManager?.triggerBoard();
@@ -260,7 +307,9 @@ onUnmounted(() => {
     <!-- Top Bar -->
     <div class="top-bar">
       <div class="lives">
-        <span v-for="n in 3" :key="n" :class="{ lost: n > props.stats.lives }">❤️</span>
+        <span v-for="n in 3" :key="n" :class="{ lost: n > props.stats.lives }"
+          >❤️</span
+        >
       </div>
 
       <div class="progress-section">
@@ -268,7 +317,9 @@ onUnmounted(() => {
         <div class="progress-bar-container">
           <div class="progress-bar-fill" ref="barFillEl"></div>
         </div>
-        <div class="progress-text">{{ displayFeatureCount }} / {{ currentLevelData.requiredCount }}</div>
+        <div class="progress-text">
+          {{ displayFeatureCount }} / {{ currentLevelData.requiredCount }}
+        </div>
       </div>
 
       <div class="utility-group">
@@ -276,11 +327,20 @@ onUnmounted(() => {
           <span class="score-icon">★</span>{{ displayScore }}
         </div>
 
-        <div v-if="props.stats.combo >= 2" ref="comboEl" class="combo-badge" title="Combo streak">
+        <div
+          v-if="props.stats.combo >= 2"
+          ref="comboEl"
+          class="combo-badge"
+          title="Combo streak"
+        >
           🔥 {{ props.stats.combo }}x
         </div>
 
-        <div v-if="powerUpState.magnetActive" class="powerup-icon magnet-icon" title="Magnet active">
+        <div
+          v-if="powerUpState.magnetActive"
+          class="powerup-icon magnet-icon"
+          title="Magnet active"
+        >
           <svg viewBox="0 0 36 36">
             <circle class="ring-track" cx="18" cy="18" r="15" />
             <circle
@@ -295,11 +355,19 @@ onUnmounted(() => {
           <span class="powerup-emoji">🧲</span>
         </div>
 
-        <div v-if="powerUpState.shieldActive" class="powerup-icon shield-icon" title="Shield up">
+        <div
+          v-if="powerUpState.shieldActive"
+          class="powerup-icon shield-icon"
+          title="Shield up"
+        >
           <span class="powerup-emoji">🛡️</span>
         </div>
 
-        <div v-if="powerUpState.jetpackActive" class="powerup-icon jetpack-icon" title="Jetpack active">
+        <div
+          v-if="powerUpState.jetpackActive"
+          class="powerup-icon jetpack-icon"
+          title="Jetpack active"
+        >
           <svg viewBox="0 0 36 36">
             <circle class="ring-track" cx="18" cy="18" r="15" />
             <circle
@@ -319,7 +387,7 @@ onUnmounted(() => {
           class="powerup-icon board-icon"
           :title="`Board Active: ${currentHoverboard.name} (Click or press B to swap)`"
           @click="cycleHoverboard"
-          style="cursor: pointer;"
+          style="cursor: pointer"
         >
           <svg viewBox="0 0 36 36">
             <circle class="ring-track" cx="18" cy="18" r="15" />
@@ -340,29 +408,20 @@ onUnmounted(() => {
           v-if="musicState"
           class="music-btn"
           @click="musicState.toggleMusic()"
-          :title="musicState.isMusicPlaying.value ? 'Pause Music' : 'Play Music'"
-          :aria-label="musicState.isMusicPlaying.value ? 'Pause Music' : 'Play Music'"
+          :title="
+            musicState.isMusicPlaying.value ? 'Pause Music' : 'Play Music'
+          "
+          :aria-label="
+            musicState.isMusicPlaying.value ? 'Pause Music' : 'Play Music'
+          "
         >
           {{ musicState.isMusicPlaying.value ? "🔊" : "🔇" }}
         </button>
 
-        <button class="pause-btn" @click="emit('pause')" aria-label="Pause">⏸</button>
+        <button class="pause-btn" @click="emit('pause')" aria-label="Pause">
+          ⏸
+        </button>
       </div>
-    </div>
-
-    <!-- Side Panel (Collected Features) -->
-    <div class="side-panel">
-      <h3>Features Collected</h3>
-      <transition-group name="list" tag="div" class="feature-list">
-        <div
-          v-for="feature in props.stats.featuresCollected"
-          :key="feature.name"
-          class="feature-chip"
-          :class="feature.category === 'Admin' ? 'admin-chip' : 'business-chip'"
-        >
-          {{ feature.name }}
-        </div>
-      </transition-group>
     </div>
 
     <!-- Toasts -->
@@ -372,7 +431,11 @@ onUnmounted(() => {
           v-for="popup in activeToasts"
           :key="popup.id"
           class="popup-message"
-          :class="{ 'popup-success': popup.type === 'success', 'popup-error': popup.type === 'error', 'popup-exclusive': popup.isExclusive }"
+          :class="{
+            'popup-success': popup.type === 'success',
+            'popup-error': popup.type === 'error',
+            'popup-exclusive': popup.isExclusive,
+          }"
         >
           {{ popup.text }}
         </div>
@@ -381,7 +444,10 @@ onUnmounted(() => {
 
     <!-- Screen-edge vignette: hit reactions (red) and power-up pickups
          (their own color) share this one element, driven by flashFeed. -->
-    <div class="edge-vignette" :style="{ opacity: vignetteOpacity, '--vignette-color': vignetteColor }"></div>
+    <div
+      class="edge-vignette"
+      :style="{ opacity: vignetteOpacity, '--vignette-color': vignetteColor }"
+    ></div>
 
     <!-- Speed-up juice: brief radiating streaks at each level transition
          (Engine.startLevel()), alongside the camera's own FOV kick. -->
@@ -389,7 +455,9 @@ onUnmounted(() => {
 
     <!-- Interactive tutorial banner (Milestone 9, Level 1 opening only). -->
     <Transition name="tutorial-banner">
-      <div v-if="tutorialActive" class="tutorial-banner">{{ TUTORIAL_BANNER }}</div>
+      <div v-if="tutorialActive" class="tutorial-banner">
+        {{ TUTORIAL_BANNER }}
+      </div>
     </Transition>
 
     <!-- Hoverboard Live In-Game Control Cluster -->
@@ -471,7 +539,9 @@ onUnmounted(() => {
   mix-blend-mode: screen;
   opacity: 0;
   transform: scale(0.75);
-  transition: opacity 0.15s ease-out, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 0.15s ease-out,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .speed-lines.active {
   opacity: 1;
@@ -485,7 +555,7 @@ onUnmounted(() => {
   transform: translateX(-50%);
   max-width: 90%;
   background: rgba(4, 44, 83, 0.9);
-  border: 2px solid #F4C775;
+  border: 2px solid #f4c775;
   color: #fff;
   padding: 12px 22px;
   border-radius: 12px;
@@ -499,7 +569,9 @@ onUnmounted(() => {
 
 .tutorial-banner-enter-active,
 .tutorial-banner-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 .tutorial-banner-enter-from,
 .tutorial-banner-leave-to {
@@ -511,17 +583,26 @@ onUnmounted(() => {
   position: absolute;
   top: 15px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateZ(0);
   width: 60%;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 15px;
-  background: rgba(255, 255, 255, 0.9);
+  background: linear-gradient(
+    135deg,
+    rgb(0 0 0 / 50%) 0%,
+    rgb(0 0 0 / 5%) 100%
+  );
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0px 4px 45px 0px rgba(0, 0, 0, 0.45),
+    inset 0 1px 2px rgb(0 0 0 / 50%);
   padding: 8px 15px;
   border-radius: 12px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-  color: #042C53;
+  color: #fff;
 }
 
 .lives span {
@@ -544,7 +625,7 @@ onUnmounted(() => {
 
 .level-badge {
   font-weight: bold;
-  background: #042C53;
+  background: #042c53;
   color: white;
   padding: 5px 10px;
   border-radius: 6px;
@@ -561,7 +642,7 @@ onUnmounted(() => {
 
 .progress-bar-fill {
   height: 100%;
-  background: #F4C775;
+  background: #f4c775;
   width: 0%;
 }
 
@@ -583,11 +664,11 @@ onUnmounted(() => {
   gap: 4px;
   font-weight: 800;
   font-size: 1.1rem;
-  color: #0d2d40;
+  color: #fff;
   white-space: nowrap;
 }
 .score-icon {
-  color: #F4C775;
+  color: #f4c775;
   text-shadow: 0 0 6px rgba(244, 199, 117, 0.6);
 }
 
@@ -624,7 +705,7 @@ onUnmounted(() => {
 }
 .ring-fill {
   fill: none;
-  stroke: #00B0FF;
+  stroke: #00b0ff;
   stroke-width: 3;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.1s linear;
@@ -657,7 +738,10 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
   z-index: 25;
   pointer-events: auto !important;
 }
@@ -681,7 +765,7 @@ onUnmounted(() => {
 
 .pause-btn,
 .music-btn {
-  background: #042C53;
+  background: #042c53;
   color: #fff;
   border: none;
   width: 32px;
@@ -693,66 +777,14 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.15s, background 0.15s;
+  transition:
+    transform 0.15s,
+    background 0.15s;
 }
 .pause-btn:hover,
 .music-btn:hover {
   background: #154563;
   transform: scale(1.08);
-}
-
-.side-panel {
-  position: absolute;
-  top: 80px;
-  right: 15px;
-  width: 240px;
-  bottom: 20px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 10px;
-  padding: 12px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-  overflow-y: auto;
-  color: #042C53;
-}
-
-h3 {
-  font-size: 1rem;
-  margin-bottom: 10px;
-  border-bottom: 2px solid #e0e0e0;
-  padding-bottom: 8px;
-}
-
-.feature-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.feature-chip {
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #fff;
-}
-
-.admin-chip {
-  background: #F4C775;
-  color: #042C53;
-}
-
-.business-chip {
-  background: #042C53;
-}
-
-/* Animations */
-.list-enter-active,
-.list-leave-active {
-  transition: all 0.5s ease;
-}
-.list-enter-from {
-  opacity: 0;
-  transform: translateX(30px);
 }
 
 /* Popups */
@@ -776,14 +808,14 @@ h3 {
   color: white;
   text-align: left;
   white-space: pre-wrap;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   max-width: 300px;
   border: 2px solid transparent;
 }
 
 .popup-success {
   background: rgba(4, 44, 83, 0.9);
-  border-color: #F4C775;
+  border-color: #f4c775;
 }
 
 .popup-error {
@@ -792,9 +824,9 @@ h3 {
 }
 
 .popup-exclusive {
-  background: linear-gradient(135deg, #042C53 0%, #D2B48C 100%);
+  background: linear-gradient(135deg, #042c53 0%, #d2b48c 100%);
   border-color: #ffd164;
-  text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
 }
 
 .popup-anim-enter-active,
@@ -985,7 +1017,7 @@ h3 {
 }
 
 .hud-board-ride .btn-main {
-  font-family: 'Raleway', sans-serif;
+  font-family: "Raleway", sans-serif;
   font-weight: 800;
   font-size: 0.95rem;
   letter-spacing: 1px;
@@ -1015,7 +1047,7 @@ h3 {
 }
 
 .btn-main {
-  font-family: 'Raleway', sans-serif;
+  font-family: "Raleway", sans-serif;
   font-weight: 700;
   font-size: 0.85rem;
   line-height: 1.1;

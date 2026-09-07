@@ -1288,4 +1288,3 @@ export class SceneryInstancer {
     this.pools = {};
   }
 }
-

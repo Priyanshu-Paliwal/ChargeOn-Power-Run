@@ -25,7 +25,9 @@ export function checkSolvability(obstacles) {
     for (const lane of obs.lanes) laneState[lane] = obs.type;
   }
   for (const [z, laneState] of byZ) {
-    const passable = laneState.some((type) => type === null || OBSTACLE_TYPES[type].escape !== "switch");
+    const passable = laneState.some(
+      (type) => type === null || OBSTACLE_TYPES[type].escape !== "switch",
+    );
     if (!passable) return { solvable: false, z };
   }
   return { solvable: true };
@@ -71,7 +73,10 @@ export class SpawnDirector {
   // In-level speed, ramping from the level's own base up toward
   // base * speedRampMultiplier as the player travels through the level.
   getRampedSpeed(levelBaseSpeed) {
-    return levelBaseSpeed * (1 + (DIFFICULTY_RAMP.speedRampMultiplier - 1) * this._rampT());
+    return (
+      levelBaseSpeed *
+      (1 + (DIFFICULTY_RAMP.speedRampMultiplier - 1) * this._rampT())
+    );
   }
 
   // 1.0 at the start of a level, ramping toward densityRampMultiplier --
@@ -128,7 +133,11 @@ export class SpawnDirector {
         const solvability = checkSolvability(built.obstacles);
         if (solvability.solvable) {
           this._recordSelection(forced.id);
-          return { id: forced.id, obstacles: built.obstacles, coins: built.coins };
+          return {
+            id: forced.id,
+            obstacles: built.obstacles,
+            coins: built.coins,
+          };
         }
         // Falls through to normal selection below only if a forced pattern
         // somehow failed solvability -- shouldn't happen for the tutorial's
@@ -171,6 +180,7 @@ export class SpawnDirector {
 
   _recordSelection(id) {
     this._recentIds.push(id);
-    if (this._recentIds.length > PATTERN_NO_REPEAT_WINDOW) this._recentIds.shift();
+    if (this._recentIds.length > PATTERN_NO_REPEAT_WINDOW)
+      this._recentIds.shift();
   }
 }

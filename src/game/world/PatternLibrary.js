@@ -51,7 +51,9 @@ function randomLaneExcept(excluded) {
 // them -- so a "wide" obstacle spanning non-adjacent lanes would be a
 // visual/physical nonsense (floating over the middle lane), never used.
 function randomAdjacentPair() {
-  return Math.random() < 0.5 ? { lanes: [0, 1], freeLane: 2 } : { lanes: [1, 2], freeLane: 0 };
+  return Math.random() < 0.5
+    ? { lanes: [0, 1], freeLane: 2 }
+    : { lanes: [1, 2], freeLane: 0 };
 }
 
 export const PATTERNS = [

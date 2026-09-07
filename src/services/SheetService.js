@@ -11,10 +11,10 @@
  *   J: Main Discount
  */
 
-import { APPS_SCRIPT_URL } from '../game/config/GameConfig.js'
+import { APPS_SCRIPT_URL } from "../game/config/GameConfig.js";
 
 const isConfigured = () =>
-  APPS_SCRIPT_URL && APPS_SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL_HERE'
+  APPS_SCRIPT_URL && APPS_SCRIPT_URL !== "YOUR_APPS_SCRIPT_URL_HERE";
 
 /**
  * Sends a payload to the Apps Script Web App.
@@ -24,19 +24,21 @@ const isConfigured = () =>
  */
 const postToSheet = (payload) => {
   if (!isConfigured()) {
-    console.warn('[SheetService] APPS_SCRIPT_URL not set. Skipping sheet update.')
-    return
+    console.warn(
+      "[SheetService] APPS_SCRIPT_URL not set. Skipping sheet update.",
+    );
+    return;
   }
   // Fire-and-forget: we don't block the game on the response.
   fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain' }, // text/plain avoids CORS preflight
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain" }, // text/plain avoids CORS preflight
     body: JSON.stringify(payload),
   }).catch((err) => {
-    console.warn('[SheetService] Network error (non-blocking):', err.message)
-  })
-}
+    console.warn("[SheetService] Network error (non-blocking):", err.message);
+  });
+};
 
 /**
  * Called when user submits the registration form.
@@ -46,12 +48,12 @@ const postToSheet = (payload) => {
  */
 export const submitRegistration = (name, company, email) => {
   postToSheet({
-    action: 'register',
+    action: "register",
     name,
     company,
     email,
-  })
-}
+  });
+};
 
 /**
  * Called when user completes all 3 levels and reaches the Offer Reveal screen.
@@ -59,11 +61,11 @@ export const submitRegistration = (name, company, email) => {
  */
 export const updateMainDiscount = (email) => {
   postToSheet({
-    action: 'updateDiscount',
+    action: "updateDiscount",
     email,
-    discount: '15% OFF',
-  })
-}
+    discount: "15% OFF",
+  });
+};
 
 /**
  * Called when a level is completed or failed.
@@ -72,13 +74,19 @@ export const updateMainDiscount = (email) => {
  * @param {'Passed'|'Failed'} status
  * @param {string} goodie - The goodie won (empty string if failed)
  */
-export const updateLevelResult = (email, level, status, goodie = '', discount = '') => {
+export const updateLevelResult = (
+  email,
+  level,
+  status,
+  goodie = "",
+  discount = "",
+) => {
   postToSheet({
-    action: 'updateLevel',
+    action: "updateLevel",
     email,
     level,
     status,
     goodie,
     discount,
-  })
-}
+  });
+};
