@@ -1039,10 +1039,24 @@ export class FootpathPropSystem {
     for (let i = this.spawnedWalkers.length - 1; i >= 0; i--) {
       const walker = this.spawnedWalkers[i];
 
-      // Update animation mixer, throttling it based on distance from camera if needed
-      // (For now just updating it every frame)
+      // Animation throttling based on distance
       if (walker.mixer) {
-        walker.mixer.update(delta);
+        // Assume camera is near z=0, looking towards negative z
+        const dist = Math.abs(walker.wrapper.position.z);
+        
+        if (!walker.accumulatedDelta) walker.accumulatedDelta = 0;
+        walker.accumulatedDelta += delta;
+
+        // Determine update frequency based on distance
+        let updateThreshold = 0; // Close range: every frame
+        if (dist > 150) updateThreshold = 1.0; // Far: barely update (1 FPS)
+        else if (dist > 100) updateThreshold = 0.2; // Medium-far: 5 FPS
+        else if (dist > 50) updateThreshold = 0.1; // Medium: 10 FPS
+        
+        if (walker.accumulatedDelta >= updateThreshold) {
+          walker.mixer.update(walker.accumulatedDelta);
+          walker.accumulatedDelta = 0;
+        }
       }
 
       // If locomotion, they walk independently along the Z axis.

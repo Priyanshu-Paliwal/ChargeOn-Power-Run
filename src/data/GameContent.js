@@ -50,8 +50,8 @@ export const levels = [
     // and HowToPlay.vue's are now both corrected to describe that
     // accurately instead of either half of the original contradiction.
     subtext: "22 more features. Drones incoming — slide under the low ones, switch lanes for the high ones.",
-    speedTag: "Speed: 1.3x — Faster",
-    speedMultiplier: 1.3,
+    speedTag: "Speed: 1.2x - Faster",
+    speedMultiplier: 1.2,
     requiredCount: 22,
     goodie: "Fridge Magnet",
     discount: "10% OFF",
@@ -91,8 +91,8 @@ export const levels = [
     id: 3,
     title: "Level 3: Enterprise & AI Finale",
     subtext: "Final 10 features. Everything, all at once.",
-    speedTag: "Speed: 1.5x — Fastest",
-    speedMultiplier: 1.5,
+    speedTag: "Speed: 1.4x - Fastest",
+    speedMultiplier: 1.4,
     requiredCount: 10,
     goodie: "Premium Tote Bag",
     discount: "15% OFF",

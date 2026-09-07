@@ -81,7 +81,7 @@ const handleSubmit = async (e) => {
     <div class="form-container">
       <div class="logo-wrap">
         <img
-          src="/img/chargeon-Logo.webp"
+          src="/img/chargeon-logo-badge.webp"
           alt="ChargeOn Logo"
         />
       </div>
@@ -165,14 +165,21 @@ const handleSubmit = async (e) => {
 }
 
 .form-container {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(15px);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.25) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.2),
+    inset 0 1px 2px rgba(255, 255, 255, 0.5);
   border-radius: 16px;
   padding: 40px;
   width: 100%;
   max-width: 500px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
 }
 
 .logo-wrap {

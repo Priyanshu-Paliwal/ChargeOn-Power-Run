@@ -22,7 +22,7 @@ import * as THREE from "three";
 // simultaneously. This picks only the highest-detail one (LOD0).
 
 // 🌲 AIRPORT PLANT CONFIGURATION 🌲
-const TREE_SPECIES = ["airport_plant"]; // Uses your new plant
+const TREE_SPECIES = ["airport_plant"]; // Uses your new plant and folio tree
 const TREE_HEIGHT_RANGE = [2, 2]; // HEIGHT: [minHeight, maxHeight]
 const TREE_WIDTH_MULTIPLIER = 1.0; // WIDTH: Increase to make them fatter, decrease for thinner
 
@@ -1288,3 +1288,4 @@ export class SceneryInstancer {
     this.pools = {};
   }
 }
+

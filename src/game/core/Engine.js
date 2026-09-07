@@ -4,7 +4,6 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { Player } from "../entities/Player.js";
 import { WorldStreamer } from "../world/WorldStreamer.js";
-import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
@@ -19,6 +18,8 @@ import { ScoreSystem } from "../systems/ScoreSystem.js";
 import { EffectsSystem } from "../systems/EffectsSystem.js";
 import { characterLoader } from "../entities/CharacterLoader.js";
 import { audioManager } from "../systems/AudioManager.js";
+import { DayNightCycle } from "../systems/DayNightCycle.js";
+import { WeatherSystem } from "../systems/WeatherSystem.js";
 import {
   HIT_STOP_MS,
   HIT_SHAKE_MAGNITUDE,
@@ -40,7 +41,7 @@ export class Engine {
 
     // Scene setup - Real Atmosphere
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0xd4c9b0, 0.0018); // Warm daylight haze, low density
+    this.scene.fog = new THREE.Fog(0xd4c9b0, 50, 250); // Natural atmospheric perspective
 
     // Camera + responsive framing/follow. FOV, aspect, position and lookAt
     // are all owned by CameraRig from here on -- see updateFraming()/update()
@@ -73,7 +74,7 @@ export class Engine {
     // actual dimensions (see _onViewportChange below) -- (1,1) here is just
     // a placeholder since EffectComposer.setSize() resizes every pass.
     this.bloomPass = this.quality.tier.bloom
-      ? new UnrealBloomPass(new THREE.Vector2(1, 1), 0.4, 0.4, 1.0)
+      ? new UnrealBloomPass(new THREE.Vector2(1, 1), 0.25, 0.4, 0.95)
       : null;
 
     this.composer = new EffectComposer(this.renderer);
@@ -83,11 +84,17 @@ export class Engine {
     // Clock for delta time
     this.clock = new THREE.Clock();
 
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xfff0dd, 0.35); // Warm ambient
+        // Lights
+    const ambientLight = new THREE.AmbientLight(0xfff0dd, 0.2); // Warm ambient
     this.scene.add(ambientLight);
+    this.ambientLight = ambientLight;
 
-    const dirLight = new THREE.DirectionalLight(0xfffaeb, 1.2); // Warm sunlight directional
+    // Hemisphere Light for natural character fill and rim lighting
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.45);
+    this.scene.add(hemiLight);
+    this.hemiLight = hemiLight;
+
+    const dirLight = new THREE.DirectionalLight(0xfffaeb, 1.05); // Warm sunlight directional
     dirLight.position.set(20, 30, 10);
     dirLight.castShadow = this.quality.tier.shadows;
 
@@ -98,7 +105,9 @@ export class Engine {
     dirLight.shadow.camera.bottom = -40;
     dirLight.shadow.camera.near = 0.5;
     dirLight.shadow.camera.far = 100;
-    dirLight.shadow.bias = -0.0005; // Prevent shadow acne
+    dirLight.shadow.bias = -0.001; // Match folio-2025
+    dirLight.shadow.normalBias = 0.1; // Match folio-2025
+    dirLight.shadow.radius = 3; // Match folio-2025 soft shadows
 
     dirLight.shadow.mapSize.width = this.quality.tier.shadowMapSize;
     dirLight.shadow.mapSize.height = this.quality.tier.shadowMapSize;
@@ -115,9 +124,12 @@ export class Engine {
     spotLight.castShadow = this.quality.tier.shadows;
     this.scene.add(spotLight);
 
-    // --- REAL ATMOSPHERE (SKY & GROUND) ---
+        // --- REAL ATMOSPHERE (SKY & GROUND) ---
     this.initAtmosphere();
     this.initLobbyProps();
+
+    this.dayNightCycle = new DayNightCycle(this);
+    this.weatherSystem = new WeatherSystem(this);
 
     // Input: keyboard + touch, bound to the canvas container (not window) so
     // UI button taps -- captured by the UI layer sitting in front -- never
@@ -550,30 +562,7 @@ export class Engine {
       loadModel("Cinema", "/assets/models/buildings/Cinema.glb"),
       loadModel("jetpack", "/assets/JetpackModel/JetpackModel.gltf"),
       loadModel("railing", "/assets/models/environment/MetalRailing.glb"),
-      loadModel(
-        "desert",
-        "/assets/models/environment/Desert_field.glb",
-        (m) => {
-          m.traverse((child) => {
-            if (child.isMesh) {
-              child.receiveShadow = true;
-              if (child.material) {
-                const oldMat = Array.isArray(child.material)
-                  ? child.material[0]
-                  : child.material;
-                child.material = new THREE.MeshBasicMaterial({
-                  map: oldMat.map,
-                  color: oldMat.color,
-                });
-              }
-            }
-          });
-          return m;
-        },
-      ),
-      loadModel("airport_plant", "/assets/models/trees/airport_plant.glb"),
-
-      // Footpath props
+      loadModel("airport_plant", "/assets/models/trees/airport_plant.glb"),// Footpath props
       loadModel("atm", "/assets/models/environment/props/atm.glb"),
       loadModel(
         "bench",
@@ -1129,26 +1118,8 @@ export class Engine {
   }
 
   initAtmosphere() {
-    // Procedural Sky Simulation (replaces basic HDR background)
-    const sky = new Sky();
-    sky.scale.setScalar(10000);
-    this.scene.add(sky);
-
-    const skyUniforms = sky.material.uniforms;
-    skyUniforms["turbidity"].value = 10;
-    skyUniforms["rayleigh"].value = 0.5; // Lower for less blown-out sky
-    skyUniforms["mieCoefficient"].value = 0.005;
-    skyUniforms["mieDirectionalG"].value = 0.7;
-
-    // Calculate Sun Position for a deep cinematic sunset look
-    const sun = new THREE.Vector3();
-    const phi = THREE.MathUtils.degToRad(89.5); // Very close to horizon for orange/red
-
-    // Set theta to 0 so the sun is BEHIND the player, lighting up the track without blinding the camera
-    const theta = THREE.MathUtils.degToRad(0);
-
-    sun.setFromSphericalCoords(1, phi, theta);
-    sky.material.uniforms["sunPosition"].value.copy(sun);
+    // Disabled Sky.js procedural scattering to fix intense whiteout/bloom issues.
+    // DayNightCycle.js will now handle the sun mesh, moon mesh, and sky background color.
 
     // Load HDRI for reflections only (not background)
     new RGBELoader()
@@ -1159,8 +1130,9 @@ export class Engine {
         this.scene.environment = texture;
       });
 
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.toneMappingExposure = 1.0; // Restored normal exposure since Sky.js whiteout is gone
 
     // 2. Endless Ground - sand/dirt base replacing the old green base
     const texLoader = new THREE.TextureLoader();
@@ -1251,6 +1223,10 @@ export class Engine {
         this.world.propSystem.update(0, delta, 50);
       }
     }
+
+    // Always update nature systems regardless of game state
+    this.dayNightCycle?.update(delta);
+    this.weatherSystem?.update(delta);
 
     this.cameraRig.update(rawDelta, time, this.player.mesh.position, this.mode);
 
