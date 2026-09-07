@@ -179,7 +179,7 @@ const handleSubmit = async (e) => {
 .form-container {
   background: linear-gradient(
     135deg,
-    rgb(0 0 0 / 25%) 0%,
+    rgb(0 0 0 / 65%) 0%,
     rgb(0 0 0 / 5%) 100%
   );
   backdrop-filter: blur(10px);

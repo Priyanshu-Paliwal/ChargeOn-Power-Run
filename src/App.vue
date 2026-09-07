@@ -540,7 +540,7 @@ const quitToLobby = () => {
 
         <StoryBeat
           v-else-if="gameState === 'STORY_BEAT'"
-          @next="gameState = 'LEVEL_INTRO'"
+          @next="startLevel"
         />
 
         <LevelIntro

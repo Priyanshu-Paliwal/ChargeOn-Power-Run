@@ -132,7 +132,7 @@ const emit = defineEmits(["next"]);
   flex: 1;
   background: linear-gradient(
     135deg,
-    rgb(0 0 0 / 25%) 0%,
+    rgb(0 0 0 / 50%) 0%,
     rgb(0 0 0 / 5%) 100%
   );
   backdrop-filter: blur(10px);
