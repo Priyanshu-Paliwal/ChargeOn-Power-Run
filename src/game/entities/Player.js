@@ -9,8 +9,14 @@ import {
   CHARACTERS,
   JETPACK_MODEL_URL,
   JETPACK_FLIGHT_HEIGHT,
+  HOVERBOARDS,
+  getHoverboardConfig,
+  DEFAULT_HOVERBOARD_ID,
+  BOARD_DURATION_MS,
+  BOARD_COOLDOWN_MS,
 } from "../config/GameConfig.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 
 export const PlayerMovementState = {
   RUNNING: "RUNNING",
@@ -179,6 +185,34 @@ export class Player {
 
       this.jetpackMesh.add(jp);
     });
+
+    // Board (Skateboard / Surfboard / Multi-Hoverboard) setup
+    this.hasBoard = false;
+    this._isBoardPreview = false;
+    this._boardTimer = 0;
+    this._boardDurationMs = 0;
+    this._boardCooldown = 0;
+    this.boardMesh = new THREE.Group();
+    this.boardMesh.visible = false;
+    this.mesh.add(this.boardMesh);
+
+    this.currentHoverboardId = DEFAULT_HOVERBOARD_ID;
+    this._hoverboardCache = new Map();
+    this._currentBoardModelNode = null;
+
+    // Subtle colored under-glow light for the board
+    this.boardLight = new THREE.PointLight(0x00e5ff, 2.5, 4);
+    this.boardLight.position.set(0, 0.12, 0);
+    this.boardMesh.add(this.boardLight);
+
+    const boardDraco = new DRACOLoader();
+    boardDraco.setDecoderPath("/draco/");
+    this._boardGltfLoader = new GLTFLoader();
+    this._boardGltfLoader.setDRACOLoader(boardDraco);
+
+    // Initial load and background preloading of all hoverboards
+    this.setHoverboard(this.currentHoverboardId);
+    this.prefetchAllHoverboards();
   }
 
   // durationMs comes from GameConfig.js's POWER_UPS (via the coin's
@@ -207,8 +241,188 @@ export class Player {
     this.movementState = PlayerMovementState.JETPACK;
     this.jetpackMesh.visible = true;
 
+    // Hoverboard must NOT fly in the sky with jetpack
+    this.boardMesh.visible = false;
+
     // Play the flying animation
     this.setAnimation("Flying");
+  }
+
+  setHoverboard(boardId, preview = null) {
+    const cfg = getHoverboardConfig(boardId);
+    this.currentHoverboardId = cfg.id;
+
+    if (this.boardLight) {
+      this.boardLight.color.setHex(cfg.glowColor || 0x00e5ff);
+    }
+
+    if (preview !== null) {
+      this._isBoardPreview = Boolean(preview);
+    }
+
+    const showBoard = !this.hasJetpack && (this.hasBoard || this._isBoardPreview);
+    this.boardMesh.visible = showBoard;
+    if (!showBoard && this.model && !this.hasBoard) {
+      this.model.position.y = 0;
+    }
+
+    if (this._hoverboardCache.has(cfg.id)) {
+      const cached = this._hoverboardCache.get(cfg.id);
+      this._mountBoardGroup(cached);
+      return;
+    }
+
+    this._loadBoardModel(cfg, (grp) => {
+      if (this.currentHoverboardId === cfg.id) {
+        this._mountBoardGroup(grp);
+      }
+    });
+  }
+
+  _loadBoardModel(cfg, onLoaded) {
+    this._boardGltfLoader.load(
+      cfg.url,
+      (gltf) => {
+        const rawModel = gltf.scene;
+
+        // Auto-center raw model bounds to (0,0,0) so pivot is centered
+        const box = new THREE.Box3().setFromObject(rawModel);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        rawModel.position.sub(center);
+
+        // Container with calibrated transforms
+        const group = new THREE.Group();
+        group.add(rawModel);
+        group.scale.set(cfg.scale, cfg.scale, cfg.scale);
+        group.rotation.set(cfg.rotation[0], cfg.rotation[1], cfg.rotation[2]);
+
+        // Auto-align: calculate transformed bounds so bottom surface sits precisely at local y = 0
+        group.updateMatrixWorld(true);
+        const transformedBox = new THREE.Box3().setFromObject(group);
+        const minY = transformedBox.min.y;
+        const maxY = transformedBox.max.y;
+        const totalThickness = maxY - minY;
+
+        // Shift model so its bottom-most point is always anchored at y = 0
+        group.position.y = -minY;
+
+        // Store deckThickness and footOffset on the group for player elevation
+        group.userData.deckThickness =
+          cfg.deckThickness !== undefined ? cfg.deckThickness : totalThickness;
+        group.userData.footOffset =
+          cfg.footOffset !== undefined ? cfg.footOffset : 0;
+
+        rawModel.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+
+        this._hoverboardCache.set(cfg.id, group);
+        if (onLoaded) onLoaded(group);
+      },
+      undefined,
+      (err) => console.warn(`Failed to load hoverboard ${cfg.id}:`, err),
+    );
+  }
+
+  _mountBoardGroup(group) {
+    if (
+      this._currentBoardModelNode &&
+      this._currentBoardModelNode.parent === this.boardMesh
+    ) {
+      this.boardMesh.remove(this._currentBoardModelNode);
+    }
+    this._currentBoardModelNode = group;
+    this.boardMesh.add(group);
+
+    // Immediately update feet elevation for the newly mounted board
+    const showBoard =
+      (this.hasBoard || this._isBoardPreview) && !this.hasJetpack;
+    if (
+      showBoard &&
+      this.model &&
+      this.movementState === PlayerMovementState.RUNNING
+    ) {
+      const deckThickness = group.userData.deckThickness ?? 0.08;
+      const footOffset = group.userData.footOffset ?? 0;
+      this.model.position.y =
+        this.boardMesh.position.y + deckThickness + footOffset;
+    } else if (this.model && !this.hasBoard) {
+      this.model.position.y = 0;
+    }
+  }
+
+  prefetchAllHoverboards() {
+    HOVERBOARDS.forEach((b) => {
+      if (!this._hoverboardCache.has(b.id)) {
+        this._loadBoardModel(b);
+      }
+    });
+  }
+
+  cycleHoverboard() {
+    const pool = HOVERBOARDS.filter((b) => b.id !== this.currentHoverboardId);
+    const randomBoard =
+      pool.length > 0
+        ? pool[Math.floor(Math.random() * pool.length)]
+        : HOVERBOARDS[0];
+    this.setHoverboard(randomBoard.id, false);
+    return randomBoard;
+  }
+
+  setBoardPreview(active) {
+    this._isBoardPreview = Boolean(active);
+    const showBoard = !this.hasJetpack && (this.hasBoard || this._isBoardPreview);
+    this.boardMesh.visible = showBoard;
+    if (!showBoard && this.model && !this.hasBoard) {
+      this.model.position.y = 0;
+    }
+  }
+
+  activateBoard(durationMs = BOARD_DURATION_MS) {
+    if (this._boardCooldown > 0) return false;
+
+    // Pick a random hoverboard each time user activates the hoverboard
+    const pool = HOVERBOARDS.filter((b) => b.id !== this.currentHoverboardId);
+    const randomBoard =
+      pool.length > 0
+        ? pool[Math.floor(Math.random() * pool.length)]
+        : HOVERBOARDS[Math.floor(Math.random() * HOVERBOARDS.length)];
+    this.setHoverboard(randomBoard.id, false);
+
+    this.hasBoard = true;
+    this._boardTimer = durationMs;
+    this._boardDurationMs = durationMs;
+    this.boardMesh.visible = !this.hasJetpack;
+    if (
+      this.movementState === PlayerMovementState.RUNNING &&
+      !this.hasJetpack
+    ) {
+      this.setAnimation("Surfing");
+    }
+    return true;
+  }
+
+  _endBoard() {
+    this.hasBoard = false;
+    this.boardMesh.visible = false;
+    this._isBoardPreview = false;
+    this._boardTimer = 0;
+    this._boardCooldown = BOARD_COOLDOWN_MS;
+    this.boardMesh.position.set(0, 0, 0);
+    this.boardMesh.rotation.set(0, 0, 0);
+    if (this.model) {
+      this.model.position.y = 0;
+    }
+    if (
+      this.movementState === PlayerMovementState.RUNNING &&
+      !this.hasJetpack
+    ) {
+      this.setAnimation("Run");
+    }
   }
 
   // Small public read-only getter (Milestone 8's HUD radial timer) so the
@@ -225,6 +439,10 @@ export class Player {
       jetpackActive: this.hasJetpack,
       jetpackRemainingMs: this._jetpackTimer,
       jetpackDurationMs: this._jetpackDurationMs,
+      boardActive: this.hasBoard,
+      boardRemainingMs: this._boardTimer,
+      boardDurationMs: this._boardDurationMs,
+      currentHoverboardId: this.currentHoverboardId,
     };
   }
 
@@ -249,7 +467,7 @@ export class Player {
         this.mesh.position.y = this.baseY;
         this.movementState = PlayerMovementState.RUNNING;
         this._jumpElapsed = 0;
-        this.setAnimation("Run");
+        this.setAnimation(this.hasBoard ? "Surfing" : "Run");
       } else {
         this.mesh.position.y =
           this.baseY +
@@ -317,7 +535,7 @@ export class Player {
         // machine is genuinely idle-running -- a hit taken mid-jump/slide
         // must NOT stomp that in-progress action's own animation.
         if (this.movementState === PlayerMovementState.RUNNING)
-          this.setAnimation("Run");
+          this.setAnimation(this.hasBoard ? "Surfing" : "Run");
       }
     }
 
@@ -332,6 +550,53 @@ export class Player {
     if (this.hasMagnet) this.magnetMesh.rotation.z += delta * 2;
     this.shieldMesh.visible = this.hasShield;
 
+    // Board cooldown & update
+    if (this._boardCooldown > 0) {
+      this._boardCooldown -= delta * 1000;
+    }
+
+    // Only tick down board timer if NOT flying on jetpack
+    if (this.hasBoard && !this.hasJetpack) {
+      this._boardTimer -= delta * 1000;
+      if (this._boardTimer <= 0) {
+        this._endBoard();
+      }
+    }
+
+    const showBoard =
+      (this.hasBoard || this._isBoardPreview) && !this.hasJetpack;
+    if (showBoard) {
+      // Subway Surfers-style gentle hover bobbing
+      const bobbing = Math.sin(performance.now() * 0.008) * 0.022;
+      const bottomClearance = this.hasBoard ? 0.08 : 0.05;
+      const boardBottomY = bottomClearance + bobbing;
+      this.boardMesh.position.y = boardBottomY;
+
+      // Keep character feet synchronized with board deck
+      const deckThickness =
+        this._currentBoardModelNode?.userData?.deckThickness ?? 0.08;
+      const footOffset = this._currentBoardModelNode?.userData?.footOffset ?? 0;
+      if (this.model && this.movementState === PlayerMovementState.RUNNING) {
+        this.model.position.y = boardBottomY + deckThickness + footOffset;
+      }
+
+      if (this.hasBoard) {
+        // Dynamic banking roll when turning/changing lanes
+        const lateralOffset = this.mesh.position.x - this.targetX;
+        this.boardMesh.rotation.z = lateralOffset * -0.28;
+        this.boardMesh.rotation.y = lateralOffset * -0.18;
+      } else {
+        this.boardMesh.rotation.set(0, 0, 0);
+      }
+    } else {
+      this.boardMesh.position.set(0, 0, 0);
+      this.boardMesh.rotation.set(0, 0, 0);
+      if (this.model && this.movementState === PlayerMovementState.RUNNING) {
+        this.model.position.y = 0;
+      }
+    }
+    this.boardMesh.visible = showBoard;
+
     // Smooth Lane Transitioning (Framerate independent to prevent shaking/overshooting on lag)
     const lerpFactor = 1.0 - Math.exp(-PLAYER_PHYSICS.laneSwitchSpeed * delta);
     this.mesh.position.x += (this.targetX - this.mesh.position.x) * lerpFactor;
@@ -342,6 +607,18 @@ export class Player {
   }
 
   _processInput() {
+    // Board activation input (double-tap or 'B' key or on-screen button)
+    if (this.inputManager.consumeBuffered("board")) {
+      if (!this.hasBoard && this._boardCooldown <= 0) {
+        this.activateBoard();
+      }
+    }
+
+    // Quick hoverboard cycle input ('H' key or on-screen switcher)
+    if (this.inputManager.consumeBuffered("cycle_board")) {
+      this.cycleHoverboard();
+    }
+
     const laneReqs = this.inputManager.consumeLaneRequests();
     for (const dir of laneReqs) {
       if (dir < 0 && this.currentLane > 0) this.currentLane--;
@@ -351,7 +628,8 @@ export class Player {
     // Jump and Slide input handling with animation cancelling (Subway Surfers style)
     if (this.inputManager.consumeBuffered("jump")) {
       if (
-        (this.movementState === PlayerMovementState.RUNNING && this._slideCooldown <= 0) ||
+        (this.movementState === PlayerMovementState.RUNNING &&
+          this._slideCooldown <= 0) ||
         this.movementState === PlayerMovementState.SLIDING
       ) {
         // Jump normally, or cancel a slide into a jump
@@ -359,7 +637,8 @@ export class Player {
       }
     } else if (this.inputManager.consumeBuffered("slide")) {
       if (
-        (this.movementState === PlayerMovementState.RUNNING && this._slideCooldown <= 0) ||
+        (this.movementState === PlayerMovementState.RUNNING &&
+          this._slideCooldown <= 0) ||
         this.movementState === PlayerMovementState.JUMPING
       ) {
         if (this.movementState === PlayerMovementState.JUMPING) {
@@ -402,7 +681,7 @@ export class Player {
   _endSlide() {
     this.movementState = PlayerMovementState.RUNNING;
     this._slideCooldown = SLIDE_RECOVERY_MS;
-    this.setAnimation("Run");
+    this.setAnimation(this.hasBoard ? "Surfing" : "Run");
   }
 
   _endJetpack() {
@@ -410,7 +689,10 @@ export class Player {
     this.jetpackMesh.visible = false;
     this.mesh.position.y = this.baseY;
     this.movementState = PlayerMovementState.RUNNING;
-    this.setAnimation("Run");
+    this.boardMesh.visible =
+      !this.hasJetpack && (this.hasBoard || this._isBoardPreview);
+    this.setAnimation(this.hasBoard ? "Surfing" : "Run");
+    if (this.onJetpackEnd) this.onJetpackEnd();
   }
 
   // Fills `target` (a reused THREE.Box3, avoiding per-call allocation) with
@@ -440,6 +722,21 @@ export class Player {
     if (this.hasShield) {
       this.hasShield = false;
       return false; // absorbed -- no life lost, no hit-reaction lock/flash
+    }
+
+    // Subway Surfers Board Crash Mechanic: board absorbs the collision, saving the player!
+    if (this.hasBoard) {
+      this._endBoard();
+      this.isHit = true;
+      this._hitTimer = HIT_REACTION_MS;
+      this._playOneShot("Stumble");
+      this.model.traverse((child) => {
+        if (child.isMesh && child.material) {
+          child.material.emissive.setHex(0x00e5ff);
+          child.material.emissiveIntensity = 2;
+        }
+      });
+      return "board_saved";
     }
 
     this.isHit = true;
@@ -576,6 +873,17 @@ export class Player {
     });
 
     this.mesh.add(this.model);
+
+    // If a hoverboard is active, place character feet on its top deck
+    const showBoardOnLoad =
+      (this.hasBoard || this._isBoardPreview) && !this.hasJetpack;
+    if (showBoardOnLoad) {
+      const deckThickness =
+        this._currentBoardModelNode?.userData?.deckThickness ?? 0.08;
+      const footOffset = this._currentBoardModelNode?.userData?.footOffset ?? 0;
+      this.model.position.y =
+        this.boardMesh.position.y + deckThickness + footOffset;
+    }
 
     this.mixer = new THREE.AnimationMixer(this.model);
     this.animations = {};

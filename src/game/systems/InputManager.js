@@ -29,8 +29,9 @@ export class InputManager {
     this.scheme = "keyboard";
 
     this._laneRequests = [];
-    this._buffered = []; // [{ action: 'jump' | 'slide', time }]
+    this._buffered = []; // [{ action: 'jump' | 'slide' | 'board', time }]
     this._touchStart = null;
+    this._lastTap = null; // { time, clientX, clientY }
 
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onTouchStart = this._onTouchStart.bind(this);
@@ -39,20 +40,6 @@ export class InputManager {
     this._onTouchCancel = this._onTouchCancel.bind(this);
 
     window.addEventListener("keydown", this._onKeyDown);
-    // NOT passive: found and fixed on real mobile-device testing -- a
-    // passive listener can never call preventDefault(), so on a real phone
-    // (never actually testable from this sandbox) the browser is free to
-    // reinterpret an in-progress touch as its own default gesture (page
-    // scroll, pull-to-refresh, edge-swipe-back) partway through. When that
-    // happens the browser fires `touchcancel` instead of `touchend` -- which
-    // this class didn't even listen for -- so the swipe just vanishes with
-    // no lane-change/jump/slide ever queued and no error anywhere. App.vue's
-    // `touch-action: none` on `.app-container` should already suppress this
-    // by itself per spec (ancestor restrictions apply to descendants too),
-    // but calling preventDefault() directly here is the same defense
-    // browsers themselves recommend for canvas/game surfaces, and doesn't
-    // depend on every mobile browser's touch-action propagation being
-    // spec-perfect across a position:absolute boundary.
     this.targetElement.addEventListener("touchstart", this._onTouchStart, { passive: false });
     this.targetElement.addEventListener("touchmove", this._onTouchMove, { passive: false });
     this.targetElement.addEventListener("touchend", this._onTouchEnd, { passive: false });
@@ -90,13 +77,21 @@ export class InputManager {
       case "S":
         this._buffered.push({ action: "slide", time: performance.now() });
         break;
+      case "h":
+      case "H":
+        this._buffered.push({ action: "board", time: performance.now() });
+        break;
+      case "b":
+      case "B":
+        this._buffered.push({ action: "cycle_board", time: performance.now() });
+        break;
     }
   }
 
   _onTouchStart(e) {
     e.preventDefault(); // see the constructor's comment -- stops the browser claiming this gesture as its own
     const t = e.changedTouches[0];
-    this._touchStart = { screenX: t.screenX, screenY: t.screenY, clientX: t.clientX, time: performance.now() };
+    this._touchStart = { screenX: t.screenX, screenY: t.screenY, clientX: t.clientX, clientY: t.clientY, time: performance.now() };
   }
 
   // Only preventDefault while a swipe we're actually tracking is underway --
@@ -124,6 +119,7 @@ export class InputManager {
     const diffY = t.screenY - this._touchStart.screenY;
     const duration = performance.now() - this._touchStart.time;
     const tapClientX = this._touchStart.clientX;
+    const tapClientY = this._touchStart.clientY;
     this._touchStart = null;
 
     const distance = Math.max(Math.abs(diffX), Math.abs(diffY));
@@ -139,13 +135,33 @@ export class InputManager {
         this._buffered.push({ action: "jump", time: performance.now() });
       }
     } else if (distance < swipeThreshold && duration <= SWIPE.tapMaxDurationMs) {
-      // Tap-zone fallback: left half of the container = lane left, right
-      // half = lane right. Covers the common "my swipe didn't register"
-      // case for the most frequent action (lateral movement) without
-      // trying to map jump/slide onto ambiguous screen zones.
-      const rect = this.targetElement.getBoundingClientRect();
-      this._laneRequests.push(tapClientX - rect.left < rect.width / 2 ? -1 : 1);
+      const now = performance.now();
+      // Double tap detection (Subway Surfers style hoverboard activation)
+      if (
+        this._lastTap &&
+        now - this._lastTap.time <= 340 &&
+        Math.hypot(tapClientX - this._lastTap.clientX, tapClientY - this._lastTap.clientY) < 60
+      ) {
+        this._buffered.push({ action: "board", time: now });
+        this._lastTap = null;
+      } else {
+        this._lastTap = { time: now, clientX: tapClientX, clientY: tapClientY };
+        // Tap-zone fallback: left half of the container = lane left, right
+        // half = lane right. Covers the common "my swipe didn't register"
+        // case for the most frequent action (lateral movement) without
+        // trying to map jump/slide onto ambiguous screen zones.
+        const rect = this.targetElement.getBoundingClientRect();
+        this._laneRequests.push(tapClientX - rect.left < rect.width / 2 ? -1 : 1);
+      }
     }
+  }
+
+  triggerBoard() {
+    this._buffered.push({ action: "board", time: performance.now() });
+  }
+
+  triggerCycleBoard() {
+    this._buffered.push({ action: "cycle_board", time: performance.now() });
   }
 
   // Returns every lane-direction request queued since the last call (in

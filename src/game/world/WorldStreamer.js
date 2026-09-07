@@ -14,6 +14,7 @@ import {
   TUTORIAL_DISTANCE,
   TUTORIAL_MECHANIC_BY_PATTERN,
   TUTORIAL_CHUNK_INDICES,
+  JETPACK_FLIGHT_HEIGHT,
 } from "../config/GameConfig.js";
 
 // Replaces WorldGenerator. Same public API (constructor(scene, textures,
@@ -131,6 +132,7 @@ export class WorldStreamer {
     this.chunkCoins = []; // [chunkIndex][slotIndex]
     this.chunkObstacles = []; // [chunkIndex][slotIndex] -> { activeType, variants: { TYPE: instance } }
     this._initPool();
+    this._initSkyCoins();
   }
 
   _initCoinMaterials() {
@@ -207,6 +209,60 @@ export class WorldStreamer {
       chunk.position.z = this.activeZ - i * this.trackLength;
       this.scene.add(chunk);
       this.trackPool.push(chunk);
+    }
+  }
+
+  _initSkyCoins() {
+    this.skyCoins = [];
+    // 4 Aerial Coins: 2 Blue (+100) and 2 Gold (+150) in a zigzag lane sequence
+    // requiring active lane switching in the air while flying.
+    const configs = [
+      { lane: 0, zOffset: -25, mat: this.businessMat, coinType: "blue", name: "Aerial Blue Coin", category: "Business" },
+      { lane: 2, zOffset: -50, mat: this.adminMat, coinType: "gold", name: "Aerial Gold Coin", category: "Admin" },
+      { lane: 1, zOffset: -75, mat: this.businessMat, coinType: "blue", name: "Aerial Blue Coin", category: "Business" },
+      { lane: 0, zOffset: -100, mat: this.adminMat, coinType: "gold", name: "Aerial Gold Coin", category: "Admin" },
+    ];
+
+    for (const cfg of configs) {
+      const coin = this._createCoinPoolObject();
+      coin.ring.material = cfg.mat;
+      coin.plate.material = cfg.mat;
+      coin.innerRing.material = cfg.mat;
+      coin.baseY = JETPACK_FLIGHT_HEIGHT;
+      coin.cfg = cfg;
+      this.scene.add(coin.group);
+      this.skyCoins.push(coin);
+    }
+  }
+
+  spawnJetpackSkyCoins() {
+    if (!this.skyCoins) return;
+    for (const coin of this.skyCoins) {
+      const cfg = coin.cfg;
+      coin.group.position.set(
+        PLAYER_PHYSICS.lanes[cfg.lane],
+        JETPACK_FLIGHT_HEIGHT,
+        cfg.zOffset,
+      );
+      coin.bobOffset = Math.random() * Math.PI * 2;
+      coin.group.userData = {
+        isInteractable: true,
+        type: "coin",
+        name: cfg.name,
+        category: cfg.category,
+        coinType: cfg.coinType,
+        isSkyCoin: true,
+        isExclusive: false,
+        bobOffset: coin.bobOffset,
+      };
+      coin.group.visible = true;
+    }
+  }
+
+  clearSkyCoins() {
+    if (!this.skyCoins) return;
+    for (const coin of this.skyCoins) {
+      coin.group.visible = false;
     }
   }
 
@@ -313,6 +369,7 @@ export class WorldStreamer {
           slot.activeType = null;
         }
       }
+      this.clearSkyCoins();
     }
   }
 
@@ -524,6 +581,7 @@ export class WorldStreamer {
         type: "coin",
         name: featureData.name,
         category: featureData.category,
+        coinType: powerUpDef ? "pink" : isAdmin ? "gold" : "blue",
         isExclusive: featureData.isExclusive || false,
         exclusiveLine: featureData.exclusiveLine || null,
         bobOffset: coin.bobOffset,
@@ -598,7 +656,24 @@ export class WorldStreamer {
       for (const slot of this.chunkObstacles[i]) {
         if (slot.activeType) slot.variants[slot.activeType].update(time);
       }
+    }
 
+    if (this.skyCoins) {
+      for (const coin of this.skyCoins) {
+        if (coin.group.visible) {
+          coin.group.position.z += moveDist;
+          coin.group.rotation.y += 3 * delta;
+          coin.group.position.y =
+            JETPACK_FLIGHT_HEIGHT + Math.sin(time + coin.bobOffset) * 0.2;
+          if (coin.group.position.z > 20) {
+            coin.group.visible = false;
+          }
+        }
+      }
+    }
+
+    for (let i = 0; i < this.trackPool.length; i++) {
+      const chunk = this.trackPool[i];
       if (chunk.position.z > this.activeZ + this.trackLength) {
         // Use mathematical wrapping to maintain perfect spacing
         // and avoid loop-dependency drift which causes visual gaps.

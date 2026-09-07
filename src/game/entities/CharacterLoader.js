@@ -1,7 +1,12 @@
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
-import { CHARACTERS, CHARACTER_ANIMATIONS_URL, FLYING_ANIMATION_URL } from "../config/GameConfig.js";
+import {
+  CHARACTERS,
+  CHARACTER_ANIMATIONS_URL,
+  FLYING_ANIMATION_URL,
+  SURFING_ANIMATION_URL,
+} from "../config/GameConfig.js";
 
 // Today's placeholder characters (Milestone 7) aren't Draco-compressed, so
 // this isn't strictly required yet -- but a real licensed replacement
@@ -35,19 +40,33 @@ export class CharacterLoader {
     if (!this._animationsPromise) {
       this._animationsPromise = Promise.all([
         this._gltfLoader.loadAsync(CHARACTER_ANIMATIONS_URL),
-        this._fbxLoader.loadAsync(FLYING_ANIMATION_URL)
-      ]).then(([gltf, fbx]) => {
+        this._fbxLoader.loadAsync(FLYING_ANIMATION_URL),
+        this._fbxLoader.loadAsync(SURFING_ANIMATION_URL),
+      ]).then(([gltf, fbxFlying, fbxSurfing]) => {
         const clips = [...gltf.animations];
-        if (fbx.animations && fbx.animations.length > 0) {
-          const flyingClip = fbx.animations[0];
+        if (fbxFlying.animations && fbxFlying.animations.length > 0) {
+          const flyingClip = fbxFlying.animations[0];
           flyingClip.name = "Flying"; // rename to ensure it matches what Player.js expects
-          
+
           // The raw FBX animation contains root motion that pushes the character mesh
           // away from its container (and thus separates it from the jetpack).
           // Strip position tracks to make it an in-place animation!
-          flyingClip.tracks = flyingClip.tracks.filter(track => !track.name.endsWith('.position'));
-          
+          flyingClip.tracks = flyingClip.tracks.filter(
+            (track) => !track.name.endsWith(".position")
+          );
+
           clips.push(flyingClip);
+        }
+        if (fbxSurfing.animations && fbxSurfing.animations.length > 0) {
+          const surfingClip = fbxSurfing.animations[0];
+          surfingClip.name = "Surfing";
+
+          // Strip position tracks to prevent root motion from drifting character away from board
+          surfingClip.tracks = surfingClip.tracks.filter(
+            (track) => !track.name.endsWith(".position")
+          );
+
+          clips.push(surfingClip);
         }
         return clips;
       });

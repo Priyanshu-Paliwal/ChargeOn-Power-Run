@@ -80,6 +80,14 @@ export class CollisionSystem {
         this._checkItem(item, steps, player, onHit);
       }
     }
+
+    if (world.skyCoins) {
+      for (let k = 0; k < world.skyCoins.length; k++) {
+        const item = world.skyCoins[k].group;
+        if (!item || !item.userData || !item.userData.isInteractable) continue;
+        this._checkItem(item, steps, player, onHit);
+      }
+    }
   }
 
   _checkItem(item, steps, player, onHit) {
@@ -195,6 +203,7 @@ export class CollisionSystem {
         type: "coin",
         name: item.userData.name,
         category: item.userData.category,
+        coinType: item.userData.coinType || null,
         isExclusive: item.userData.isExclusive,
         exclusiveLine: item.userData.exclusiveLine || null,
         powerUp: item.userData.powerUp || null,
@@ -210,15 +219,22 @@ export class CollisionSystem {
         worldPosition: _worldPos,
       });
     } else if (item.userData.type === "blocker") {
-      // takeHit() returns false if a shield absorbed it -- App.vue's
-      // authoritative life counter and game-over check need to know which
-      // outcome actually happened, not just that SOME blocker was touched.
-      const damaged = player.takeHit();
+      // takeHit() returns "board_saved" if board absorbed the hit, false if shield absorbed it,
+      // and true if actual blocker damage was taken.
+      const outcome = player.takeHit();
+      let hitType = "blocker";
+      if (outcome === "board_saved") {
+        hitType = "board_saved";
+      } else if (!outcome) {
+        hitType = "shielded";
+      }
+
       onHit({
-        type: damaged ? "blocker" : "shielded",
+        type: hitType,
         name: item.userData.name,
         text: item.userData.text,
         consequence: item.userData.consequence,
+        obstacleType: item.userData.obstacleType || null,
         // Milestone 9 interactive tutorial: App.vue skips the life cost
         // (but still shows the normal feedback) for a miss on one of the
         // 3 seeded practice obstacles -- see WorldStreamer.startTutorial().

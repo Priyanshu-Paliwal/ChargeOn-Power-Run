@@ -2,7 +2,12 @@
 import { computed, reactive, ref, watch, onMounted, onUnmounted, nextTick, inject } from "vue";
 import { gsap } from "gsap";
 import { levels } from "../data/GameContent.js";
-import { TUTORIAL_BANNER } from "../game/config/GameConfig.js";
+import {
+  TUTORIAL_BANNER,
+  HOVERBOARDS,
+  getHoverboardConfig,
+  DEFAULT_HOVERBOARD_ID,
+} from "../game/config/GameConfig.js";
 import { viewportManager } from "../game/core/ViewportManager.js";
 
 // Same provide('musicState', ...) App.vue exposes at the app root for
@@ -14,15 +19,10 @@ const musicState = inject("musicState");
 
 const props = defineProps({
   stats: Object,
-  // Engine.js instance -- read-only telemetry poll for the power-up radial
-  // timer (see pollPowerUps below). Same pragmatic "reach into the engine
-  // instance directly" pattern App.vue already uses elsewhere
-  // (gameEngine.player.setCharacter(), gameEngine.world.setLevel()) --
-  // Signals.js-style decoupling is the eventual goal, not something this
-  // milestone's scope requires building out for one read-only poll.
   engine: Object,
+  selectedHoverboardId: { type: String, default: DEFAULT_HOVERBOARD_ID },
 });
-const emit = defineEmits(["pause"]);
+const emit = defineEmits(["pause", "hoverboard-selected"]);
 
 const currentLevelData = computed(() => levels.find((l) => l.id === props.stats.currentLevelId) || levels[0]);
 
@@ -174,7 +174,29 @@ watch(
 // gameStats -- a countdown changes every frame, which doesn't belong in
 // Vue's coin/blocker event-driven reactive state the way score/features do.
 // -----------------------------------------------------------------------
-const powerUpState = reactive({ magnetActive: false, magnetPct: 0, shieldActive: false, jetpackActive: false, jetpackPct: 0 });
+const powerUpState = reactive({
+  magnetActive: false,
+  magnetPct: 0,
+  shieldActive: false,
+  jetpackActive: false,
+  jetpackPct: 0,
+  boardActive: false,
+  boardPct: 0,
+  currentHoverboardId: props.selectedHoverboardId || DEFAULT_HOVERBOARD_ID,
+});
+
+const currentHoverboard = computed(() => getHoverboardConfig(powerUpState.currentHoverboardId));
+
+const cycleHoverboard = () => {
+  if (props.engine) {
+    const next = props.engine.cycleHoverboard();
+    if (next) {
+      powerUpState.currentHoverboardId = next.id;
+      emit("hoverboard-selected", next.id);
+    }
+  }
+};
+
 // Speed-lines overlay (Milestone 9): Engine.startLevel() sets a brief
 // window on the engine itself (isSpeedLinesActive), the same kind of
 // transient timed visual as the power-up countdown above -- polled here
@@ -194,6 +216,12 @@ function _pollPowerUps() {
     powerUpState.shieldActive = status.shieldActive;
     powerUpState.jetpackActive = status.jetpackActive;
     powerUpState.jetpackPct = status.jetpackDurationMs > 0 ? status.jetpackRemainingMs / status.jetpackDurationMs : 0;
+    powerUpState.boardActive = status.boardActive;
+    powerUpState.boardPct = status.boardDurationMs > 0 ? status.boardRemainingMs / status.boardDurationMs : 0;
+    if (status.currentHoverboardId && status.currentHoverboardId !== powerUpState.currentHoverboardId) {
+      powerUpState.currentHoverboardId = status.currentHoverboardId;
+      emit("hoverboard-selected", status.currentHoverboardId);
+    }
   }
   speedLinesActive.value = !!props.engine?.isSpeedLinesActive;
   tutorialActive.value = !!props.engine?.world?.tutorialActive;
@@ -204,6 +232,11 @@ const RING_RADIUS = 15;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 const magnetDashOffset = computed(() => RING_CIRCUMFERENCE * (1 - powerUpState.magnetPct));
 const jetpackDashOffset = computed(() => RING_CIRCUMFERENCE * (1 - powerUpState.jetpackPct));
+const boardDashOffset = computed(() => RING_CIRCUMFERENCE * (1 - powerUpState.boardPct));
+
+const triggerBoard = () => {
+  props.engine?.inputManager?.triggerBoard();
+};
 
 onMounted(() => {
   // Baseline consumption at the CURRENT feed length, not 0 -- toastFeed
@@ -281,6 +314,28 @@ onUnmounted(() => {
           <span class="powerup-emoji">🚀</span>
         </div>
 
+        <div
+          v-if="powerUpState.boardActive"
+          class="powerup-icon board-icon"
+          :title="`Board Active: ${currentHoverboard.name} (Click or press B to swap)`"
+          @click="cycleHoverboard"
+          style="cursor: pointer;"
+        >
+          <svg viewBox="0 0 36 36">
+            <circle class="ring-track" cx="18" cy="18" r="15" />
+            <circle
+              class="ring-fill board-fill"
+              cx="18"
+              cy="18"
+              r="15"
+              :style="{ stroke: currentHoverboard.badgeColor }"
+              :stroke-dasharray="RING_CIRCUMFERENCE"
+              :stroke-dashoffset="boardDashOffset"
+            />
+          </svg>
+          <span class="powerup-emoji">{{ currentHoverboard.emoji }}</span>
+        </div>
+
         <button
           v-if="musicState"
           class="music-btn"
@@ -336,6 +391,37 @@ onUnmounted(() => {
     <Transition name="tutorial-banner">
       <div v-if="tutorialActive" class="tutorial-banner">{{ TUTORIAL_BANNER }}</div>
     </Transition>
+
+    <!-- Hoverboard Live In-Game Control Cluster -->
+    <div class="hoverboard-hud-cluster">
+      <button
+        v-if="!powerUpState.boardActive"
+        class="hud-btn hud-board-ride"
+        @click="triggerBoard"
+        title="Ride Hoverboard (Press H or Double-Tap)"
+        aria-label="Ride Hoverboard"
+      >
+        <span class="btn-icon">{{ currentHoverboard.emoji }}</span>
+        <div class="btn-text-group">
+          <span class="btn-main">RIDE</span>
+          <span class="btn-sub">[H]</span>
+        </div>
+      </button>
+
+      <button
+        class="hud-btn hud-board-switch"
+        @click="cycleHoverboard"
+        :title="`Switch Board (Press B) - Current: ${currentHoverboard.name}`"
+        :style="{ '--board-glow': currentHoverboard.badgeColor }"
+        aria-label="Switch Hoverboard"
+      >
+        <span class="btn-icon">⚡</span>
+        <div class="btn-text-group">
+          <span class="btn-main">{{ currentHoverboard.name }}</span>
+          <span class="btn-sub">SWAP [B]</span>
+        </div>
+      </button>
+    </div>
   </div>
 </template>
 
@@ -549,6 +635,48 @@ onUnmounted(() => {
 }
 .shield-icon .powerup-emoji {
   filter: drop-shadow(0 0 4px rgba(0, 176, 255, 0.6));
+}
+.board-icon .board-fill {
+  stroke: #00e5ff;
+  filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.7));
+}
+
+.board-trigger-btn {
+  position: absolute;
+  bottom: 24px;
+  left: 20px;
+  background: rgba(4, 44, 83, 0.85);
+  backdrop-filter: blur(8px);
+  border: 2px solid rgba(0, 229, 255, 0.7);
+  box-shadow: 0 4px 18px rgba(0, 229, 255, 0.35);
+  border-radius: 50%;
+  width: 58px;
+  height: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  z-index: 25;
+  pointer-events: auto !important;
+}
+.board-trigger-btn:hover,
+.board-trigger-btn:active {
+  transform: scale(1.1);
+  box-shadow: 0 0 24px rgba(0, 229, 255, 0.75);
+  border-color: #00e5ff;
+}
+.board-btn-emoji {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.board-btn-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #00e5ff;
+  letter-spacing: 0.5px;
+  margin-top: 1px;
 }
 
 .pause-btn,
@@ -811,5 +939,107 @@ h3 {
   font-size: 0.8rem;
   padding: 6px 12px;
   max-width: 90%;
+}
+
+/* HOVERBOARD HUD CLUSTER */
+.hoverboard-hud-cluster {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 100;
+  pointer-events: auto !important;
+}
+
+.hud-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 24px;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  background: rgba(13, 27, 42, 0.85);
+  backdrop-filter: blur(10px);
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: auto !important;
+}
+
+.hud-btn:hover {
+  transform: translateY(-2px) scale(1.04);
+}
+
+.hud-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.hud-board-ride {
+  background: linear-gradient(135deg, #ffd164 0%, #ff9800 100%);
+  border-color: #ffe082;
+  color: #0d2d40;
+  box-shadow: 0 4px 20px rgba(255, 209, 100, 0.45);
+}
+
+.hud-board-ride .btn-main {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 1px;
+}
+
+.hud-board-ride .btn-sub {
+  font-size: 0.68rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.hud-board-switch {
+  border-color: var(--board-glow, #00e5ff);
+  box-shadow: 0 0 14px var(--board-glow, rgba(0, 229, 255, 0.35));
+}
+
+.btn-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.btn-text-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.btn-main {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.btn-sub {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 768px) {
+  .hoverboard-hud-cluster {
+    bottom: 16px;
+    right: 16px;
+    gap: 6px;
+  }
+  .hud-btn {
+    padding: 6px 10px;
+  }
+  .btn-main {
+    font-size: 0.75rem;
+  }
 }
 </style>

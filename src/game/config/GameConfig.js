@@ -363,11 +363,94 @@ export const POWER_UPS = {
   "Automated Collection": { type: "magnet", durationMs: 8000 },
   "Payment Gateway Fallback Mechanism": { type: "shield" },
   Jetpack: { type: "jetpack", durationMs: 6000 }, // Special item, spawned exactly once per run
+  Surfboard: { type: "board", durationMs: 25000 },
+  Skateboard: { type: "board", durationMs: 25000 },
 };
 
 export const JETPACK_FLIGHT_HEIGHT = 8.0;
 export const JETPACK_MODEL_URL = "/assets/JetpackModel/JetpackModel.gltf";
 export const FLYING_ANIMATION_URL = "/assets/characters/motions/Flying.fbx";
+export const SURFING_ANIMATION_URL = "/assets/characters/motions/surfing_motion.fbx";
+
+// Board / Surfboard / Skateboard settings (Subway Surfers-style board mechanic)
+export const HOVERBOARDS = [
+  {
+    id: "skateboard",
+    name: "Classic Skateboard",
+    description: "Original street cruiser with responsive agile handling",
+    url: "/assets/skateboard.glb",
+    scale: 0.18,
+    rotation: [0, Math.PI / 2, 0],
+    deckThickness: 0.180,
+    footOffset: -0.01,
+    glowColor: 0x00e5ff,
+    badgeColor: "#00e5ff",
+    emoji: "🛹"
+  },
+  {
+    id: "futuristic",
+    name: "Cyber Pulse",
+    description: "Twin aero repulsor with neon cyber aerodynamic wings",
+    url: "/assets/futuristic_hoverboard.glb",
+    scale: 0.38,
+    rotation: [0, 0, 0],
+    deckThickness: 0.341,
+    footOffset: 0.00,
+    glowColor: 0x39ff14,
+    badgeColor: "#39ff14",
+    emoji: "⚡"
+  },
+  {
+    id: "bttf",
+    name: "Retro Marty 2015",
+    description: "The legendary pink magnetic levitation movie icon",
+    url: "/assets/hoverboard_-_back_to_the_future.glb",
+    scale: 0.078,
+    rotation: [0, Math.PI / 2, 0],
+    deckThickness: 0.135,
+    footOffset: 0.00,
+    glowColor: 0xff007f,
+    badgeColor: "#ff007f",
+    emoji: "🚀"
+  },
+  {
+    id: "fortnite",
+    name: "Storm Drift",
+    description: "Battle royale mag-board with purple ionic drive",
+    url: "/assets/fortnite_hoverboard.glb",
+    scale: 1.15,
+    rotation: [0, Math.PI / 2, 0],
+    deckThickness: 0.170,
+    footOffset: 0.00,
+    glowColor: 0x9d4edd,
+    badgeColor: "#9d4edd",
+    emoji: "💜"
+  },
+  {
+    id: "subway_surfers",
+    name: "Subway Flame",
+    description: "The classic arcade speed board with roaring fire decal",
+    url: "/assets/subway_surfers_hoverboard.glb",
+    scale: 0.48,
+    rotation: [0, -Math.PI / 2, -Math.PI / 2],
+    deckThickness: 0.079,
+    footOffset: 0.00,
+    glowColor: 0xffaa00,
+    badgeColor: "#ffaa00",
+    emoji: "🔥"
+  }
+];
+
+export function getHoverboardConfig(id) {
+  return HOVERBOARDS.find((b) => b.id === id) || HOVERBOARDS[0];
+}
+
+export const DEFAULT_HOVERBOARD_ID = "skateboard";
+export const BOARD_MODEL_URL = HOVERBOARDS[0].url;
+export const BOARD_DURATION_MS = 25000;
+export const BOARD_COOLDOWN_MS = 2000;
+export const BOARD_SCALE = HOVERBOARDS[0].scale;
+export const BOARD_ROTATION_Y = HOVERBOARDS[0].rotation[1];
 
 // Magnet pickup half-width: reuses FRAMING.laneSpanX (already "3 lanes + a
 // 1-unit margin each side" from Milestone 2) so an active magnet
@@ -376,6 +459,15 @@ export const FLYING_ANIMATION_URL = "/assets/characters/motions/Flying.fbx";
 export const MAGNET_HALF_WIDTH = FRAMING.laneSpanX / 2;
 
 export const SCORE_POINTS = {
+  coinBlue: 100,
+  coinGold: 150,
+  coinPink: 100,
+  hoverboardCollect: 50,
+  jetpackCollect: 50,
+  hitBlocker: -50,
+  hitDrone: -25,
+  flawlessRunBonus: 300,
+  // Legacy aliases
   coin: 100,
   exclusiveBonus: 50,
 };

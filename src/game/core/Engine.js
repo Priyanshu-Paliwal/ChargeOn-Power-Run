@@ -38,6 +38,7 @@ export class Engine {
   constructor(canvasContainer, onCollide) {
     this.container = canvasContainer;
     this.onCollide = onCollide || (() => {});
+    if (typeof window !== "undefined") window.THREE = THREE;
 
     // Scene setup - Real Atmosphere
     this.scene = new THREE.Scene();
@@ -138,6 +139,7 @@ export class Engine {
 
     // Game Entities
     this.player = new Player(this.scene, this.inputManager);
+    this.player.setBoardPreview(false);
 
     // Warms CharacterLoader's cache for all 4 characters up front (Milestone
     // 7) -- fire-and-forget, deliberately not awaited. The Player construction
@@ -165,6 +167,11 @@ export class Engine {
 
     this.models = {};
     this.world = new WorldStreamer(this.scene, textures, this.models, this);
+    this.player.onJetpackEnd = () => {
+      if (this.world && this.world.clearSkyCoins) {
+        this.world.clearSkyCoins();
+      }
+    };
 
     this.loadAssets();
 
@@ -257,6 +264,13 @@ export class Engine {
     this.scoreSystem.reset();
     this.player.lives = 3;
     this._tutorialShownThisRun = false;
+    this.player.hasBoard = false;
+    this.player.setBoardPreview(false);
+    this.player.boardMesh.visible = false;
+    if (this.player.model) this.player.model.position.y = 0;
+    if (this.world && this.world.clearSkyCoins) {
+      this.world.clearSkyCoins();
+    }
   }
 
   // Wraps CollisionSystem's raw onHit payload: activates power-ups and
@@ -269,13 +283,18 @@ export class Engine {
       if (hit.powerUp === "magnet")
         this.player.activateMagnet(hit.powerUpDurationMs);
       else if (hit.powerUp === "shield") this.player.activateShield();
-      else if (hit.powerUp === "jetpack")
-        this.player.activateJetpack(hit.powerUpDurationMs);
+      else if (hit.powerUp === "jetpack" || hit.name === "Jetpack") {
+        this.player.activateJetpack(hit.powerUpDurationMs || 6000);
+        if (this.world && this.world.spawnJetpackSkyCoins) {
+          this.world.spawnJetpackSkyCoins();
+        }
+      } else if (hit.powerUp === "board")
+        this.player.activateBoard(hit.powerUpDurationMs);
       audioManager.playSFX(hit.powerUp ? "powerup" : "coin");
       if (hit.worldPosition) {
         this.effectsSystem.burst(
           hit.worldPosition,
-          hit.powerUp === "shield" ? 0x00e5ff : 0xffd700,
+          hit.powerUp === "shield" || hit.powerUp === "board" ? 0x00e5ff : 0xffd700,
         );
       }
       // worldPosition is a shared mutable scratch vector (see
@@ -284,10 +303,18 @@ export class Engine {
       // through along with everything else.
       const { worldPosition, ...vueHit } = hit;
       this.onCollide({ ...vueHit, score: result.total, points: result.points });
+    } else if (hit.type === "board_saved") {
+      audioManager.playSFX("shield");
+      if (this.player?.mesh?.position) {
+        this.effectsSystem.burst(this.player.mesh.position, 0x00e5ff);
+      }
+      this.cameraRig.triggerShake(HIT_SHAKE_MAGNITUDE * 0.6, HIT_SHAKE_DURATION * 0.6);
+      this.onCollide({ ...hit, score: this.scoreSystem.score, points: 0 });
     } else if (hit.type === "shielded") {
       audioManager.playSFX("shield");
-      this.onCollide(hit);
+      this.onCollide({ ...hit, score: this.scoreSystem.score, points: 0 });
     } else if (hit.type === "blocker") {
+      const penaltyResult = this.scoreSystem.registerObstacleHit(hit.obstacleType);
       audioManager.playSFX("hit");
       // Hitstop + camera shake + haptics -- the "impact" side of hit juice.
       // The stumble animation and red flash are Player.js's own job
@@ -296,7 +323,7 @@ export class Engine {
       this._hitStopUntil = performance.now() + HIT_STOP_MS;
       this.cameraRig.triggerShake(HIT_SHAKE_MAGNITUDE, HIT_SHAKE_DURATION);
       if (navigator.vibrate) navigator.vibrate(HIT_VIBRATE_MS);
-      this.onCollide(hit);
+      this.onCollide({ ...hit, score: penaltyResult.total, points: penaltyResult.points });
     } else if (hit.type === "nearmiss") {
       const result = this.scoreSystem.registerNearMiss();
       audioManager.playSFX("nearmiss");
@@ -561,6 +588,7 @@ export class Engine {
       ),
       loadModel("Cinema", "/assets/models/buildings/Cinema.glb"),
       loadModel("jetpack", "/assets/JetpackModel/JetpackModel.gltf"),
+      loadModel("board", "/assets/skateboard.glb"),
       loadModel("railing", "/assets/models/environment/MetalRailing.glb"),
       loadModel("airport_plant", "/assets/models/trees/airport_plant.glb"),// Footpath props
       loadModel("atm", "/assets/models/environment/props/atm.glb"),
@@ -1171,9 +1199,26 @@ export class Engine {
     if (this.mode === "LOBBY") {
       this.player.setAnimation("Idle");
       this.player.setFacing(0); // Face the camera
+      this.player.hasBoard = false;
+      this.player.setBoardPreview(false);
+      this.player.boardMesh.visible = false;
+      if (this.player.model) this.player.model.position.y = 0;
     } else if (this.mode === "PLAYING") {
-      this.player.setAnimation("Run");
+      this.player.setAnimation(this.player.hasBoard ? "Surfing" : "Run");
       this.player.setFacing(Math.PI); // Face the track
+      this.player.setBoardPreview(false);
+    }
+  }
+
+  setHoverboard(boardId, preview = null) {
+    if (this.player) {
+      this.player.setHoverboard(boardId, preview);
+    }
+  }
+
+  cycleHoverboard() {
+    if (this.player) {
+      return this.player.cycleHoverboard();
     }
   }
 
