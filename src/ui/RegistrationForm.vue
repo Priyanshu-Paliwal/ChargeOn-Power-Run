@@ -18,24 +18,24 @@ const isSubmitting = ref(false);
 
 const VALIDATORS = {
   name: (v) => {
-    const trimmed = v.trim()
-    if (!trimmed) return 'Enter your name to continue.'
+    const trimmed = v.trim();
+    if (!trimmed) return "Enter your name to continue.";
     // Must have at least 2 words separated by a space
     if (!/^[A-Za-z]+([ '-][A-Za-z]+)+$/.test(trimmed))
-      return 'Please enter your full name (first and last name, letters only).'
-    return ''
+      return "Please enter your full name (first and last name, letters only).";
+    return "";
   },
   company: (v) => {
-    if (!v.trim()) return 'Enter your company name to continue.'
-    return ''
+    if (!v.trim()) return "Enter your company name to continue.";
+    return "";
   },
   email: (v) => {
-    const trimmed = v.trim()
-    if (!trimmed) return 'Enter your email to continue.'
+    const trimmed = v.trim();
+    if (!trimmed) return "Enter your email to continue.";
     // RFC-compliant email: no leading/trailing spaces, no #* etc., must have @domain.tld
     if (!/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(trimmed))
-      return "That email doesn't look right. Check it and try again."
-    return ''
+      return "That email doesn't look right. Check it and try again.";
+    return "";
   },
 };
 
@@ -56,7 +56,9 @@ function scrollIntoViewOnFocus(e) {
 
 const handleSubmit = async (e) => {
   e.preventDefault();
-  const allValid = ["name", "company", "email"].map(validateField).every(Boolean);
+  const allValid = ["name", "company", "email"]
+    .map(validateField)
+    .every(Boolean);
   if (!allValid) return;
 
   // Real submission is still just a console.log (see App.vue's
@@ -78,16 +80,11 @@ const handleSubmit = async (e) => {
 
 <template>
   <div class="registration-overlay">
+    <img src="/img/1-1-game.png" alt="Character" class="form-character-img" />
     <div class="form-container">
-      <div class="logo-wrap">
-        <img
-          src="/img/chargeon-logo-badge.webp"
-          alt="ChargeOn Logo"
-        />
-      </div>
       <div class="header">
-        <h2>Let's Get You Running</h2>
-        <p>Enter your details to start the game.</p>
+        <h2>Let's Get you <span class="highlight">Running</span></h2>
+        <p>Enter your details to start the game</p>
       </div>
 
       <form @submit="handleSubmit">
@@ -96,13 +93,15 @@ const handleSubmit = async (e) => {
           <input
             type="text"
             v-model="formData.name"
-            placeholder="Jane Doe"
+            placeholder="Enter Name Here"
             :disabled="isSubmitting"
             @blur="validateField('name')"
             @focus="scrollIntoViewOnFocus"
           />
           <Transition name="field-error">
-            <span v-if="errors.name" class="field-error-msg">{{ errors.name }}</span>
+            <span v-if="errors.name" class="field-error-msg">{{
+              errors.name
+            }}</span>
           </Transition>
         </div>
 
@@ -111,13 +110,15 @@ const handleSubmit = async (e) => {
           <input
             type="text"
             v-model="formData.company"
-            placeholder="Acme Inc."
+            placeholder="Enter Name Here"
             :disabled="isSubmitting"
             @blur="validateField('company')"
             @focus="scrollIntoViewOnFocus"
           />
           <Transition name="field-error">
-            <span v-if="errors.company" class="field-error-msg">{{ errors.company }}</span>
+            <span v-if="errors.company" class="field-error-msg">{{
+              errors.company
+            }}</span>
           </Transition>
         </div>
 
@@ -126,23 +127,32 @@ const handleSubmit = async (e) => {
           <input
             type="email"
             v-model="formData.email"
-            placeholder="jane@acme.com"
+            placeholder="Enter Name Here"
             :disabled="isSubmitting"
             @blur="validateField('email')"
             @focus="scrollIntoViewOnFocus"
           />
           <Transition name="field-error">
-            <span v-if="errors.email" class="field-error-msg">{{ errors.email }}</span>
+            <span v-if="errors.email" class="field-error-msg">{{
+              errors.email
+            }}</span>
           </Transition>
         </div>
 
         <div class="action-group">
-          <button type="button" class="btn-secondary" :disabled="isSubmitting" @click="emit('cancel')">
+          <button
+            type="button"
+            class="btn-secondary"
+            :disabled="isSubmitting"
+            @click="emit('cancel')"
+          >
             Back
           </button>
           <button type="submit" class="btn-primary" :disabled="isSubmitting">
-            <span v-if="!isSubmitting">Start Run</span>
-            <span v-else class="submitting"><span class="spinner"></span>Starting...</span>
+            <span v-if="!isSubmitting">START RUN</span>
+            <span v-else class="submitting"
+              ><span class="spinner"></span>Starting...</span
+            >
           </button>
         </div>
       </form>
@@ -154,12 +164,14 @@ const handleSubmit = async (e) => {
 .registration-overlay {
   width: 100%;
   height: 100%;
-  background: transparent;
+  /* Match Landing page dark shade gradient at top and bottom */
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 30%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 30%);
   display: flex;
   justify-content: center;
   align-items: center;
-  color: #0d2d40;
-  font-family: "Roboto", sans-serif;
+  font-family: "Poppins", sans-serif;
   padding: 20px;
   overflow-y: auto;
 }
@@ -167,44 +179,58 @@ const handleSubmit = async (e) => {
 .form-container {
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.25) 0%,
-    rgba(255, 255, 255, 0.05) 100%
+    rgb(0 0 0 / 25%) 0%,
+    rgb(0 0 0 / 5%) 100%
   );
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 
-    0 10px 30px rgba(0, 0, 0, 0.2),
-    inset 0 1px 2px rgba(255, 255, 255, 0.5);
-  border-radius: 16px;
+  box-shadow:
+    0px 4px 45px 0px rgba(0, 0, 0, 0.45),
+    inset 0 1px 2px rgb(0 0 0 / 50%);
+  border-radius: 10px;
   padding: 40px;
   width: 100%;
-  max-width: 500px;
+  max-width: 480px;
+  position: relative; /* important for absolute child */
+  overflow: visible; /* so character can pop out */
 }
 
-.logo-wrap {
-  margin-bottom: 10px;
-}
-
-.logo-wrap img {
-  height: 40px;
+.form-character-img {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: auto;
+  width: 40%;
+  z-index: 10;
+  pointer-events: none;
+  filter: drop-shadow(0px 10px 20px rgba(0, 0, 0, 0.5));
 }
 
 .header {
-  margin-bottom: 30px;
+  margin-bottom: 40px;
 }
 
 .header h2 {
-  font-family: "Raleway", sans-serif;
+  font-family: "Goldman", sans-serif;
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 10px;
-  color: #0d2d40;
+  color: #fff;
+  display: flex;
+  gap: 10px;
+  text-transform: none; /* Prevent global uppercase */
+}
+
+.header h2 .highlight {
+  font-family: "Goldman", sans-serif;
+  color: #ffd164;
 }
 
 .header p {
-  color: #1e4860;
+  color: #fff;
   font-size: 1rem;
+  margin: 0;
 }
 
 .input-group {
@@ -212,32 +238,34 @@ const handleSubmit = async (e) => {
 }
 .input-group label {
   display: block;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 500;
   margin-bottom: 8px;
-  color: #1e4860;
-  transition: color 0.2s;
+  color: #fff;
+  font-family: "Poppins", sans-serif;
 }
 .required {
   color: #e74c3c;
 }
 .input-group input {
   width: 100%;
-  background: rgba(13, 45, 64, 0.05);
-  border: 1px solid rgba(13, 45, 64, 0.2);
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.35); /* frosted input */
+  border: none;
+  border-radius: 8px;
   padding: 12px 15px;
-  color: #0d2d40;
+  color: #fff;
+  font-family: "Poppins", sans-serif;
   font-size: 1rem;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, transform 0.15s;
+  transition: all 0.2s;
+}
+.input-group input::placeholder {
+  color: rgba(255, 255, 255, 0.8);
 }
 .input-group input:focus {
-  border-color: #ffd164;
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(255, 209, 100, 0.2);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 2px rgba(255, 209, 100, 0.5);
 }
 .input-group input:disabled {
   opacity: 0.6;
@@ -245,10 +273,10 @@ const handleSubmit = async (e) => {
 }
 
 .input-group.has-error label {
-  color: #c0392b;
+  color: #ff3622;
 }
 .input-group.has-error input {
-  border-color: #e74c3c;
+  border-color: #ff3622;
   background: rgba(231, 76, 60, 0.05);
 }
 .input-group.has-error input:focus {
@@ -257,7 +285,7 @@ const handleSubmit = async (e) => {
 
 .field-error-msg {
   display: block;
-  color: #c0392b;
+  color: #ff3622;
   font-size: 0.82rem;
   margin-top: 6px;
 }
@@ -276,29 +304,54 @@ const handleSubmit = async (e) => {
 
 .action-group {
   display: flex;
-  gap: 15px;
+  gap: 20px;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.btn-secondary {
+  flex: none;
+  background: transparent;
+  color: #fff;
+  border: none;
+  font-family: "Goldman", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  padding: 0 10px;
+}
+.btn-secondary:hover:not(:disabled) {
+  color: #ffd164;
+}
+.btn-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .btn-primary {
-  flex: 2;
-  background: #ffd164;
-  color: #0d2d40;
+  flex: none;
+  background: linear-gradient(180deg, #6fa6e0 0%, #1561b1 100%);
+  color: #fff;
   border: none;
-  padding: 15px;
-  border-radius: 6px;
-  font-weight: 800;
-  font-size: 1.1rem;
+  padding: 14px 35px;
+  border-radius: 8px;
+  font-family: "Goldman", sans-serif;
+  font-weight: 400;
+  font-size: 1.2rem;
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 4px 15px rgba(255, 209, 100, 0.4);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s;
 }
 .btn-primary:hover:not(:disabled) {
-  background: #ffdb99;
+  background: linear-gradient(180deg, #81b4e9 0%, #1a71cd 100%);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 209, 100, 0.6);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 .btn-primary:active:not(:disabled) {
   transform: translateY(0);
@@ -317,34 +370,16 @@ const handleSubmit = async (e) => {
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(13, 45, 64, 0.3);
-  border-top-color: #0d2d40;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.btn-secondary {
-  flex: 1;
-  background: transparent;
-  color: #4a5568;
-  border: 1px solid rgba(13, 45, 64, 0.2);
-  padding: 15px;
-  border-radius: 6px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-secondary:hover:not(:disabled) {
-  background: rgba(13, 45, 64, 0.05);
-  color: #0d2d40;
-}
-.btn-secondary:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 1024px) {

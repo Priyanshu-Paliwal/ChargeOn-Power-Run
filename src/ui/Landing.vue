@@ -2,10 +2,10 @@
 import { ref, onMounted, inject } from "vue";
 import { gsap } from "gsap";
 import { Swiper, SwiperSlide } from "swiper/vue";
-import { Navigation, EffectCoverflow } from "swiper/modules";
+import { Navigation, EffectCards } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/navigation";
-import "swiper/css/effect-coverflow";
+import "swiper/css/effect-cards";
 
 import {
   TV_ATTRACT_LINE_1,
@@ -26,22 +26,31 @@ const props = defineProps({
 
 const emit = defineEmits(["start", "character-selected", "dev-start"]);
 
-const swiperModules = [Navigation, EffectCoverflow];
+const swiperModules = [Navigation, EffectCards];
 
-// Use the actual characters from the game config
+// Reorder characters so Kito (id: 1) is first. This completely avoids Swiper's initialSlide+loop bug
+// because Swiper can start naturally at index 0 while still showing Kito as the default.
+const orderedCharacters = [
+  CHARACTERS.find((c) => c.id === 1), // Kito
+  CHARACTERS.find((c) => c.id === 0), // Maya
+  CHARACTERS.find((c) => c.id === 2), // Ankit
+  CHARACTERS.find((c) => c.id === 3), // Rajat
+].filter(Boolean);
+
 const characters = ref(
-  CHARACTERS.map((char) => ({
+  [...orderedCharacters, ...orderedCharacters].map((char, index) => ({
     id: char.id,
+    uniqueKey: `${char.id}-${index}`, // Unique key for Vue v-for
     name: char.name,
     role: char.role,
-    // The user's screenshot uses the same Alex Riveria image for all 4 in the mockup
-    // We will use 1-game.png as the placeholder if no 2D image exists
+    // The user prefers using 1-game.png for all characters over placeholder boxes
     image: "/img/1-game.png",
-  }))
+  })),
 );
 
 const onSwiperInit = (swiper) => {
-  // initial character select if needed
+  // Emit immediately on load so the 3D background matches the initial card!
+  emit("character-selected", characters.value[0].id);
 };
 
 const onSlideChange = (swiper) => {
@@ -295,24 +304,21 @@ onMounted(() => {
         <h2 class="character-select-title">Select Your Character</h2>
         <div class="character-slider-container">
           <swiper
-            :effect="'coverflow'"
-            :grabCursor="true"
-            :centeredSlides="true"
-            :slidesPerView="'auto'"
-            :coverflowEffect="{
-              rotate: 0,
-              stretch: 0,
-              depth: 100,
-              modifier: 2.5,
+            :effect="'cards'"
+            :cardsEffect="{
+              rotate: true,
               slideShadows: false,
             }"
+            :grabCursor="true"
+            :speed="500"
+            :loop="true"
             :navigation="true"
             :modules="swiperModules"
             class="character-swiper"
             @swiper="onSwiperInit"
             @slideChange="onSlideChange"
           >
-            <swiper-slide v-for="char in characters" :key="char.id">
+            <swiper-slide v-for="char in characters" :key="char.uniqueKey">
               <div class="character-card" :class="'char-bg-' + char.id">
                 <img :src="char.image" :alt="char.name" class="character-img" />
                 <div class="character-info">
@@ -350,7 +356,13 @@ onMounted(() => {
             />
           </svg>
         </button>
-        <button class="btn-primary" style="margin-left: 10px; background-color: #ff3b3b; color: white;" @click="emit('dev-start')">DEV START</button>
+        <button
+          class="btn-primary"
+          style="margin-left: 10px; background-color: #ff3b3b; color: white"
+          @click="emit('dev-start')"
+        >
+          DEV START
+        </button>
       </div>
     </footer>
 
@@ -693,63 +705,76 @@ onMounted(() => {
     inset 0 1px 2px rgb(0 0 0 / 50%);
   padding: 6px 20px;
   border-radius: 12px; /* Pill shape */
-  text-transform:none;
+  text-transform: none;
 }
 
 .character-slider-container {
-  width: 650px; /* Make it wider for arrows */
-  height: 380px; /* Give more height for the glowing line */
+  width: 500px;
+  height: 340px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .character-swiper {
-  width: 100%;
+  width: 200px;
   height: 100%;
-  padding-top: 20px;
-  padding-bottom: 40px; /* Space for the glowing line */
+  padding-top: 0px;
+  padding-bottom: 20px;
+  overflow: visible;
 }
 
 .character-card {
   width: 220px;
-  height: 280px;
-  border-radius: 20px 80px 20px 20px;
+  height: 260px;
+  border-radius: 40px 10px 40px 10px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  padding-bottom: 25px; /* Space for info */
+  padding-bottom: 15px;
 }
 
+/* Character IDs are 0, 1, 2, 3 */
+.char-bg-0 {
+  background: linear-gradient(
+    180deg,
+    #d3007b 0%,
+    #68003a 100%
+  ); /* Magenta/Pink */
+}
 .char-bg-1 {
   background: linear-gradient(
     180deg,
-    rgba(111, 166, 224, 0.8) 0%,
-    rgba(21, 97, 177, 0.8) 100%
+    rgba(111, 166, 224, 1) 0%,
+    rgba(21, 97, 177, 1) 100%
   );
 }
 .char-bg-2 {
   background: linear-gradient(
     180deg,
-    rgba(255, 0, 150, 0.8) 0%,
-    rgba(150, 0, 255, 0.8) 100%
+    rgba(60, 200, 120, 1) 0%,
+    rgba(20, 120, 60, 1) 100%
   );
 }
 .char-bg-3 {
   background: linear-gradient(
     180deg,
-    rgba(255, 80, 80, 0.8) 0%,
-    rgba(180, 20, 20, 0.8) 100%
+    rgba(255, 80, 80, 1) 0%,
+    rgba(180, 20, 20, 1) 100%
   );
 }
 
 .character-img {
   width: 100%;
-  height: 100%;
-  object-fit: cover; /* Wait, if they are opaque, cover is fine. Or cover for the transparent PNG with glow. Let's leave cover but remove background on info */
+  height: 120%;
+  object-fit: cover;
   position: absolute;
-  top: 0;
-  left: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 1;
 }
 
@@ -757,7 +782,13 @@ onMounted(() => {
   z-index: 2;
   text-align: center;
   width: 100%;
-  /* Removed the dark background to be transparent */
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  padding-top: 50px;
+  padding-bottom: 15px; /* match card padding */
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 10.24%, #000000 117.47%);
+  border-radius: 0 0 40px 10px; /* match bottom border radius of card */
 }
 
 .char-name {
@@ -766,20 +797,35 @@ onMounted(() => {
   font-size: 18px;
   color: #fff;
   margin: 0;
-  text-transform: none;
+  text-transform: capitalize;
 }
 
 .char-role {
-  font-family: "Poppins", sans-serif;
-  font-weight: 600;
+  font-family: "Goldman", sans-serif;
+  font-weight: 400;
   font-size: 14px;
   color: #ffd164;
   margin: 0;
+  text-transform: capitalize;
 }
 
 .swiper-slide {
   width: 220px;
-  position: relative; /* For glowing line */
+  display: flex;
+  justify-content: center;
+  align-items: flex-end; /* align card to bottom */
+  /* padding-bottom: 30px; Space for the glowing line */
+
+  opacity: 0.3;
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+  position: relative;
+  /* filter: drop-shadow(0px 4px 24px rgba(0, 0, 0, 0.25)); */
+}
+
+.swiper-slide-active {
+  opacity: 1;
 }
 
 /* Glowing line under active slide */
@@ -805,24 +851,50 @@ onMounted(() => {
   height: 45px;
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.25) 0%,
-    rgba(255, 255, 255, 0.05) 100%
+    rgb(0 0 0 / 25%) 0%,
+    rgb(0 0 0 / 5%) 100%
   );
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow:
-    0px 4px 15px rgba(0, 0, 0, 0.2),
-    inset 0 1px 2px rgba(255, 255, 255, 0.5);
+    0px 4px 45px 0px rgba(0, 0, 0, 0.45),
+    inset 0 1px 2px rgb(0 0 0 / 50%);
   border-radius: 50%;
-  color: #fff;
   margin-top: -22px;
+}
+
+:deep(.swiper-button-prev) {
+  left: -150px;
+}
+
+:deep(.swiper-button-next) {
+  right: -150px;
+}
+
+/* Hide Swiper default SVG icons if present */
+:deep(.swiper-button-next svg),
+:deep(.swiper-button-prev svg) {
+  display: none !important;
 }
 
 :deep(.swiper-button-next::after),
 :deep(.swiper-button-prev::after) {
-  font-size: 16px;
-  font-weight: bold;
+  content: "" !important;
+  font-family: inherit !important;
+  width: 13px;
+  height: 25px; /* Keeps the aspect ratio of the 14x25 SVG */
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+:deep(.swiper-button-prev::after) {
+  background-image: url("data:image/svg+xml,%3Csvg width='14' height='25' viewBox='0 0 14 25' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M13.5842 0.872834C13.3112 0.355625 12.8363 0.0487512 12.2428 0.00582595C11.9801 -0.0132069 11.6245 0.0159494 11.4528 0.0706183C11.2011 0.150637 10.0901 1.2181 5.7322 5.56683C2.1132 9.17821 0.270982 11.0727 0.164074 11.2931C-0.0795465 11.7949 -0.0502287 12.4064 0.241419 12.9075C0.397085 13.175 2.25956 15.0893 5.72775 18.5465C11.5068 24.3071 11.2875 24.1209 12.1662 24.0168C13.2692 23.8862 13.958 22.7582 13.5712 21.7159C13.4481 21.3842 12.7848 20.6856 8.80298 16.6935L4.17783 12.0565L8.85044 7.37957C12.0847 4.14228 13.5614 2.61001 13.6479 2.40154C13.8357 1.94847 13.8085 1.29779 13.5842 0.872834Z' fill='white' stroke='white' stroke-width='0.5'/%3E%3C/svg%3E");
+}
+
+:deep(.swiper-button-next::after) {
+  background-image: url("data:image/svg+xml,%3Csvg width='14' height='25' viewBox='0 0 14 25' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M0.188262 0.872834C0.461283 0.355625 0.936134 0.0487512 1.52964 0.00582595C1.79237 -0.0132069 2.14792 0.0159494 2.3197 0.0706183C2.57134 0.150637 3.68238 1.2181 8.04026 5.56683C11.6593 9.17821 13.5015 11.0727 13.6084 11.2931C13.852 11.7949 13.8227 12.4064 13.531 12.9075C13.3754 13.175 11.5129 15.0893 8.04471 18.5465C2.26568 24.3071 2.48493 24.1209 1.60625 24.0168C0.503238 23.8862 -0.185509 22.7582 0.201304 21.7159C0.32441 21.3842 0.987644 20.6856 4.96948 16.6935L9.59463 12.0565L4.92202 7.37957C1.68773 4.14228 0.211021 2.61001 0.124604 2.40154C-0.0632141 1.94847 -0.0360826 1.29779 0.188262 0.872834Z' fill='white' stroke='white' stroke-width='0.5'/%3E%3C/svg%3E");
 }
 
 /* BOTTOM BAR */

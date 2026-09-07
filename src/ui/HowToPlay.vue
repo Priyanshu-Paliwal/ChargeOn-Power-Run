@@ -1,163 +1,316 @@
 <script setup>
-const emit = defineEmits(['next'])
+const emit = defineEmits(["next"]);
 </script>
 
 <template>
   <div class="overlay">
-    <div class="card">
-      <h2>How to Play</h2>
-      <div class="grid">
-        <div class="item">
-          <div class="icon">⬅️ ➡️</div>
-          <p>Swipe left or right to switch lanes</p>
+    <div class="header">
+      <h2>HOW TO PLAY</h2>
+    </div>
+
+    <div class="boxes-container">
+      <!-- Box 1: Left / Right -->
+      <div class="glass-box">
+        <div class="icons">
+          <span class="icon">⬅️</span>
+          <span class="icon">➡️</span>
         </div>
-        <div class="item">
-          <div class="icon">⬆️</div>
-          <p>Swipe up to jump low blockers</p>
+        <p>Swipe left or right to switch lanes</p>
+      </div>
+
+      <!-- Box 2: Top / Bottom -->
+      <div class="glass-box">
+        <div class="icons">
+          <span class="icon">⬆️</span>
+          <span class="icon">⬇️</span>
         </div>
-        <div class="item">
-          <div class="icon">⬇️</div>
-          <!-- Corrected Milestone 9: the approved content script
-               contradicted itself on drones (this control line said "slide
-               under drones" while the Level 2 intro card said "only a lane
-               switch saves you"). Milestone 5 implemented the mixed system
-               the user chose -- low drones (gap underneath) are cleared by
-               sliding, high drones (no gap) need a lane switch -- and this
-               line now describes that instead of either half of the
-               original contradiction. See GameContent.js's Level 2 subtext
-               for the matching correction. -->
-          <p>Drones: slide under low ones, switch lanes for high ones (Level 2 onward)</p>
+        <p>Swipe up to jump low blockers</p>
+        <p class="subtext">
+          Drones: slide under low ones, switch lanes for high ones
+        </p>
+      </div>
+
+      <!-- Box 3: Items & Lives -->
+      <div class="glass-box">
+        <div class="instructions-list">
+          <div class="instruction-row">
+            <span class="item-icon gold">🪙</span>
+            <p>
+              <span class="highlight-gold">Gold coins</span> = real ChargeOn
+              features
+            </p>
+          </div>
+          <div class="instruction-row">
+            <span class="item-icon blue">🔵</span>
+            <p>
+              <span class="highlight-blue">Blue coins</span> = real ChargeOn
+              features
+            </p>
+          </div>
+          <div class="instruction-row">
+            <span class="item-icon"
+              ><div class="css-coin css-coin-pink"></div
+            ></span>
+            <p>
+              <span class="highlight-pink">Pink coins</span> = activates Shield
+              & Magnet
+            </p>
+          </div>
+          <div class="instruction-row">
+            <span class="item-icon red">🚧</span>
+            <p>
+              <span class="highlight-red">Blockers</span> = real payment
+              problems
+            </p>
+          </div>
+          <div class="instruction-row">
+            <span class="item-icon heart">❤️</span>
+            <p>3 lives per level</p>
+          </div>
+          <div class="instruction-row">
+            <span class="item-icon">🛹</span>
+            <p>Hoverboard = prevents 1 obstacle crash</p>
+          </div>
+          <div class="instruction-row">
+            <span class="item-icon">🚀</span>
+            <p>Jetpack = fly in the air & collect coins</p>
+          </div>
         </div>
       </div>
-      <div class="instructions">
-        <p><span class="gold">Gold coins</span> = real ChargeOn features</p>
-        <p><span class="red">Red blockers</span> = real payment problems</p>
-        <p>3 lives per level</p>
-      </div>
-      <button class="btn-primary" @click="emit('next')">Let's Run</button>
+    </div>
+
+    <div class="action-container">
+      <button class="btn-primary" @click="emit('next')">START RUN</button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.overlay { 
-  width: 100%; 
-  height: 100%; 
-  display: flex; 
-  justify-content: flex-start; 
-  align-items: center; 
-  padding-left: 10%;
-  pointer-events: none; /* allow clicks to pass through background if needed */
-}
-.card { 
-  background: rgba(4, 44, 83, 0.6); 
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 20px; 
-  border-radius: 12px; 
-  text-align: center; 
-  color: #FFFFFF; 
-  width: 90%;
-  max-width: 400px; 
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+.overlay {
+  width: 100%;
+  height: 100%;
+  /* Match Landing page dark shade gradient at top and bottom */
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 30%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 30%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: "Poppins", sans-serif;
+  padding: 20px;
+  overflow-y: auto;
   pointer-events: auto;
-  animation: slideIn 0.5s ease-out;
 }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(-50px); }
-  to { opacity: 1; transform: translateX(0); }
+.header {
+  margin-bottom: 30px;
+  text-align: center;
 }
 
-h2 { font-size: 1.6rem; font-weight: 600; margin-bottom: 15px; color: #F4C775; }
-.grid { display: flex; justify-content: space-around; margin-bottom: 20px; }
-.item { flex: 1; }
-.icon { font-size: 1.6rem; margin-bottom: 5px; }
-.desc { font-size: 0.9rem; font-weight: 600; color: #A0B3C6; }
-.instructions { 
-  text-align: left; 
-  background: rgba(0,0,0,0.3); 
-  padding: 15px; 
-  border-radius: 8px; 
-  font-size: 0.95rem; 
-  margin-bottom: 20px; 
-  line-height: 1.4;
-  border-left: 3px solid #F4C775;
-}
-.instructions p { margin: 8px 0; }
-.gold { color: #F4C775; font-weight: bold; }
-.red { color: #ff6b6b; font-weight: bold; }
-.btn-primary { 
-  background: #F4C775; 
-  color: #042C53; 
-  border: none; 
-  padding: 12px 25px; 
-  border-radius: 8px; 
-  font-weight: 700; 
-  font-size: 1.05rem;
+.header h2 {
+  font-family: "Goldman", sans-serif;
+  font-size: 2.5rem;
+  font-weight: 600;
+  color: #fff;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  cursor: pointer; 
-  width: 100%; 
-  box-shadow: 0 4px 15px rgba(244, 199, 117, 0.4);
-  transition: transform 0.2s, box-shadow 0.2s;
+  margin: 0;
+  text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
 }
+
+.boxes-container {
+  display: flex;
+  gap: 25px;
+  justify-content: center;
+  align-items: stretch;
+  width: 100%;
+  max-width: 1000px;
+  margin-bottom: 40px;
+}
+
+.glass-box {
+  flex: 1;
+  background: linear-gradient(
+    135deg,
+    rgb(0 0 0 / 25%) 0%,
+    rgb(0 0 0 / 5%) 100%
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0px 4px 45px 0px rgba(0, 0, 0, 0.45),
+    inset 0 1px 2px rgb(0 0 0 / 50%);
+  border-radius: 12px;
+  padding: 30px 20px;
+  text-align: center;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.icons {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.icon {
+  font-size: 2.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.05);
+}
+
+.glass-box p {
+  font-size: 1.05rem;
+  font-weight: 500;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.glass-box .subtext {
+  font-size: 0.9rem;
+  color: #ccc;
+  margin-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 15px;
+}
+
+.instructions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 25px; /* reduced gap to fit 8 items */
+  text-align: left;
+  width: 100%;
+}
+
+.instruction-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.item-icon {
+  font-size: 1.4rem; /* slightly smaller icon */
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.instruction-row p {
+  font-size: 0.85rem; /* smaller text */
+  font-weight: 500;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.highlight-gold {
+  color: #ffd164;
+  font-weight: 600;
+}
+
+.highlight-red {
+  color: #ff3622;
+  font-weight: 600;
+}
+
+.highlight-pink {
+  color: #ff8cbe;
+  font-weight: 600;
+}
+
+.highlight-blue {
+  color: #6fb0ff;
+  font-weight: 600;
+}
+
+/* Custom CSS Coin for Pink */
+.css-coin {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    inset 0 0 5px rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+  display: inline-block;
+}
+
+.css-coin-pink {
+  background: radial-gradient(circle at 35% 35%, #ffb6c1, #ff1493);
+}
+
+.action-container {
+  display: flex;
+  justify-content: center;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, #6fa6e0 0%, #1561b1 100%);
+  color: #fff;
+  border: none;
+  padding: 15px 50px;
+  border-radius: 8px;
+  font-family: "Goldman", sans-serif;
+  font-weight: 400;
+  font-size: 1.3rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
 .btn-primary:hover {
-  background: #FFDB99;
+  background: linear-gradient(180deg, #81b4e9 0%, #1a71cd 100%);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(244, 199, 117, 0.6);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
+
 .btn-primary:active {
-  transform: translateY(1px);
-  box-shadow: 0 2px 10px rgba(244, 199, 117, 0.4);
+  transform: translateY(0);
 }
 
-@media (max-width: 1024px) {
-  .overlay {
-    padding-left: 0;
-    justify-content: center;
-    align-items: center;
-    padding: 15px;
-  }
-}
-
-@media (max-width: 600px) {
-  .card {
-    padding: 15px;
-  }
-  
-  .grid {
+@media (max-width: 900px) {
+  .boxes-container {
     flex-direction: column;
-    gap: 10px;
+    max-width: 500px;
+    gap: 15px;
   }
-  
-  .icon {
-    font-size: 1.4rem;
-    margin-bottom: 2px;
-  }
-  
-  h2 {
-    font-size: 1.4rem;
-    margin-bottom: 10px;
-  }
-  
-  .instructions {
-    padding: 12px;
-    font-size: 0.85rem;
-    margin-bottom: 10px;
+  .glass-box {
+    padding: 20px;
   }
 }
 
 @media (max-height: 750px) {
-  .card {
-    padding: 10px;
+  .header {
+    margin-bottom: 15px;
   }
-  .grid {
-    margin-bottom: 10px;
+  .header h2 {
+    font-size: 2rem;
   }
-  .instructions {
-    margin-bottom: 10px;
-    padding: 10px;
+  .boxes-container {
+    margin-bottom: 20px;
+  }
+  .glass-box {
+    padding: 15px;
+  }
+  .icon {
+    font-size: 2rem;
+    padding: 8px;
+  }
+  .glass-box p {
+    font-size: 0.95rem;
   }
 }
 </style>
