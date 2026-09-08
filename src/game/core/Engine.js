@@ -1211,6 +1211,26 @@ export class Engine {
       this.player.setAnimation(this.player.hasBoard ? "Surfing" : "Run");
       this.player.setFacing(Math.PI); // Face the track
       this.player.setBoardPreview(false);
+    } else if (this.mode === "VICTORY") {
+      this.player.hasBoard = false;
+      this.player.setBoardPreview(false);
+      this.player.boardMesh.visible = false;
+      if (this.player.model) this.player.model.position.y = 0;
+      this.player.mesh.position.x = 0;
+      this.player.targetX = 0;
+      this.player.currentLane = 1;
+      this.player.setFacing(0); // Face the camera
+      this.player.playSequence(["Victory_idle", "victory_jump"], true);
+    } else if (this.mode === "DEFEAT") {
+      this.player.hasBoard = false;
+      this.player.setBoardPreview(false);
+      this.player.boardMesh.visible = false;
+      if (this.player.model) this.player.model.position.y = 0;
+      this.player.mesh.position.x = 0;
+      this.player.targetX = 0;
+      this.player.currentLane = 1;
+      this.player.setFacing(0); // Face the camera
+      this.player.playSequence(["Defeat", "Defeated"], true);
     }
   }
 

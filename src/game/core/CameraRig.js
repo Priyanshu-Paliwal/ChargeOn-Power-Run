@@ -169,7 +169,7 @@ export class CameraRig {
     const playerX = playerPos.x;
     const playerY = playerPos.y;
 
-    if (mode === "LOBBY") {
+    if (mode === "LOBBY" || mode === "VICTORY" || mode === "DEFEAT") {
       this._targetPos.set(
         LOBBY_ORBIT.basePos.x + Math.sin(time * LOBBY_ORBIT.angularSpeed.x) * LOBBY_ORBIT.radiusX,
         LOBBY_ORBIT.baseHeight + Math.cos(time * LOBBY_ORBIT.angularSpeed.y) * LOBBY_ORBIT.heightAmplitude,

@@ -375,6 +375,12 @@ export const JETPACK_MODEL_URL = "/assets/JetpackModel/JetpackModel.gltf";
 export const FLYING_ANIMATION_URL = "/assets/characters/motions/Flying.fbx";
 export const SURFING_ANIMATION_URL =
   "/assets/characters/motions/surfing_motion.fbx";
+export const VICTORY_IDLE_ANIMATION_URL =
+  "/assets/characters/motions/Victory_idle.fbx";
+export const VICTORY_JUMP_ANIMATION_URL =
+  "/assets/characters/motions/victory_jump.fbx";
+export const DEFEAT_ANIMATION_URL = "/assets/characters/motions/Defeat.fbx";
+export const DEFEATED_ANIMATION_URL = "/assets/characters/motions/Defeated.fbx";
 
 // Board / Surfboard / Skateboard settings (Subway Surfers-style board mechanic)
 export const HOVERBOARDS = [
@@ -507,21 +513,19 @@ export const CHARACTERS = [
   // },
   {
     id: 0,
-    key: "female_suit",
-    name: "Maya Chen",
-    role: "Solutions Engineer",
-    url: "/assets/characters/female_suit.glb",
-    rotationOffset: -Math.PI,
+    key: "lewis_character",
+    name: "Lewis",
+    role: "Speed Strategist",
+    url: "/assets/characters/lewis_character.glb",
     scale: 1.2,
   },
   {
     id: 1,
-    key: "anime_tech",
-    name: "Kito",
-    role: "Tech Explorer",
-    url: "/assets/characters/anime_tech.glb",
-    rotationOffset: -Math.PI,
-    scale: 1.0,
+    key: "louise_character",
+    name: "Louise",
+    role: "Elite Specialist",
+    url: "/assets/characters/louise_character.glb",
+    scale: 1.2,
   },
   // {
   //   id: 3,
@@ -569,6 +573,10 @@ export const CHARACTER_CLIP_NAMES = [
   "Slide",
   "Stumble",
   "Celebrate",
+  "Victory_idle",
+  "victory_jump",
+  "Defeat",
+  "Defeated",
 ];
 
 // Minimum world-distance between two NEW features being dealt from the

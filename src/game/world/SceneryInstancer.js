@@ -402,111 +402,52 @@ export class SceneryInstancer {
     return idx;
   }
 
-  _createPlaceholderBannerTexture() {
+  _createBannerTexture(textureUrl) {
     const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 512;
+    // 2048 x 910 matches the 1.8 x 0.8 banner plane aspect ratio (2.25 : 1) with 2K sharpness
+    canvas.width = 2048;
+    canvas.height = 910;
     const ctx = canvas.getContext("2d");
-
-    // Background gradient
-    const grad = ctx.createLinearGradient(0, 0, 0, 512);
-    grad.addColorStop(0, "#042C53");
-    grad.addColorStop(1, "#0A4F8C");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 256, 512);
-
-    // Border
-    ctx.strokeStyle = "#F4C775";
-    ctx.lineWidth = 10;
-    ctx.strokeRect(5, 5, 246, 502);
-
-    // Text (ChargeOn)
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 40px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("CHARGE", 128, 200);
-    ctx.fillStyle = "#F4C775";
-    ctx.fillText("ON", 128, 260);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.anisotropy = 16;
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = textureUrl;
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const naturalW = img.naturalWidth || img.width || 1000;
+      const naturalH = img.naturalHeight || img.height || 300;
+      const imgRatio = naturalW / naturalH;
+
+      // Fit inside canvas while strictly preserving the true aspect ratio
+      const maxW = canvas.width * 0.90;
+      const maxH = canvas.height * 0.82;
+
+      let drawW = maxW;
+      let drawH = drawW / imgRatio;
+      if (drawH > maxH) {
+        drawH = maxH;
+        drawW = drawH * imgRatio;
+      }
+
+      const drawX = (canvas.width - drawW) / 2;
+      const drawY = (canvas.height - drawH) / 2;
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+
+      tex.needsUpdate = true;
+    };
+
     return tex;
-  }
-
-  _createBannerPool(n) {
-    // 1. Bracket (Horizontal metal bar)
-    const bracketGeo = new THREE.BoxGeometry(1.2, 0.05, 0.05);
-    // Offset so one end touches the pole and the other extends out
-    bracketGeo.translate(0.6, 0, 0);
-
-    const bracketMat = new THREE.MeshStandardMaterial({
-      color: 0x222222,
-      metalness: 0.8,
-      roughness: 0.4,
-    });
-
-    // 2. Banner (Vertical Plane)
-    // Taller than wide, e.g. 0.8 wide, 2.0 tall
-    const bannerGeo = new THREE.PlaneGeometry(0.8, 2.0, 4, 8); // Subdivided for wind flex
-    // Offset so the top edge is at Y=0 (anchored to the bracket)
-    bannerGeo.translate(0, -1.0, 0);
-    // Shift slightly forward to avoid Z-fighting with bracket, and move along bracket X
-    bannerGeo.translate(0.8, -0.025, 0.03);
-
-    const bannerMat = new THREE.MeshStandardMaterial({
-      map: this._createPlaceholderBannerTexture(),
-      transparent: true,
-      alphaTest: 0.1,
-      side: THREE.DoubleSide,
-      roughness: 0.8,
-    });
-
-    // Create the global time uniform for the wind shader
-    this.bannerTimeUniform = { value: 0 };
-
-    // Apply wind shader via onBeforeCompile
-    bannerMat.onBeforeCompile = (shader) => {
-      shader.uniforms.uTime = this.bannerTimeUniform;
-
-      shader.vertexShader = `
-        uniform float uTime;
-        ${shader.vertexShader}
-      `;
-
-      // Inject the wind displacement right before calculating position
-      shader.vertexShader = shader.vertexShader.replace(
-        "#include <begin_vertex>",
-        `
-        #include <begin_vertex>
-        
-        // We only want the bottom of the banner to sway.
-        // Y goes from 0 (top anchor) down to -2.0 (bottom edge)
-        float swayFactor = smoothstep(0.0, -2.0, position.y);
-        
-        // Simple sine wave based on time and local Y position
-        float windWave = sin(uTime * 3.0 + position.y * 2.0) * 0.15;
-        
-        transformed.z += windWave * swayFactor;
-        `,
-      );
-    };
-
-    const variant = {
-      parts: [
-        {
-          geometry: bracketGeo,
-          material: bracketMat,
-          matrix: new THREE.Matrix4(),
-        },
-        {
-          geometry: bannerGeo,
-          material: bannerMat,
-          matrix: new THREE.Matrix4(),
-        },
-      ],
-    };
-
-    this._allocPool("banner", variant, n * 2);
   }
 
   _createBannerPool(n, poolName, textureUrl) {
@@ -570,32 +511,19 @@ export class SceneryInstancer {
     logoGeoBack.translate(0, -halfHeight + CONFIG.logoOffsetY, 0);
     logoGeoBack.translate(CONFIG.distanceFromPole, 0, -0.015);
 
-    let map = new THREE.Texture();
-    map.colorSpace = THREE.SRGBColorSpace;
-
-    if (textureUrl.toLowerCase().endsWith(".svg")) {
-      const img = new Image();
-      img.src = textureUrl;
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = 1024;
-        canvas.height = 1024;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, 1024, 1024);
-        map.image = canvas;
-        map.needsUpdate = true;
-      };
-    } else {
-      map = new THREE.TextureLoader().load(textureUrl);
-      map.colorSpace = THREE.SRGBColorSpace;
-    }
+    const map = this._createBannerTexture(textureUrl);
 
     const logoMat = new THREE.MeshStandardMaterial({
       map: map,
       transparent: true,
-      alphaTest: 0.1,
+      alphaTest: 0.05,
       side: THREE.FrontSide,
-      roughness: 0.8,
+      roughness: 0.3,
+      metalness: 0.05,
+      // Subtle emissive boost keeps logos vivid and legible under all lighting & shadows
+      emissive: new THREE.Color(0xffffff),
+      emissiveMap: map,
+      emissiveIntensity: 0.35,
     });
 
     if (!this.bannerTimeUniform) this.bannerTimeUniform = { value: 0 };

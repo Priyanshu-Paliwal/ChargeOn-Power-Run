@@ -28,11 +28,10 @@ const emit = defineEmits(["start", "character-selected", "dev-start"]);
 
 const swiperModules = [Navigation, EffectCards];
 
-// Reorder characters so Kito (id: 1) is first. This completely avoids Swiper's initialSlide+loop bug
-// because Swiper can start naturally at index 0 while still showing Kito as the default.
+// Ordered characters for the selection carousel
 const orderedCharacters = [
-  CHARACTERS.find((c) => c.id === 1), // Kito
-  CHARACTERS.find((c) => c.id === 0), // Maya
+  CHARACTERS.find((c) => c.id === 0), // Lewis
+  CHARACTERS.find((c) => c.id === 1), // Louise
   CHARACTERS.find((c) => c.id === 2), // Ankit
   CHARACTERS.find((c) => c.id === 3), // Rajat
 ].filter(Boolean);
@@ -211,7 +210,7 @@ onMounted(() => {
       <div class="profile-container">
         <div class="top-stats" ref="topStatsEl">
           <div class="event-title">
-            Dream<span class="event-title-f">f</span>orce 2026
+            Dreamforce 2026
           </div>
           <button
             v-if="musicState"

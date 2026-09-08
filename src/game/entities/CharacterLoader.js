@@ -6,6 +6,10 @@ import {
   CHARACTER_ANIMATIONS_URL,
   FLYING_ANIMATION_URL,
   SURFING_ANIMATION_URL,
+  VICTORY_IDLE_ANIMATION_URL,
+  VICTORY_JUMP_ANIMATION_URL,
+  DEFEAT_ANIMATION_URL,
+  DEFEATED_ANIMATION_URL,
 } from "../config/GameConfig.js";
 
 // Today's placeholder characters (Milestone 7) aren't Draco-compressed, so
@@ -42,34 +46,44 @@ export class CharacterLoader {
         this._gltfLoader.loadAsync(CHARACTER_ANIMATIONS_URL),
         this._fbxLoader.loadAsync(FLYING_ANIMATION_URL),
         this._fbxLoader.loadAsync(SURFING_ANIMATION_URL),
-      ]).then(([gltf, fbxFlying, fbxSurfing]) => {
-        const clips = [...gltf.animations];
-        if (fbxFlying.animations && fbxFlying.animations.length > 0) {
-          const flyingClip = fbxFlying.animations[0];
-          flyingClip.name = "Flying"; // rename to ensure it matches what Player.js expects
+        this._fbxLoader.loadAsync(VICTORY_IDLE_ANIMATION_URL),
+        this._fbxLoader.loadAsync(VICTORY_JUMP_ANIMATION_URL),
+        this._fbxLoader.loadAsync(DEFEAT_ANIMATION_URL),
+        this._fbxLoader.loadAsync(DEFEATED_ANIMATION_URL),
+      ]).then(
+        ([
+          gltf,
+          fbxFlying,
+          fbxSurfing,
+          fbxVicIdle,
+          fbxVicJump,
+          fbxDefeat,
+          fbxDefeated,
+        ]) => {
+          const clips = [...gltf.animations];
 
-          // The raw FBX animation contains root motion that pushes the character mesh
-          // away from its container (and thus separates it from the jetpack).
-          // Strip position tracks to make it an in-place animation!
-          flyingClip.tracks = flyingClip.tracks.filter(
-            (track) => !track.name.endsWith(".position")
-          );
+          const addFbxClip = (fbx, name) => {
+            if (fbx?.animations && fbx.animations.length > 0) {
+              const clip = fbx.animations[0];
+              clip.name = name;
+              // Strip position tracks to prevent root-motion drift / cm scaling mismatch
+              clip.tracks = clip.tracks.filter(
+                (track) => !track.name.endsWith(".position"),
+              );
+              clips.push(clip);
+            }
+          };
 
-          clips.push(flyingClip);
-        }
-        if (fbxSurfing.animations && fbxSurfing.animations.length > 0) {
-          const surfingClip = fbxSurfing.animations[0];
-          surfingClip.name = "Surfing";
+          addFbxClip(fbxFlying, "Flying");
+          addFbxClip(fbxSurfing, "Surfing");
+          addFbxClip(fbxVicIdle, "Victory_idle");
+          addFbxClip(fbxVicJump, "victory_jump");
+          addFbxClip(fbxDefeat, "Defeat");
+          addFbxClip(fbxDefeated, "Defeated");
 
-          // Strip position tracks to prevent root motion from drifting character away from board
-          surfingClip.tracks = surfingClip.tracks.filter(
-            (track) => !track.name.endsWith(".position")
-          );
-
-          clips.push(surfingClip);
-        }
-        return clips;
-      });
+          return clips;
+        },
+      );
     }
     return this._animationsPromise;
   }

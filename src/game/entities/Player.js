@@ -66,12 +66,13 @@ export class Player {
     this.animations = {};
     this.currentAction = null;
     this.currentActionName = "Idle";
+    this._activeSequence = null;
+    this._sequenceLoop = true;
+    this._sequenceIndex = 0;
+    this._sequenceFinishedHandler = null;
     this.characterId = CHARACTERS[0].id;
     this._loadToken = 0;
-    // Which way the model should face (0 = down the track, Math.PI =
-    // toward the camera for the Lobby). Owned by Player (via setFacing()),
-    // not poked directly onto `this.model` by Engine.js, because `this.model`
-    // gets swapped out on every character change -- see setFacing()'s comment.
+    // Which way the model should face (0 = toward camera, Math.PI = down track).
     this._facingY = 0;
 
     // Load the selected character (Milestone 7: CharacterLoader replaces the
@@ -532,8 +533,8 @@ export class Player {
       this._hitTimer -= delta * 1000;
       if (this._hitTimer <= 0) {
         this._cancelHitReaction();
-        // Stumble clip finished or expired naturally -- recover smoothly back to Run/Surfing
-        if (this.movementState === PlayerMovementState.RUNNING) {
+        // Stumble clip finished or expired naturally -- recover smoothly back to Run/Surfing if not in a sequence
+        if (this.movementState === PlayerMovementState.RUNNING && !this._activeSequence) {
           this.setAnimation(this.hasBoard ? "Surfing" : "Run");
         }
       }
@@ -812,6 +813,7 @@ export class Player {
   }
 
   setAnimation(animName) {
+    this.stopSequence();
     if (!this.mixer || !this.animations[animName]) return;
     const newAction = this.animations[animName];
     const currentAction = this.animations[this.currentActionName];
@@ -836,17 +838,75 @@ export class Player {
     this.currentAction = newAction;
   }
 
-  // Cuts straight into a short one-shot action (Jump, Slide) instead of
-  // going through setAnimation()'s crossFadeFrom(..., warp=true). Warping
-  // is exactly right for two looping, cycle-based clips of different
-  // lengths (Idle<->Run) -- three.js stretches the fade window to line up
-  // their cycles -- but Jump/Slide are ~0.6-0.7s one-shots whose duration
-  // was JUST precisely set via setDuration() to match real physics timing;
-  // spending half a second of that warping playback speed during the
-  // crossfade would visibly distort the very timing setDuration() exists to
-  // guarantee. A quick independent fade-in/fade-out reads as an instant,
-  // reactive cut -- the right feel for a jump/slide trigger anyway.
+  // Plays an array of animations in sequence (e.g. Victory_idle -> victory_jump -> Victory_idle ...)
+  playSequence(animNames, loop = true) {
+    if (!animNames || animNames.length === 0) return;
+    this.stopSequence();
+
+    this._activeSequence = [...animNames];
+    this._sequenceLoop = loop;
+    this._sequenceIndex = 0;
+
+    if (!this.mixer) return;
+
+    const playNext = (index) => {
+      if (!this._activeSequence || this._activeSequence.length === 0) return;
+      const name = this._activeSequence[index];
+      const action = this.animations[name];
+      if (!action) {
+        console.warn(`[Player] playSequence: animation "${name}" not found in animations library`);
+        return;
+      }
+
+      const previous = this.currentAction;
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true;
+      action.reset();
+
+      if (previous && previous !== action) {
+        action.play();
+        action.crossFadeFrom(previous, 0.25, false);
+      } else {
+        action.play();
+      }
+
+      action.paused = false;
+      this.currentActionName = name;
+      this.currentAction = action;
+    };
+
+    this._sequenceFinishedHandler = (e) => {
+      if (!this._activeSequence) return;
+      const currentName = this._activeSequence[this._sequenceIndex];
+      const currentAction = this.animations[currentName];
+      if (e.action === currentAction) {
+        let nextIndex = this._sequenceIndex + 1;
+        if (nextIndex >= this._activeSequence.length) {
+          if (this._sequenceLoop) {
+            nextIndex = 0;
+          } else {
+            return;
+          }
+        }
+        this._sequenceIndex = nextIndex;
+        playNext(nextIndex);
+      }
+    };
+
+    this.mixer.addEventListener("finished", this._sequenceFinishedHandler);
+    playNext(0);
+  }
+
+  stopSequence() {
+    if (this._sequenceFinishedHandler && this.mixer) {
+      this.mixer.removeEventListener("finished", this._sequenceFinishedHandler);
+      this._sequenceFinishedHandler = null;
+    }
+    this._activeSequence = null;
+  }
+
   _playOneShot(name) {
+    this.stopSequence();
     const action = this.animations[name];
     if (!action) return;
     const previous = this.currentAction;
@@ -911,11 +971,17 @@ export class Player {
         child.receiveShadow = true;
         if (child.material) {
           // Tone down the HDRI skybox reflections on the character
-          child.material.envMapIntensity = 0.4;
-          // Soften the specular highlights (stop it from looking like a mirror)
-          child.material.roughness = 0.45;
-          // Ensure it's not perfectly metallic
-          child.material.metalness = 0.6;
+          child.material.envMapIntensity = 0.3;
+          // Natural human skin, hair, and clothing: non-metallic and soft diffuse
+          child.material.metalness = 0.0;
+          if (child.material.roughness < 0.6) {
+            child.material.roughness = 0.65;
+          }
+          // Ensure hair and alpha textures write to depth buffer and render both sides
+          if (child.material.transparent || child.material.alphaTest > 0) {
+            child.material.depthWrite = true;
+            child.material.side = THREE.DoubleSide;
+          }
         }
       }
     });
@@ -951,9 +1017,9 @@ export class Player {
         const origBone = parts[0];
         const prop = parts[1];
 
-        let coreName = origBone.replace(/^mixamorig[:_]?/i, "");
+        let coreName = origBone.replace(/^mixamorig[0-9]*[:_]?/i, "");
         const regex = new RegExp(
-          `^(mixamorig[:_]?)?${coreName}(_[0-9]+)?$`,
+          `^(mixamorig[0-9]*[:_]?)?${coreName}(_[0-9]+)?$`,
           "i",
         );
 
@@ -966,18 +1032,22 @@ export class Player {
       this.animations[clip.name] = this.mixer.clipAction(clonedClip);
     });
 
-    // Resume whatever was already playing (Idle on first load; Idle/Run on
-    // a mid-Lobby character swap) on the new model -- hard cut, not a
-    // crossfade, since the OLD mixer/model this would fade from is being
-    // torn down this same frame.
-    const resumeName = this.animations[this.currentActionName]
-      ? this.currentActionName
-      : "Idle";
-    const action = this.animations[resumeName];
-    if (action) {
-      action.reset().play();
-      this.currentActionName = resumeName;
-      this.currentAction = action;
+    // Resume active sequence or whatever was already playing
+    if (this._activeSequence && this._activeSequence.length > 0) {
+      const seq = this._activeSequence;
+      const loop = this._sequenceLoop;
+      this.stopSequence();
+      this.playSequence(seq, loop);
+    } else {
+      const resumeName = this.animations[this.currentActionName]
+        ? this.currentActionName
+        : "Idle";
+      const action = this.animations[resumeName];
+      if (action) {
+        action.reset().play();
+        this.currentActionName = resumeName;
+        this.currentAction = action;
+      }
     }
   }
 }

@@ -329,13 +329,9 @@ const handleCollision = (hit) => {
       // Update the sheet: current level was Failed
       updateLevelResult(userData.email, gameStats.currentLevelId, "Failed", "");
       gameState.value = "GAME_OVER";
-      if (gameEngine?.player) {
-        gameEngine.player.hasBoard = false;
-        gameEngine.player.boardMesh.visible = false;
-        if (gameEngine.player.model) gameEngine.player.model.position.y = 0;
+      if (gameEngine) {
+        gameEngine.setMode("DEFEAT");
       }
-
-      gameEngine.setMode("LOBBY"); // Stop running animation
       audioManager.duck(0.2, 1200);
       audioManager.playSFX("gameOver");
     }
@@ -344,12 +340,7 @@ const handleCollision = (hit) => {
 
 const completeLevel = () => {
   if (gameEngine) {
-    if (gameEngine.player) {
-      gameEngine.player.hasBoard = false;
-      gameEngine.player.boardMesh.visible = false;
-      if (gameEngine.player.model) gameEngine.player.model.position.y = 0;
-    }
-    gameEngine.setMode("LOBBY");
+    gameEngine.setMode("VICTORY");
   }
   audioManager.duck(0.2, 1200);
   audioManager.playSFX("levelComplete");
@@ -472,6 +463,13 @@ const handleBossBeatNext = () => {
   gameState.value = "OFFER_REVEAL";
 };
 
+const handleOfferRevealNext = () => {
+  if (gameEngine) {
+    gameEngine.setMode("VICTORY");
+  }
+  gameState.value = "VICTORY";
+};
+
 const handleCharacterSelected = (id) => {
   selectedCharacterId.value = id;
   if (gameEngine && gameEngine.player) {
@@ -576,7 +574,7 @@ const quitToLobby = () => {
 
         <OfferReveal
           v-else-if="gameState === 'OFFER_REVEAL'"
-          @next="gameState = 'VICTORY'"
+          @next="handleOfferRevealNext"
         />
 
         <Victory
