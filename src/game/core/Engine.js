@@ -134,8 +134,9 @@ export class Engine {
 
     // Input: keyboard + touch, bound to the canvas container (not window) so
     // UI button taps -- captured by the UI layer sitting in front -- never
-    // reach these listeners as spurious swipes.
+    // reach these listeners as spurious swipes. Only enabled during PLAYING mode.
     this.inputManager = new InputManager(this.container);
+    this.inputManager.setEnabled(false);
 
     // Game Entities
     this.player = new Player(this.scene, this.inputManager);
@@ -170,6 +171,9 @@ export class Engine {
     this.player.onJetpackEnd = () => {
       if (this.world && this.world.clearSkyCoins) {
         this.world.clearSkyCoins();
+      }
+      if (this.world && this.world.onJetpackCompleted) {
+        this.world.onJetpackCompleted();
       }
     };
 
@@ -238,6 +242,8 @@ export class Engine {
     this.player.lives = 3;
     this.player._cancelHitReaction?.();
     this.player._invulnerableTimer = 0;
+    this.inputManager?.clear();
+    this.player.resetToCenterLane(true);
     this.cameraRig.triggerFovKick(SPEED_KICK_FOV_BOOST, SPEED_KICK_DURATION);
     this._speedLinesUntil = performance.now() + SPEED_LINES_DURATION_MS;
 
@@ -264,14 +270,11 @@ export class Engine {
   // Level 1 tutorial has already been shown this run).
   resetRun() {
     this.scoreSystem.reset();
-    this.player.lives = 3;
-    this.player._cancelHitReaction?.();
-    this.player._invulnerableTimer = 0;
+    this.inputManager?.clear();
+    this.inputManager?.setEnabled(false);
+    this.player.resetToLobbyState();
+    this.player.resetToCenterLane(true);
     this._tutorialShownThisRun = false;
-    this.player.hasBoard = false;
-    this.player.setBoardPreview(false);
-    this.player.boardMesh.visible = false;
-    if (this.player.model) this.player.model.position.y = 0;
     if (this.world && this.world.clearSkyCoins) {
       this.world.clearSkyCoins();
     }
@@ -289,11 +292,14 @@ export class Engine {
       else if (hit.powerUp === "shield") this.player.activateShield();
       else if (hit.powerUp === "jetpack" || hit.name === "Jetpack") {
         this.player.activateJetpack(hit.powerUpDurationMs || 6000);
+        if (this.world && this.world.onJetpackCollected) {
+          this.world.onJetpackCollected();
+        }
         if (this.world && this.world.spawnJetpackSkyCoins) {
           this.world.spawnJetpackSkyCoins();
         }
-      } else if (hit.powerUp === "board")
-        this.player.activateBoard(hit.powerUpDurationMs);
+      } else if (hit.powerUp === "board" || hit.name === "Hoverboard")
+        this.player.activateBoard(hit.powerUpDurationMs || 12000);
       audioManager.playSFX(hit.powerUp ? "powerup" : "coin");
       if (hit.worldPosition) {
         this.effectsSystem.burst(
@@ -1177,34 +1183,35 @@ export class Engine {
       this.lobbyPropsGroup.visible = newMode === "LOBBY";
     }
     if (this.mode === "LOBBY") {
-      this.player.setAnimation("Idle");
-      this.player.setFacing(0); // Face the camera
-      this.player.hasBoard = false;
-      this.player.setBoardPreview(false);
-      this.player.boardMesh.visible = false;
-      if (this.player.model) this.player.model.position.y = 0;
+      this.inputManager?.setEnabled(false);
+      this.inputManager?.clear();
+      this.player.resetToLobbyState();
+      this.player.resetToCenterLane(true);
     } else if (this.mode === "PLAYING") {
+      this.inputManager?.clear();
+      this.inputManager?.setEnabled(true);
+      this.player.resetToCenterLane(true);
       this.player.setAnimation(this.player.hasBoard ? "Surfing" : "Run");
       this.player.setFacing(Math.PI); // Face the track
       this.player.setBoardPreview(false);
     } else if (this.mode === "VICTORY") {
+      this.inputManager?.setEnabled(false);
+      this.inputManager?.clear();
       this.player.hasBoard = false;
       this.player.setBoardPreview(false);
       this.player.boardMesh.visible = false;
       if (this.player.model) this.player.model.position.y = 0;
-      this.player.mesh.position.x = 0;
-      this.player.targetX = 0;
-      this.player.currentLane = 1;
+      this.player.resetToCenterLane(true);
       this.player.setFacing(0); // Face the camera
       this.player.playSequence(["Victory_idle", "victory_jump"], true);
     } else if (this.mode === "DEFEAT") {
+      this.inputManager?.setEnabled(false);
+      this.inputManager?.clear();
       this.player.hasBoard = false;
       this.player.setBoardPreview(false);
       this.player.boardMesh.visible = false;
       if (this.player.model) this.player.model.position.y = 0;
-      this.player.mesh.position.x = 0;
-      this.player.targetX = 0;
-      this.player.currentLane = 1;
+      this.player.resetToCenterLane(true);
       this.player.setFacing(0); // Face the camera
       this.player.playSequence(["Defeat", "Defeated"], true);
     }
@@ -1295,7 +1302,11 @@ export class Engine {
     // assumed).
     this.effectsSystem.update(delta);
 
-    this.composer.render();
+    if (this.bloomPass && this.quality.tier.bloom) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   dispose() {

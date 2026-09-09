@@ -429,6 +429,59 @@ export class Player {
     }
   }
 
+  // Resets lane to the center track (lane 1, X = 0).
+  // snap = true instantly centers the 3D mesh position and cancels any banking tilt.
+  resetToCenterLane(snap = true) {
+    this.currentLane = 1;
+    this.targetX = this.lanes[this.currentLane]; // 0
+    if (snap) {
+      this.mesh.position.x = this.targetX;
+      this.mesh.rotation.z = 0;
+      this.mesh.rotation.y = 0;
+    }
+  }
+
+  // Resets player fully to a clean Lobby idle state without animation speed corruption
+  resetToLobbyState() {
+    this.stopSequence();
+    if (this.mixer) {
+      this.mixer.stopAllAction();
+    }
+    // Explicitly reset timescale and weight on every action in the library
+    if (this.animations) {
+      Object.values(this.animations).forEach((act) => {
+        if (act) {
+          act.timeScale = 1;
+          act.setEffectiveTimeScale(1);
+          act.setEffectiveWeight(1);
+          act.paused = false;
+        }
+      });
+    }
+    this.currentActionName = null;
+    this.currentAction = null;
+    this.movementState = PlayerMovementState.RUNNING;
+    this._jumpElapsed = 0;
+    this._slideTimer = 0;
+    this._slideCooldown = 0;
+    this._cancelHitReaction();
+    this._invulnerableTimer = 0;
+    this.hasBoard = false;
+    this.setBoardPreview(false);
+    this.boardMesh.visible = false;
+    this.hasJetpack = false;
+    this.jetpackMesh.visible = false;
+    this.hasMagnet = false;
+    this.magnetMesh.visible = false;
+    this.hasShield = false;
+    this.shieldMesh.visible = false;
+    if (this.model) this.model.position.y = 0;
+    this.mesh.position.set(0, 0, 0);
+    this.resetToCenterLane(true);
+    this.setFacing(0); // Face the camera
+    this.setAnimation("Idle");
+  }
+
   // Small public read-only getter (Milestone 8's HUD radial timer) so the
   // Vue layer polls this instead of reaching for underscore-prefixed
   // "private" fields directly. Shield has no remaining/duration pair --
@@ -577,15 +630,38 @@ export class Player {
       const deckThickness =
         this._currentBoardModelNode?.userData?.deckThickness ?? 0.08;
       const footOffset = this._currentBoardModelNode?.userData?.footOffset ?? 0;
-      if (this.model && this.movementState === PlayerMovementState.RUNNING) {
+      if (
+        this.model &&
+        (this.movementState === PlayerMovementState.RUNNING ||
+          this.movementState === PlayerMovementState.JUMPING)
+      ) {
         this.model.position.y = boardBottomY + deckThickness + footOffset;
       }
 
       if (this.hasBoard) {
-        // Dynamic banking roll when turning/changing lanes
         const lateralOffset = this.mesh.position.x - this.targetX;
-        this.boardMesh.rotation.z = lateralOffset * -0.28;
-        this.boardMesh.rotation.y = lateralOffset * -0.18;
+        if (this.movementState === PlayerMovementState.JUMPING) {
+          // Mid-air 360-degree skateboard kickflip trick (Subway Surfers style)
+          const jumpProgress = Math.min(
+            1.0,
+            this._jumpElapsed / (this._jumpAirtime * 0.92),
+          );
+          // Smooth cubic ease for an explosive pop and clean catch before landing
+          const ease =
+            jumpProgress < 0.5
+              ? 4 * jumpProgress * jumpProgress * jumpProgress
+              : 1 - Math.pow(-2 * jumpProgress + 2, 3) / 2;
+          const flipAngle = ease * Math.PI * 2; // Full 360-degree roll
+          const popPitch = -Math.sin(jumpProgress * Math.PI) * 0.22; // Dynamic nose tilt
+
+          this.boardMesh.rotation.x = popPitch;
+          this.boardMesh.rotation.z = lateralOffset * -0.28 + flipAngle;
+          this.boardMesh.rotation.y = lateralOffset * -0.18;
+        } else {
+          this.boardMesh.rotation.x = 0;
+          this.boardMesh.rotation.z = lateralOffset * -0.28;
+          this.boardMesh.rotation.y = lateralOffset * -0.18;
+        }
       } else {
         this.boardMesh.rotation.set(0, 0, 0);
       }
@@ -818,9 +894,16 @@ export class Player {
     const newAction = this.animations[animName];
     const currentAction = this.animations[this.currentActionName];
 
-    if (newAction === currentAction) return;
+    if (newAction === currentAction && newAction.isRunning()) return;
 
-    if (currentAction) {
+    // Guarantee clean 1.0x speed and full weight
+    newAction.timeScale = 1;
+    newAction.setEffectiveTimeScale(1);
+    newAction.setEffectiveWeight(1);
+
+    if (currentAction && currentAction !== newAction) {
+      currentAction.timeScale = 1;
+      currentAction.setEffectiveTimeScale(1);
       newAction.reset();
       newAction.play();
       const isLoopTransition =
@@ -828,8 +911,10 @@ export class Player {
         (this.currentActionName === "Run" && animName === "Idle") ||
         (this.currentActionName === "Surfing" && animName === "Run") ||
         (this.currentActionName === "Run" && animName === "Surfing");
-      newAction.crossFadeFrom(currentAction, isLoopTransition ? 0.3 : 0.15, isLoopTransition);
+      // NEVER pass true as warp (3rd argument)! Passing true modifies action.timeScale permanently!
+      newAction.crossFadeFrom(currentAction, isLoopTransition ? 0.3 : 0.15, false);
     } else {
+      newAction.reset();
       newAction.play();
     }
 
@@ -859,11 +944,16 @@ export class Player {
       }
 
       const previous = this.currentAction;
+      action.timeScale = 1;
+      action.setEffectiveTimeScale(1);
+      action.setEffectiveWeight(1);
       action.setLoop(THREE.LoopOnce, 1);
       action.clampWhenFinished = true;
       action.reset();
 
       if (previous && previous !== action) {
+        previous.timeScale = 1;
+        previous.setEffectiveTimeScale(1);
         action.play();
         action.crossFadeFrom(previous, 0.25, false);
       } else {
@@ -910,6 +1000,9 @@ export class Player {
     const action = this.animations[name];
     if (!action) return;
     const previous = this.currentAction;
+    action.timeScale = 1;
+    action.setEffectiveTimeScale(1);
+    action.setEffectiveWeight(1);
     action.setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished = true;
     action.reset().fadeIn(0.1).play();

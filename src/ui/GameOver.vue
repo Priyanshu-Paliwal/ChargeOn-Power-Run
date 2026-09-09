@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { gsap } from "gsap";
 import { levels } from "../data/GameContent.js";
 
@@ -21,6 +21,13 @@ const displayScore = ref(0);
 const chipsEl = ref(null);
 const _scoreTween = { value: 0 };
 
+const handleKeyDown = (e) => {
+  if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+    emit("retry");
+    e.preventDefault();
+  }
+};
+
 onMounted(() => {
   gsap.to(_scoreTween, {
     value: props.stats?.score || 0,
@@ -37,6 +44,12 @@ onMounted(() => {
       delay: 0.3,
     });
   }
+
+  window.addEventListener("keydown", handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeyDown);
 });
 </script>
 

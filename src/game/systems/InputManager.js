@@ -28,6 +28,9 @@ export class InputManager {
     // control hints; not consumed anywhere yet.
     this.scheme = "keyboard";
 
+    // Only accept gameplay inputs while enabled (i.e. during PLAYING mode)
+    this.enabled = false;
+
     this._laneRequests = [];
     this._buffered = []; // [{ action: 'jump' | 'slide' | 'board', time }]
     this._touchStart = null;
@@ -46,7 +49,23 @@ export class InputManager {
     this.targetElement.addEventListener("touchcancel", this._onTouchCancel, { passive: false });
   }
 
+  setEnabled(enabled) {
+    this.enabled = Boolean(enabled);
+    if (!this.enabled) {
+      this.clear();
+    }
+  }
+
+  clear() {
+    this._laneRequests = [];
+    this._buffered = [];
+    this._touchStart = null;
+    this._lastTap = null;
+  }
+
   _onKeyDown(e) {
+    if (!this.enabled) return;
+
     // Don't hijack keys while the player is typing into a form field
     // (Registration screen's Name/Company/Email inputs, most notably --
     // "wasd" in a name would otherwise queue lane/jump/slide requests).
@@ -89,6 +108,7 @@ export class InputManager {
   }
 
   _onTouchStart(e) {
+    if (!this.enabled) return;
     e.preventDefault(); // see the constructor's comment -- stops the browser claiming this gesture as its own
     const t = e.changedTouches[0];
     this._touchStart = { screenX: t.screenX, screenY: t.screenY, clientX: t.clientX, clientY: t.clientY, time: performance.now() };
@@ -98,6 +118,7 @@ export class InputManager {
   // scoped to that so this can't fight any other in-flight touch this
   // element didn't start tracking.
   _onTouchMove(e) {
+    if (!this.enabled) return;
     if (this._touchStart) e.preventDefault();
   }
 
@@ -111,7 +132,10 @@ export class InputManager {
   }
 
   _onTouchEnd(e) {
-    if (!this._touchStart) return;
+    if (!this.enabled || !this._touchStart) {
+      this._touchStart = null;
+      return;
+    }
     this.scheme = this.scheme === "keyboard" ? "both" : "touch";
 
     const t = e.changedTouches[0];
@@ -169,7 +193,10 @@ export class InputManager {
   // player state, so they don't need buffering with an expiry window --
   // whatever arrived gets applied on the very next poll.
   consumeLaneRequests() {
-    if (this._laneRequests.length === 0) return this._laneRequests;
+    if (!this.enabled || this._laneRequests.length === 0) {
+      this._laneRequests = [];
+      return [];
+    }
     const reqs = this._laneRequests;
     this._laneRequests = [];
     return reqs;

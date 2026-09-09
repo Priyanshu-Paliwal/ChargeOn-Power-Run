@@ -61,15 +61,17 @@ export const getFormattedDateTime = () => {
 };
 
 /**
- * Generates a clean, unique session document ID based on email and current time.
- * Supports multiple plays by the same visitor without overwriting history.
+ * Generates a clean document ID based purely on email.
+ * This ensures that if a player plays again with the same email,
+ * their existing record is updated/overwritten rather than creating duplicates.
  */
 export const generateSessionId = (email) => {
   const sanitized = (email || "player")
     .toLowerCase()
+    .trim()
     .replace(/[^a-z0-9]/g, "_")
-    .slice(0, 32);
-  return `${sanitized}_${Date.now()}`;
+    .slice(0, 48);
+  return sanitized;
 };
 
 /**

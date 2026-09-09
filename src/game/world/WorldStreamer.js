@@ -61,6 +61,7 @@ const OBSTACLE_TYPE_NAMES = [
 ];
 const MAX_OBSTACLE_SLOTS = 3; // matches the densest authored pattern (gauntlet-three)
 const MAX_COIN_SLOTS = 3; // matches the densest coin trail across all patterns
+const HOVERBOARD_POST_JETPACK_DISTANCE = 70;
 
 export class WorldStreamer {
   constructor(scene, textures, models, engine) {
@@ -128,10 +129,17 @@ export class WorldStreamer {
     this._tutorialDistanceRemaining = 0;
     this.tutorialActive = false;
     this.tutorialMechanic = null;
-    this._tutorialSpeedBlend = 1.0;
+    this._levelStartSpeedBlend = 1.0;
 
     this.chunkCoins = []; // [chunkIndex][slotIndex]
     this.chunkObstacles = []; // [chunkIndex][slotIndex] -> { activeType, variants: { TYPE: instance } }
+    this._jetpackSpawnedThisRun = false;
+    this._jetpackCollected = false;
+    this._jetpackFlightCompleted = false;
+    this._jetpackMissed = false;
+    this._distanceSinceJetpackCompleted = 0;
+    this._boardSpawnedThisRun = false;
+    this._isPopulatingInitialTrack = false;
     this._initPool();
     this._initSkyCoins();
   }
@@ -289,10 +297,26 @@ export class WorldStreamer {
   }
 
   clearSkyCoins() {
-    if (!this.skyCoins) return;
-    for (const coin of this.skyCoins) {
-      coin.group.visible = false;
+    if (this.skyCoins) {
+      for (const coin of this.skyCoins) {
+        coin.group.visible = false;
+      }
     }
+    if (this.jetpackPickupModel?.parent) {
+      this.jetpackPickupModel.parent.remove(this.jetpackPickupModel);
+    }
+    if (this.boardPickupModel?.parent) {
+      this.boardPickupModel.parent.remove(this.boardPickupModel);
+    }
+  }
+
+  onJetpackCollected() {
+    this._jetpackCollected = true;
+  }
+
+  onJetpackCompleted() {
+    this._jetpackFlightCompleted = true;
+    this._distanceSinceJetpackCompleted = 0;
   }
 
   // Called by Engine.js once loadAssets() has resolved. Builds every
@@ -327,6 +351,21 @@ export class WorldStreamer {
       });
 
       this.jetpackPickupModel.add(jp);
+    }
+
+    // Create the single hoverboard pickup instance
+    this.boardPickupModel = new THREE.Group();
+    if (this.models.board) {
+      const bp = this.models.board.clone();
+      bp.scale.set(0.18, 0.18, 0.18);
+      bp.position.y = 0.3;
+      bp.rotation.y = Math.PI / 2;
+
+      // Add a glowing cyan PointLight for the pickup instance
+      const boardLight = new THREE.PointLight(0x00e5ff, 2.5, 4);
+      bp.add(boardLight);
+
+      this.boardPickupModel.add(bp);
     }
 
     this.sceneryInstancer.build(this.models, this.poolSize, this.trackLength);
@@ -365,7 +404,9 @@ export class WorldStreamer {
     const levelData = levels.find((l) => l.id === level);
     if (levelData) {
       this.levelBaseSpeed = 30 * levelData.speedMultiplier;
-      this.speed = this.levelBaseSpeed;
+      // Start slow (using the same multiplier as the tutorial) to allow a smooth 5-second ramp-up
+      this.speed = this.levelBaseSpeed * TUTORIAL_SPEED_MULTIPLIER;
+      this._levelStartSpeedBlend = 0.0;
       this.spawnDirector.resetForLevel();
       // Milestone 6 fix for the unwinnable level: deal the level's features
       // as a shuffled bag WITHOUT replacement (not 3 copies pre-shuffled
@@ -378,6 +419,12 @@ export class WorldStreamer {
       this.featuresToSpawn = this._shuffledFeatureBag();
       this.blockersToSpawn = levelData.blockers;
       this._jetpackSpawnedThisRun = false;
+      this._jetpackCollected = false;
+      this._jetpackFlightCompleted = false;
+      this._jetpackMissed = false;
+      this._distanceSinceJetpackCompleted = 0;
+      this._boardSpawnedThisRun = false;
+      this._isPopulatingInitialTrack = false;
       // Start "already spaced" so the very first coin trail encountered
       // can deal a feature immediately, rather than making the player run
       // the first ~90 units with nothing to collect.
@@ -406,6 +453,7 @@ export class WorldStreamer {
   // doesn't have to run 300 units on an empty track before the first
   // chunks recycle. Skips chunks that were already populated (e.g. by startTutorial).
   populateInitialTrack() {
+    this._isPopulatingInitialTrack = true;
     for (let i = 0; i < this.poolSize; i++) {
       // If tutorial is active, leave non-tutorial chunks empty to avoid distracting the player
       if (this.tutorialActive && !TUTORIAL_CHUNK_INDICES.includes(i)) {
@@ -425,6 +473,7 @@ export class WorldStreamer {
       );
       this._refreshChunkContent(i, Math.random() < sceneryChance);
     }
+    this._isPopulatingInitialTrack = false;
   }
 
   // Milestone 9 interactive tutorial. Seeds 3 chunks DIRECTLY (bypassing
@@ -549,11 +598,27 @@ export class WorldStreamer {
       if (
         !this._jetpackSpawnedThisRun &&
         this.featuresToSpawn.length <=
-          Math.max(0, this.levelFeatures.length - 5)
+          Math.max(0, this.levelFeatures.length - 2)
       ) {
-        // Spawn Jetpack roughly after 5 regular features have been dealt
+        // Spawn Jetpack first (roughly after 2 regular features have been dealt)
         this._jetpackSpawnedThisRun = true;
         featureData = { name: "Jetpack", category: "PowerUp" };
+        this._distanceSinceLastFeature = 0;
+      } else if (
+        !this._boardSpawnedThisRun &&
+        this._jetpackSpawnedThisRun &&
+        !this._isPopulatingInitialTrack &&
+        !this.engine?.player?.hasJetpack &&
+        ((this._jetpackFlightCompleted &&
+          this._distanceSinceJetpackCompleted >=
+            HOVERBOARD_POST_JETPACK_DISTANCE) ||
+          (this._jetpackMissed &&
+            this._distanceSinceJetpackCompleted >=
+              HOVERBOARD_POST_JETPACK_DISTANCE))
+      ) {
+        // Spawn Hoverboard strictly after Jetpack flight is completed + distance delay (or fallback if missed)
+        this._boardSpawnedThisRun = true;
+        featureData = { name: "Hoverboard", category: "PowerUp" };
         this._distanceSinceLastFeature = 0;
       } else {
         const spacingReq = this.currentLevel === 3 ? 45 : 35;
@@ -564,12 +629,18 @@ export class WorldStreamer {
       }
 
       const coin = coinSlots[idx];
-      // Cleanup any previously attached jetpack model if this slot was reused
+      // Cleanup any previously attached jetpack or board model if this slot was reused
       if (
         this.jetpackPickupModel &&
         this.jetpackPickupModel.parent === coin.group
       ) {
         coin.group.remove(this.jetpackPickupModel);
+      }
+      if (
+        this.boardPickupModel &&
+        this.boardPickupModel.parent === coin.group
+      ) {
+        coin.group.remove(this.boardPickupModel);
       }
 
       const powerUpDef = POWER_UPS[featureData.name];
@@ -588,6 +659,14 @@ export class WorldStreamer {
         if (this.jetpackPickupModel) {
           coin.group.add(this.jetpackPickupModel);
         }
+      } else if (featureData.name === "Hoverboard") {
+        // Render physical hoverboard model, hide the coin meshes
+        coin.ring.visible = false;
+        coin.plate.visible = false;
+        coin.innerRing.visible = false;
+        if (this.boardPickupModel) {
+          coin.group.add(this.boardPickupModel);
+        }
       } else {
         // Standard feature/powerup coin
         coin.ring.visible = true;
@@ -598,7 +677,10 @@ export class WorldStreamer {
         coin.innerRing.material = mat;
       }
 
-      coin.baseY = coinDef.y ?? 1.2;
+      coin.baseY =
+        featureData.name === "Hoverboard" || featureData.name === "Jetpack"
+          ? 1.2
+          : (coinDef.y ?? 1.2);
       coin.group.position.set(
         PLAYER_PHYSICS.lanes[coinDef.lane],
         coin.baseY,
@@ -633,26 +715,32 @@ export class WorldStreamer {
     let targetSpeed;
     if (this.tutorialActive) {
       targetSpeed = this.levelBaseSpeed * TUTORIAL_SPEED_MULTIPLIER;
-      this._tutorialSpeedBlend = 0.0;
+      this._levelStartSpeedBlend = 0.0;
     } else {
       targetSpeed = this.spawnDirector.getRampedSpeed(this.levelBaseSpeed);
     }
 
-    if (!this.tutorialActive && this._tutorialSpeedBlend < 1.0) {
-      this._tutorialSpeedBlend = Math.min(
+    if (!this.tutorialActive && this._levelStartSpeedBlend < 1.0) {
+      this._levelStartSpeedBlend = Math.min(
         1.0,
-        this._tutorialSpeedBlend + delta * 0.6,
+        this._levelStartSpeedBlend + delta * 0.2,
       );
-      const tutorialSpeed = this.levelBaseSpeed * TUTORIAL_SPEED_MULTIPLIER;
-      const t = this._tutorialSpeedBlend;
+      const startSpeed = this.levelBaseSpeed * TUTORIAL_SPEED_MULTIPLIER;
+      const t = this._levelStartSpeedBlend;
       const ease = t * t * (3 - 2 * t); // smoothstep
-      this.speed = tutorialSpeed + (targetSpeed - tutorialSpeed) * ease;
+      this.speed = startSpeed + (targetSpeed - startSpeed) * ease;
     } else {
       this.speed = targetSpeed;
     }
     const moveDist = this.speed * delta;
     this.spawnDirector.advance(moveDist);
     this._distanceSinceLastFeature += moveDist;
+    if (
+      (this._jetpackFlightCompleted || this._jetpackMissed) &&
+      !this._boardSpawnedThisRun
+    ) {
+      this._distanceSinceJetpackCompleted += moveDist;
+    }
 
     if (this.propSystem) {
       this.propSystem.update(this.speed, delta, 50);
@@ -722,6 +810,23 @@ export class WorldStreamer {
     for (let i = 0; i < this.trackPool.length; i++) {
       const chunk = this.trackPool[i];
       if (chunk.position.z > this.activeZ + this.trackLength) {
+        if (
+          !this._jetpackCollected &&
+          this._jetpackSpawnedThisRun &&
+          !this._jetpackMissed
+        ) {
+          for (const coin of this.chunkCoins[i]) {
+            if (
+              coin.group.userData &&
+              coin.group.userData.name === "Jetpack" &&
+              coin.group.visible
+            ) {
+              this._jetpackMissed = true;
+              this._distanceSinceJetpackCompleted = 0;
+            }
+          }
+        }
+
         // Use mathematical wrapping to maintain perfect spacing
         // and avoid loop-dependency drift which causes visual gaps.
         chunk.position.z -= this.poolSize * this.trackLength;

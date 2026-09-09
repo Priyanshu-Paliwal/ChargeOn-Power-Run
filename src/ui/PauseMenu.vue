@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 
 const emit = defineEmits(["resume", "restart-level", "quit"]);
 
@@ -24,6 +24,26 @@ const startResumeCountdown = () => {
     }
   }, 1000);
 };
+
+const handleKeyDown = (e) => {
+  if (countdown.value > 0) return;
+  if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+    startResumeCountdown();
+    e.preventDefault();
+  } else if (e.key === "q" || e.key === "Q") {
+    emit("quit");
+    e.preventDefault();
+  }
+};
+
+onMounted(() => {
+  window.addEventListener("keydown", handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeyDown);
+  if (timer) clearInterval(timer);
+});
 </script>
 
 <template>
