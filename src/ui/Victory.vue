@@ -1,12 +1,44 @@
 <script setup>
+import { onMounted, onUnmounted } from "vue";
 const emit = defineEmits(["next"]);
+
+const handleKeyDown = (e) => {
+  if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+    emit("next");
+    e.preventDefault();
+  }
+};
+
+onMounted(() => {
+  window.addEventListener("keydown", handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeyDown);
+});
 </script>
 
 <template>
   <div class="overlay">
     <div class="card">
-      <svg class="icon-header" viewBox="0 0 24 24" width="56" height="56" style="margin: 0 auto 10px; filter: drop-shadow(0 0 15px rgba(244,199,117,0.6));">
-        <path d="M8 21h8m-4-4v4m-5.4-8.6C3.9 11.2 3 9.7 3 8c0-3 2-4 2-4h14s2 1 2 4c0 1.7-.9 3.2-2.6 4.4M12 17c3 0 6-2 6-5V4H6v8c0 3 3 5 6 5z" fill="none" stroke="#F4C775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <svg
+        class="icon-header"
+        viewBox="0 0 24 24"
+        width="56"
+        height="56"
+        style="
+          margin: 0 auto 10px;
+          filter: drop-shadow(0 0 15px rgba(244, 199, 117, 0.6));
+        "
+      >
+        <path
+          d="M8 21h8m-4-4v4m-5.4-8.6C3.9 11.2 3 9.7 3 8c0-3 2-4 2-4h14s2 1 2 4c0 1.7-.9 3.2-2.6 4.4M12 17c3 0 6-2 6-5V4H6v8c0 3 3 5 6 5z"
+          fill="none"
+          stroke="#F4C775"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
       </svg>
       <h2 class="text-navy">Run Complete.</h2>
       <p class="subtitle">54 / 54 features collected.</p>
@@ -20,8 +52,20 @@ const emit = defineEmits(["next"]);
 
       <button class="btn-primary" @click="emit('next')">
         Claim My Prizes
-        <svg class="btn-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" />
+        <svg
+          class="btn-icon"
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none"
+        >
+          <polygon
+            points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"
+          />
         </svg>
       </button>
     </div>
@@ -38,7 +82,7 @@ const emit = defineEmits(["next"]);
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgba(4, 20, 40, 0.65);
+  background: rgb(0 0 0 / 55%);
   backdrop-filter: blur(15px) !important;
   -webkit-backdrop-filter: blur(15px) !important;
   font-family: "Poppins", sans-serif;
@@ -146,4 +190,3 @@ h2 {
   }
 }
 </style>
-

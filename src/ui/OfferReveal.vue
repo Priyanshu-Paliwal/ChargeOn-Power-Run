@@ -1,12 +1,41 @@
 <script setup>
+import { onMounted, onUnmounted } from "vue";
 const emit = defineEmits(["next"]);
+const handleKeyDown = (e) => {
+  if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+    emit("next");
+    e.preventDefault();
+  }
+};
+onMounted(() => {
+  window.addEventListener("keydown", handleKeyDown);
+});
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeyDown);
+});
 </script>
 
 <template>
   <div class="overlay">
     <div class="card">
-      <svg class="icon-header" viewBox="0 0 24 24" width="56" height="56" style="margin: 0 auto 10px; filter: drop-shadow(0 0 15px rgba(244,199,117,0.6));">
-        <path d="M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" fill="none" stroke="#F4C775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <svg
+        class="icon-header"
+        viewBox="0 0 24 24"
+        width="56"
+        height="56"
+        style="
+          margin: 0 auto 10px;
+          filter: drop-shadow(0 0 15px rgba(244, 199, 117, 0.6));
+        "
+      >
+        <path
+          d="M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"
+          fill="none"
+          stroke="#F4C775"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
       </svg>
       <h2 class="text-gold">You've Unlocked Something Big</h2>
 
@@ -19,7 +48,17 @@ const emit = defineEmits(["next"]);
 
       <button class="btn-primary" @click="emit('next')">
         See My Results
-        <svg class="btn-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <svg
+          class="btn-icon"
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none"
+        >
           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
           <circle cx="12" cy="12" r="3" />
         </svg>
@@ -38,7 +77,7 @@ const emit = defineEmits(["next"]);
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgba(4, 20, 40, 0.65);
+  background: rgb(0 0 0 / 55%);
   backdrop-filter: blur(15px) !important;
   -webkit-backdrop-filter: blur(15px) !important;
   font-family: "Poppins", sans-serif;
@@ -165,4 +204,3 @@ h2 {
   }
 }
 </style>
-

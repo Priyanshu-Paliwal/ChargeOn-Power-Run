@@ -36,7 +36,7 @@ onMounted(() => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgb(0 0 0 / 55%);
 }
 .terminal {
   font-family: monospace;

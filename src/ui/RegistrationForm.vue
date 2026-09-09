@@ -1,12 +1,45 @@
 <script setup>
-import { reactive, ref } from "vue";
+import { reactive, ref, onMounted, onUnmounted, nextTick, computed } from "vue";
+import { CHARACTERS } from "../game/config/GameConfig.js";
 
-const emit = defineEmits(["submit", "cancel"]);
+const props = defineProps({
+  characterId: {
+    type: Number,
+    default: 0,
+  },
+});
+
+const emit = defineEmits(["cancel", "submit"]);
+
+const characterImage = computed(() => {
+  const char = CHARACTERS.find((c) => c.id === props.characterId);
+  return char?.images?.registration || "/img/1-1-game.png";
+});
 
 const formData = reactive({
   name: "",
   company: "",
   email: "",
+});
+
+const nameInputEl = ref(null);
+
+const handleKeyDown = (e) => {
+  if (e.key === "Escape") {
+    emit("cancel");
+  }
+};
+
+onMounted(() => {
+  setTimeout(() => {
+    nameInputEl.value?.focus();
+    nameInputEl.value?.select?.();
+  }, 100);
+  window.addEventListener("keydown", handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeyDown);
 });
 
 // Per-field, not a single shared line -- exact wording from
@@ -80,7 +113,7 @@ const handleSubmit = async (e) => {
 
 <template>
   <div class="registration-overlay">
-    <img src="/img/1-1-game.png" alt="Character" class="form-character-img" />
+    <img :src="characterImage" alt="Character" class="form-character-img" />
     <div class="form-container">
       <div class="header">
         <h2>Let's Get you <span class="highlight">Running</span></h2>
@@ -91,6 +124,7 @@ const handleSubmit = async (e) => {
         <div class="input-group" :class="{ 'has-error': errors.name }">
           <label>Full Name <span class="required">*</span></label>
           <input
+            ref="nameInputEl"
             type="text"
             v-model="formData.name"
             placeholder="Enter Name Here"

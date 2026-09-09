@@ -154,17 +154,16 @@ watch(progressPct, (pct) => {
 // queues cleanly instead of every pickup's independent timer piling
 // messages on top of each other with no cap.
 // -----------------------------------------------------------------------
-const MAX_CONCURRENT_TOASTS = 3;
+const MAX_CONCURRENT_TOASTS = 1;
 // On a phone, even small toasts stacked 2-3 deep eat a large fraction of the
 // limited vertical space that shows the road ahead -- capping to 1 at a time
 // (still queued/promoted the same way, just narrower) keeps the play area
 // visible instead of covering it during exactly the moments (rapid pickups)
 // that most need to see incoming obstacles.
 function _maxConcurrentToasts() {
-  const sizeClass = viewportManager.getState()?.sizeClass || "";
-  return sizeClass.startsWith("phone") ? 1 : MAX_CONCURRENT_TOASTS;
+  return 1;
 }
-const TOAST_DURATION_MS = 2200;
+const TOAST_DURATION_MS = 500;
 const activeToasts = ref([]);
 const _pendingToasts = [];
 const _toastTimeouts = new Set();
@@ -385,9 +384,7 @@ onUnmounted(() => {
         <div
           v-if="powerUpState.boardActive"
           class="powerup-icon board-icon"
-          :title="`Board Active: ${currentHoverboard.name} (Click or press B to swap)`"
-          @click="cycleHoverboard"
-          style="cursor: pointer"
+          :title="`Hoverboard Active: ${currentHoverboard.name}`"
         >
           <svg viewBox="0 0 36 36">
             <circle class="ring-track" cx="18" cy="18" r="15" />
@@ -459,37 +456,6 @@ onUnmounted(() => {
         {{ TUTORIAL_BANNER }}
       </div>
     </Transition>
-
-    <!-- Hoverboard Live In-Game Control Cluster -->
-    <div class="hoverboard-hud-cluster">
-      <button
-        v-if="!powerUpState.boardActive"
-        class="hud-btn hud-board-ride"
-        @click="triggerBoard"
-        title="Ride Hoverboard (Press H or Double-Tap)"
-        aria-label="Ride Hoverboard"
-      >
-        <span class="btn-icon">{{ currentHoverboard.emoji }}</span>
-        <div class="btn-text-group">
-          <span class="btn-main">RIDE</span>
-          <span class="btn-sub">[H]</span>
-        </div>
-      </button>
-
-      <button
-        class="hud-btn hud-board-switch"
-        @click="cycleHoverboard"
-        :title="`Switch Board (Press B) - Current: ${currentHoverboard.name}`"
-        :style="{ '--board-glow': currentHoverboard.badgeColor }"
-        aria-label="Switch Hoverboard"
-      >
-        <span class="btn-icon">⚡</span>
-        <div class="btn-text-group">
-          <span class="btn-main">{{ currentHoverboard.name }}</span>
-          <span class="btn-sub">SWAP [B]</span>
-        </div>
-      </button>
-    </div>
   </div>
 </template>
 
@@ -790,56 +756,62 @@ onUnmounted(() => {
 /* Popups */
 .popups-container {
   position: absolute;
-  top: 15%;
-  left: 20px;
+  bottom: calc(12% - 30px);
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
   z-index: 100;
   pointer-events: none;
 }
 
 .popup-message {
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 0.9rem;
+  padding: 10px 24px;
+  border-radius: 30px;
+  font-size: 1.05rem;
   font-weight: bold;
   color: white;
-  text-align: left;
+  text-align: center;
   white-space: pre-wrap;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-  max-width: 300px;
+  box-shadow: 0 0 25px rgba(255, 255, 255, 0.3);
+  max-width: 400px;
   border: 2px solid transparent;
 }
 
 .popup-success {
   background: rgba(4, 44, 83, 0.9);
   border-color: #f4c775;
+  box-shadow: 0 0 25px rgba(244, 199, 117, 0.4);
 }
 
 .popup-error {
   background: rgba(211, 47, 47, 0.9);
   border-color: #ff9999;
+  box-shadow: 0 0 25px rgba(255, 153, 153, 0.4);
 }
 
 .popup-exclusive {
   background: linear-gradient(135deg, #042c53 0%, #d2b48c 100%);
   border-color: #ffd164;
   text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 30px rgba(255, 209, 100, 0.6);
 }
 
-.popup-anim-enter-active,
+.popup-anim-enter-active {
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 .popup-anim-leave-active {
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: all 0.3s ease-in;
 }
 .popup-anim-enter-from {
   opacity: 0;
-  transform: translateY(20px) scale(0.8);
+  transform: translateY(30px) scale(0.5);
 }
 .popup-anim-leave-to {
   opacity: 0;
-  transform: translateY(-20px) scale(0.8);
+  transform: translateY(40px) scale(0.9);
 }
 
 /* RESPONSIVE DESIGN */
@@ -971,107 +943,5 @@ onUnmounted(() => {
   font-size: 0.8rem;
   padding: 6px 12px;
   max-width: 90%;
-}
-
-/* HOVERBOARD HUD CLUSTER */
-.hoverboard-hud-cluster {
-  position: absolute;
-  bottom: 24px;
-  right: 24px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 100;
-  pointer-events: auto !important;
-}
-
-.hud-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border-radius: 24px;
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
-  background: rgba(13, 27, 42, 0.85);
-  backdrop-filter: blur(10px);
-  color: #ffffff;
-  cursor: pointer;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  pointer-events: auto !important;
-}
-
-.hud-btn:hover {
-  transform: translateY(-2px) scale(1.04);
-}
-
-.hud-btn:active {
-  transform: translateY(0) scale(0.98);
-}
-
-.hud-board-ride {
-  background: linear-gradient(135deg, #ffd164 0%, #ff9800 100%);
-  border-color: #ffe082;
-  color: #0d2d40;
-  box-shadow: 0 4px 20px rgba(255, 209, 100, 0.45);
-}
-
-.hud-board-ride .btn-main {
-  font-family: "Raleway", sans-serif;
-  font-weight: 800;
-  font-size: 0.95rem;
-  letter-spacing: 1px;
-}
-
-.hud-board-ride .btn-sub {
-  font-size: 0.68rem;
-  font-weight: 700;
-  opacity: 0.8;
-}
-
-.hud-board-switch {
-  border-color: var(--board-glow, #00e5ff);
-  box-shadow: 0 0 14px var(--board-glow, rgba(0, 229, 255, 0.35));
-}
-
-.btn-icon {
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-.btn-text-group {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-}
-
-.btn-main {
-  font-family: "Raleway", sans-serif;
-  font-weight: 700;
-  font-size: 0.85rem;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
-.btn-sub {
-  font-size: 0.65rem;
-  color: #94a3b8;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-@media (max-width: 768px) {
-  .hoverboard-hud-cluster {
-    bottom: 16px;
-    right: 16px;
-    gap: 6px;
-  }
-  .hud-btn {
-    padding: 6px 10px;
-  }
-  .btn-main {
-    font-size: 0.75rem;
-  }
 }
 </style>

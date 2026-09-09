@@ -44,12 +44,14 @@ const characters = ref(
     name: char.name,
     role: char.role,
     // The user prefers using 1-game.png for all characters over placeholder boxes
-    image: "/img/1-game.png",
+    image: char.images?.landing || "/img/1-game.png",
   })),
 );
 
+const swiperInstance = ref(null);
+
 const onSwiperInit = (swiper) => {
-  // Emit immediately on load so the 3D background matches the initial card!
+  swiperInstance.value = swiper; // Emit immediately on load so the 3D background matches the initial card!
   emit("character-selected", characters.value[0].id);
 };
 
@@ -62,8 +64,28 @@ const onSlideChange = (swiper) => {
 
 const musicState = inject("musicState");
 
-// Dynamic leaderboard
-const leaderboard = ref([]);
+const handleKeyDown = (e) => {
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName))
+    return;
+  if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+    swiperInstance.value?.slidePrev();
+    e.preventDefault();
+  } else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+    swiperInstance.value?.slideNext();
+    e.preventDefault();
+  } else if (e.key === "Enter" || e.key === " ") {
+    emit("start");
+    e.preventDefault();
+  }
+};
+// Default placeholder rows until live Firebase data arrives
+const leaderboard = ref([
+  { rank: 1, name: "--", score: "--" },
+  { rank: 2, name: "--", score: "--" },
+  { rank: 3, name: "--", score: "--" },
+  { rank: 4, name: "--", score: "--" },
+  { rank: 5, name: "--", score: "--" },
+]);
 
 // Entrance-animation targets (Milestone 8). A GSAP timeline staggers these
 // in on mount instead of everything just appearing at once; the leaderboard
@@ -79,42 +101,10 @@ const leaderboardListEl = ref(null);
 let unsubscribeLeaderboard = null;
 
 onMounted(() => {
-  // 1. Initial cached render from localStorage (0 latency)
-  const stored = localStorage.getItem("chargeon_leaderboard");
-  if (stored) {
-    try {
-      leaderboard.value = JSON.parse(stored);
-    } catch (e) {}
-  }
-
-  // If empty, supply default mocks
-  if (leaderboard.value.length === 0) {
-    leaderboard.value = [
-      { rank: 1, name: "--", score: "--" },
-      { rank: 2, name: "--", score: "--" },
-      { rank: 3, name: "--", score: "--" },
-      { rank: 4, name: "--", score: "--" },
-      { rank: 5, name: "--", score: "--" },
-    ];
-  } else {
-    // Add rank property based on index
-    leaderboard.value = leaderboard.value.map((entry, idx) => ({
-      ...entry,
-      rank: idx + 1,
-    }));
-  }
-
   // 2. Real-time Firestore Live Leaderboard Subscription
   unsubscribeLeaderboard = subscribeToLeaderboard((liveTopScores) => {
     if (liveTopScores && liveTopScores.length > 0) {
       leaderboard.value = liveTopScores;
-      // Sync local cache
-      try {
-        localStorage.setItem(
-          "chargeon_leaderboard",
-          JSON.stringify(liveTopScores)
-        );
-      } catch (err) {}
     }
   });
 
@@ -125,7 +115,11 @@ onMounted(() => {
     .from(rightPanelEl.value, { opacity: 0, x: 30, duration: 0.5 }, "<")
     .from(bottomBarEl.value, { opacity: 0, y: 20, duration: 0.4 }, "-=0.2");
 
-  if (leaderboardListEl.value && leaderboardListEl.value.children && leaderboardListEl.value.children.length > 0) {
+  if (
+    leaderboardListEl.value &&
+    leaderboardListEl.value.children &&
+    leaderboardListEl.value.children.length > 0
+  ) {
     gsap.from(leaderboardListEl.value.children, {
       opacity: 0,
       x: -15,
@@ -135,9 +129,11 @@ onMounted(() => {
       ease: "power2.out",
     });
   }
+  window.addEventListener("keydown", handleKeyDown);
 });
 
 onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeyDown);
   if (typeof unsubscribeLeaderboard === "function") {
     unsubscribeLeaderboard();
   }
@@ -293,13 +289,16 @@ onUnmounted(() => {
     <main class="dashboard-grid">
       <!-- Left Panel: Info & Leaderboard -->
       <section class="left-panel" ref="leftPanelEl">
-        <div class="sf-native-badge">SALESFORCE NATIVE</div>
+        <!-- <div class="sf-native-badge">SALESFORCE NATIVE</div> -->
         <h1 class="panel-title">
           Charge<span class="highlight-o">O</span>n Power Run
         </h1>
         <p class="panel-desc">
-          Outrun every payment problem. Unlock exciting goodies at every level,
-          plus an exclusive <strong>ChargeOn Offer where you finish</strong>
+          Outrun every payment problem to unlock
+          <strong
+            >exciting goodies, ChargeOn offer, & an exclusive AirPods.</strong
+          >
+          Try your luck!
         </p>
 
         <div class="leaderboard">
@@ -845,6 +844,8 @@ onUnmounted(() => {
     transform 0.4s ease;
   position: relative;
   /* filter: drop-shadow(0px 4px 24px rgba(0, 0, 0, 0.25)); */
+  overflow: hidden;
+  border-radius: 40px 10px 40px 10px;
 }
 
 .swiper-slide-active {

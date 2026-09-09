@@ -1,6 +1,20 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { onMounted, ref, computed, onUnmounted } from "vue";
+import { CHARACTERS } from "../game/config/GameConfig.js";
+
+const props = defineProps({
+  characterId: {
+    type: Number,
+    default: 0,
+  },
+});
+
 const emit = defineEmits(["next"]);
+
+const characterImage = computed(() => {
+  const char = CHARACTERS.find((c) => c.id === props.characterId);
+  return char?.images?.story || "/img/1-1-1-game.png";
+});
 
 const isCountingDown = ref(false);
 const countdown = ref(0);
@@ -20,20 +34,29 @@ const handleSkip = () => {
   }, 1000);
 };
 
+const handleKeyDown = (e) => {
+  if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+    handleSkip();
+    e.preventDefault();
+  }
+};
+
 onMounted(() => {
+  window.addEventListener("keydown", handleKeyDown);
   // Automatically trigger skip after 10 seconds
   setTimeout(() => handleSkip(), 10000);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeyDown);
+  if (timer) clearInterval(timer);
 });
 </script>
 
 <template>
   <div class="overlay" :class="{ 'transparent-overlay': isCountingDown }">
     <div v-if="!isCountingDown" class="content-wrapper">
-      <img
-        src="/img/1-1-1-game.png"
-        alt="Character"
-        class="story-character-img"
-      />
+      <img :src="characterImage" alt="Character" class="story-character-img" />
 
       <div class="story-card">
         <h2>

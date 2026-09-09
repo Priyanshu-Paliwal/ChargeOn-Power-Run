@@ -4,7 +4,6 @@ import Landing from "./ui/Landing.vue";
 import RegistrationForm from "./ui/RegistrationForm.vue";
 import HowToPlay from "./ui/HowToPlay.vue";
 import StoryBeat from "./ui/StoryBeat.vue";
-import LevelIntro from "./ui/LevelIntro.vue";
 import GameHUD from "./ui/GameHUD.vue";
 import LevelComplete from "./ui/LevelComplete.vue";
 import BossBeat from "./ui/BossBeat.vue";
@@ -117,6 +116,7 @@ let _musicWasPlayingBeforePause = false;
 const pauseGame = () => {
   if (gameState.value !== "PLAYING" || isPaused.value) return;
   isPaused.value = true;
+  gameEngine?.inputManager?.setEnabled(false);
   gameEngine?.stop(); // halts the whole rAF loop -- world, mixer, collision all freeze on this frame
   _musicWasPlayingBeforePause = isMusicPlaying.value;
   if (isMusicPlaying.value) toggleMusic();
@@ -125,6 +125,8 @@ const pauseGame = () => {
 const resumeGame = () => {
   if (!isPaused.value) return;
   isPaused.value = false;
+  gameEngine?.inputManager?.clear();
+  gameEngine?.inputManager?.setEnabled(true);
   gameEngine?.start();
   if (_musicWasPlayingBeforePause && !isMusicPlaying.value) toggleMusic();
 };
@@ -143,11 +145,11 @@ const restartLevelFromPause = () => {
   const currentLevelData = levels.find(
     (l) => l.id === gameStats.currentLevelId,
   );
-  const levelFeatureNames = new Set(
-    currentLevelData.features.map((f) => f.name),
+  const levelFeatureKeys = new Set(
+    currentLevelData.features.map((f) => f.name + "|" + f.category),
   );
   gameStats.featuresCollected = gameStats.featuresCollected.filter(
-    (f) => !levelFeatureNames.has(f.name),
+    (f) => !levelFeatureKeys.has(f.name + "|" + f.category),
   );
   gameStats.levelFeaturesCollected = 0;
   gameStats.lives = 3;
@@ -220,15 +222,6 @@ const addFlash = (color, intensity = 1) => {
 };
 
 const saveScoreToLeaderboard = () => {
-  const name = userData.name || "Anonymous";
-  const stored = localStorage.getItem("chargeon_leaderboard");
-  let leaderboard = stored ? JSON.parse(stored) : [];
-  leaderboard.push({ name, score: gameStats.score.toString() });
-  // Sort descending by score
-  leaderboard.sort((a, b) => Number(b.score) - Number(a.score));
-  leaderboard = leaderboard.slice(0, 5);
-  localStorage.setItem("chargeon_leaderboard", JSON.stringify(leaderboard));
-
   // Sync to Firebase live leaderboard and session record
   recordFirebaseFinalScore(
     currentSessionId.value,
@@ -237,7 +230,7 @@ const saveScoreToLeaderboard = () => {
       email: userData.email,
       company: userData.company,
     },
-    gameStats.score
+    gameStats.score,
   );
 };
 
@@ -252,12 +245,24 @@ const handleCollision = (hit) => {
     gameStats.score = hit.score;
     gameStats.combo++;
 
+    // Special standalone track powerups (Hoverboard and Jetpack)
+    if (hit.name === "Hoverboard" || hit.name === "Jetpack") {
+      hit.powerUp = hit.name === "Hoverboard" ? "board" : "jetpack";
+      const popupText =
+        hit.name === "Hoverboard"
+          ? ":skateboard: Hoverboard Active!\nCrash Shield Protected (12s)"
+          : ":rocket: Jetpack Flight!";
+      addPopup(popupText, "success", true);
+      addFlash("#00E5FF", 0.8);
+      return;
+    }
+
     // Find the next sequential uncollected feature for this level
     const currentLevelData = levels.find(
       (l) => l.id === gameStats.currentLevelId,
     );
     const nextFeature = currentLevelData.features.find(
-      (f) => !gameStats.featuresCollected.some((fc) => fc.name === f.name),
+      (f) => !gameStats.featuresCollected.some((fc) => fc.name === f.name && fc.category === f.category),
     );
 
     if (nextFeature) {
@@ -277,20 +282,10 @@ const handleCollision = (hit) => {
       gameStats.featuresCollected.push(hit);
       gameStats.levelFeaturesCollected++;
 
-      // Per-feature exclusiveLine (Milestone 9, sourced from the content
-      // script) replaces the old generic "★ Exclusive to ChargeOn!" line --
-      // every exclusive feature gets its own specific celebration line
-      // instead of the same boilerplate 20 times over. Falls back to the
-      // generic line only if a feature is flagged exclusive but somehow has
-      // no line authored (shouldn't happen -- GameContent.js's exclusives
-      // all have one -- but a missing line silently showing NO celebration
-      // text at all would be worse than the old generic fallback).
-      let text = hit.isExclusive
-        ? `Yay! ${hit.name}!\n★ ${hit.exclusiveLine || "Exclusive to ChargeOn!"}`
-        : `Yay! ${hit.name}!`;
+      let text = hit.name;
       if (hit.powerUp === "magnet") text += `\n🧲 Magnet active!`;
       else if (hit.powerUp === "shield") text += `\n🛡️ Shield up!`;
-      addPopup(text, "success", hit.isExclusive);
+      addPopup(text, "success", false);
       if (hit.powerUp && POWERUP_VIGNETTE_COLORS[hit.powerUp]) {
         addFlash(
           POWERUP_VIGNETTE_COLORS[hit.powerUp],
@@ -328,11 +323,7 @@ const handleCollision = (hit) => {
       gameStats.score = hit.score;
     }
     const penaltySuffix = hit.points ? ` (${hit.points} PTS)` : "";
-    addPopup(
-      `Oops! ${hit.text} — ${hit.consequence}${penaltySuffix}`,
-      "error",
-      false,
-    );
+    addPopup(hit.text, "error", false);
     addFlash(HIT_VIGNETTE_COLOR, HIT_VIGNETTE_INTENSITY);
     // Interactive tutorial (Milestone 9): a miss on one of the 3 seeded
     // practice obstacles still shows the full normal feedback above (so
@@ -351,7 +342,7 @@ const handleCollision = (hit) => {
         "Failed",
         "",
         "",
-        gameStats.score
+        gameStats.score,
       );
       // Update Firebase: current level was Failed
       recordFirebaseLevelResult(
@@ -360,7 +351,7 @@ const handleCollision = (hit) => {
         "Failed",
         "",
         "",
-        gameStats.score
+        gameStats.score,
       );
       gameState.value = "GAME_OVER";
       if (gameEngine) {
@@ -394,6 +385,32 @@ onMounted(() => {
     gameEngine.start();
     window.gameEngine = gameEngine;
   }
+  const handleGlobalKeyDown = (e) => {
+    const active = document.activeElement;
+    if (
+      active &&
+      (active.tagName === "INPUT" ||
+        active.tagName === "TEXTAREA" ||
+        active.tagName === "SELECT")
+    )
+      return;
+
+    if (e.key === "m" || e.key === "M") {
+      toggleMusic();
+      e.preventDefault();
+    } else if (e.key === "Escape" || e.key === "p" || e.key === "P") {
+      if (gameState.value === "PLAYING") {
+        if (isPaused.value) {
+          resumeGame();
+        } else {
+          pauseGame();
+        }
+        e.preventDefault();
+      }
+    }
+  };
+
+  window.addEventListener("keydown", handleGlobalKeyDown);
   document.addEventListener("visibilitychange", handleVisibilityChange);
   document.addEventListener("pointerdown", recordActivity);
   document.addEventListener("keydown", recordActivity);
@@ -417,6 +434,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener("keydown", handleGlobalKeyDown);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
   document.removeEventListener("pointerdown", recordActivity);
   document.removeEventListener("keydown", recordActivity);
@@ -438,7 +456,6 @@ const handleRegistration = (data) => {
   userData.email = data.email;
   console.log("CRM WRITE:", userData);
   // Clear any goodies from a previous game session in this browser
-  localStorage.removeItem("chargeon_won_goodies");
   wonGoodies.value = [];
   hasLostLifeAnyLevel.value = false;
   // Send registration data to Google Sheet (fire-and-forget, non-blocking)
@@ -504,7 +521,7 @@ const advanceLevel = () => {
     gameState.value = "BOSS_BEAT";
   } else {
     gameStats.currentLevelId++;
-    gameState.value = "LEVEL_INTRO";
+    startLevel();
   }
 };
 
@@ -545,6 +562,11 @@ const handleHoverboardSelected = (id) => {
 // incorrectly bleeds into the next playthrough if left un-reset.
 const quitToLobby = () => {
   isPaused.value = false;
+  userData.name = "";
+  userData.company = "";
+  userData.email = "";
+  wonGoodies.value = [];
+
   gameStats.lives = 3;
   gameStats.currentLevelId = 1;
   gameStats.featuresCollected = [];
@@ -580,6 +602,7 @@ const quitToLobby = () => {
 
         <RegistrationForm
           v-else-if="gameState === 'REGISTRATION'"
+          :characterId="selectedCharacterId"
           @cancel="gameState = 'LANDING'"
           @submit="handleRegistration"
         />
@@ -589,12 +612,10 @@ const quitToLobby = () => {
           @next="gameState = 'STORY_BEAT'"
         />
 
-        <StoryBeat v-else-if="gameState === 'STORY_BEAT'" @next="startLevel" />
-
-        <LevelIntro
-          v-else-if="gameState === 'LEVEL_INTRO'"
-          :levelId="gameStats.currentLevelId"
-          @start="startLevel"
+        <StoryBeat
+          v-else-if="gameState === 'STORY_BEAT'"
+          :characterId="selectedCharacterId"
+          @next="startLevel"
         />
 
         <GameHUD
@@ -635,7 +656,11 @@ const quitToLobby = () => {
           @next="gameState = 'REDEMPTION'"
         />
 
-        <Redemption v-else-if="gameState === 'REDEMPTION'" />
+        <Redemption
+          v-else-if="gameState === 'REDEMPTION'"
+          :wonGoodies="wonGoodies"
+          @restart="quitToLobby"
+        />
       </Transition>
 
       <!-- Overlaid on top of GameHUD (gameState stays 'PLAYING') rather than

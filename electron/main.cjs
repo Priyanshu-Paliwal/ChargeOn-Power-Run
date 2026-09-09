@@ -1,11 +1,6 @@
 const { app, BrowserWindow, globalShortcut } = require("electron");
 const path = require("path");
 
-// Enable hardware acceleration and GPU flags for WebGL game performance
-app.commandLine.appendSwitch("ignore-gpu-blocklist");
-app.commandLine.appendSwitch("enable-gpu-rasterization");
-app.commandLine.appendSwitch("enable-zero-copy");
-
 let mainWindow = null;
 
 function createWindow() {

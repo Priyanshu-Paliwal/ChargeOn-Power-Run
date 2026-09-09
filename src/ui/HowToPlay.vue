@@ -1,5 +1,18 @@
 <script setup>
+import { onMounted, onUnmounted } from "vue";
 const emit = defineEmits(["next"]);
+const handleKeyDown = (e) => {
+  if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+    emit("next");
+    e.preventDefault();
+  }
+};
+onMounted(() => {
+  window.addEventListener("keydown", handleKeyDown);
+});
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeyDown);
+});
 </script>
 
 <template>
@@ -18,33 +31,20 @@ const emit = defineEmits(["next"]);
         <p>Swipe left or right to switch lanes</p>
       </div>
 
-      <!-- Box 2: Top / Bottom -->
-      <div class="glass-box">
-        <div class="icons">
-          <span class="icon">⬆️</span>
-          <span class="icon">⬇️</span>
-        </div>
-        <p>Swipe up to jump low blockers</p>
-        <p class="subtext">
-          Drones: slide under low ones, switch lanes for high ones
-        </p>
-      </div>
-
-      <!-- Box 3: Items & Lives -->
+      <!-- Box 2: Items (Formerly Box 3) -->
       <div class="glass-box">
         <div class="instructions-list">
           <div class="instruction-row">
             <span class="item-icon gold">🪙</span>
             <p>
-              <span class="highlight-gold">Gold coins</span> = real ChargeOn
-              features
+              <span class="highlight-gold">Gold coins</span> = ChargeOn Features
             </p>
           </div>
           <div class="instruction-row">
             <span class="item-icon blue">🔵</span>
             <p>
-              <span class="highlight-blue">Blue coins</span> = real ChargeOn
-              features
+              <span class="highlight-blue">Blue coins</span> = High Stakes
+              Business USPs
             </p>
           </div>
           <div class="instruction-row">
@@ -52,15 +52,14 @@ const emit = defineEmits(["next"]);
               ><div class="css-coin css-coin-pink"></div
             ></span>
             <p>
-              <span class="highlight-pink">Pink coins</span> = activates Shield
-              & Magnet
+              <span class="highlight-pink">Pink coins</span> = Activate Shield &
+              Magnet
             </p>
           </div>
           <div class="instruction-row">
             <span class="item-icon red">🚧</span>
             <p>
-              <span class="highlight-red">Blockers</span> = real payment
-              problems
+              <span class="highlight-red">Blockers</span> = Payment Problems
             </p>
           </div>
           <div class="instruction-row">
@@ -69,18 +68,34 @@ const emit = defineEmits(["next"]);
           </div>
           <div class="instruction-row">
             <span class="item-icon">🛹</span>
-            <p>Hoverboard = prevents 1 obstacle crash</p>
+            <p>Hoverboard = Prevent 1 Crash</p>
           </div>
           <div class="instruction-row">
             <span class="item-icon">🚀</span>
-            <p>Jetpack = fly in the air & collect coins</p>
+            <p>Jetpack = Fly to Collect Coins</p>
           </div>
         </div>
+      </div>
+
+      <!-- Box 3: Top / Bottom (Formerly Box 2) -->
+      <div class="glass-box">
+        <div class="icons">
+          <span class="icon">⬆️</span>
+          <span class="icon">⬇️</span>
+        </div>
+        <p>Swipe up to jump low blockers</p>
+        <p class="subtext">Swipe down to slide under drones</p>
       </div>
     </div>
 
     <div class="action-container">
-      <button class="btn-primary" @click="emit('next')">START RUN</button>
+      <button
+        class="btn-primary"
+        @click="emit('next')"
+        title="Click or Press Enter ↵"
+      >
+        START RUN <span class="key-hint">(Enter ↵)</span>
+      </button>
     </div>
   </div>
 </template>

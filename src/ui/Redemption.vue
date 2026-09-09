@@ -1,31 +1,61 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { onMounted, onUnmounted, computed } from "vue";
 
-const wonGoodies = ref([]);
-
-onMounted(() => {
-  const stored = localStorage.getItem("chargeon_won_goodies");
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      // Remove duplicates that happen on dev reloads or level retries
-      wonGoodies.value = [...new Set(parsed)];
-    } catch (e) {}
-  }
+const props = defineProps({
+  wonGoodies: {
+    type: Array,
+    default: () => [],
+  },
 });
 
+const wonGoodies = computed(() => {
+  return [...new Set(props.wonGoodies || [])];
+});
+
+const emit = defineEmits(["restart"]);
+
 const resetGame = () => {
-  localStorage.removeItem("chargeon_won_goodies"); // Reset for next player
-  window.location.reload();
+  emit("restart");
 };
+
+const handleKeyDown = (e) => {
+  if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+    resetGame();
+    e.preventDefault();
+  }
+};
+
+onMounted(() => {
+  window.addEventListener("keydown", handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeyDown);
+});
 </script>
 
 <template>
   <div class="overlay">
     <div class="card">
-      <svg class="icon-header" viewBox="0 0 24 24" width="56" height="56" style="margin: 0 auto 10px; filter: drop-shadow(0 0 15px rgba(244,199,117,0.6));">
-        <path d="M12 2L15 9L22 9L16 14L18 21L12 17L6 21L8 14L2 9L9 9L12 2Z" fill="none" stroke="#F4C775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="12" cy="12" r="3" fill="#F4C775"/>
+      <svg
+        class="icon-header"
+        viewBox="0 0 24 24"
+        width="56"
+        height="56"
+        style="
+          margin: 0 auto 10px;
+          filter: drop-shadow(0 0 15px rgba(244, 199, 117, 0.6));
+        "
+      >
+        <path
+          d="M12 2L15 9L22 9L16 14L18 21L12 17L6 21L8 14L2 9L9 9L12 2Z"
+          fill="none"
+          stroke="#F4C775"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <circle cx="12" cy="12" r="3" fill="#F4C775" />
       </svg>
       <h2 class="text-navy">Show This to Our Team</h2>
       <p class="subtitle">Here's what you earned:</p>
@@ -44,7 +74,17 @@ const resetGame = () => {
       </p>
 
       <button class="btn-primary" @click="resetGame">
-        <svg class="btn-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <svg
+          class="btn-icon"
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none"
+        >
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2z" />
           <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
@@ -64,7 +104,7 @@ const resetGame = () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgba(4, 20, 40, 0.65);
+  background: rgb(0 0 0 / 55%);
   backdrop-filter: blur(15px) !important;
   -webkit-backdrop-filter: blur(15px) !important;
   font-family: "Poppins", sans-serif;
@@ -197,4 +237,3 @@ h2 {
   }
 }
 </style>
-

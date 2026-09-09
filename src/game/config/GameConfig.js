@@ -366,8 +366,9 @@ export const POWER_UPS = {
   "Automated Collection": { type: "magnet", durationMs: 8000 },
   "Payment Gateway Fallback Mechanism": { type: "shield" },
   Jetpack: { type: "jetpack", durationMs: 6000 }, // Special item, spawned exactly once per run
-  Surfboard: { type: "board", durationMs: 25000 },
-  Skateboard: { type: "board", durationMs: 25000 },
+  Hoverboard: { type: "board", durationMs: 12000 }, // Track power-up item
+  Surfboard: { type: "board", durationMs: 12000 },
+  Skateboard: { type: "board", durationMs: 12000 },
 };
 
 export const JETPACK_FLIGHT_HEIGHT = 8.0;
@@ -457,7 +458,7 @@ export function getHoverboardConfig(id) {
 
 export const DEFAULT_HOVERBOARD_ID = "skateboard";
 export const BOARD_MODEL_URL = HOVERBOARDS[0].url;
-export const BOARD_DURATION_MS = 25000;
+export const BOARD_DURATION_MS = 12000;
 export const BOARD_COOLDOWN_MS = 2000;
 export const BOARD_SCALE = HOVERBOARDS[0].scale;
 export const BOARD_ROTATION_Y = HOVERBOARDS[0].rotation[1];
@@ -514,18 +515,28 @@ export const CHARACTERS = [
   {
     id: 0,
     key: "lewis_character",
-    name: "Lewis",
-    role: "Speed Strategist",
+    name: "Adam",
+    role: "Tech Lead",
     url: "/assets/characters/lewis_character.glb",
     scale: 1.2,
+    images: {
+      landing: "/img/Adam-1-game-img.png",
+      registration: "/img/Adam-2-game-img.png",
+      story: "/img/Adam-3-game-img.png",
+    },
   },
   {
     id: 1,
     key: "louise_character",
     name: "Louise",
-    role: "Elite Specialist",
+    role: "Project Manager",
     url: "/assets/characters/louise_character.glb",
     scale: 1.2,
+    images: {
+      landing: "/img/Louise-1-game.png",
+      registration: "/img/Louise-2-game.png",
+      story: "/img/Louise-3-game.png",
+    },
   },
   // {
   //   id: 3,
@@ -539,18 +550,28 @@ export const CHARACTERS = [
   {
     id: 2,
     key: "npc_businessman",
-    name: "Ankit",
-    role: "Corporate Leader",
+    name: "Brian",
+    role: "Business Analyst",
     url: "/assets/characters/businessman_character_ankit_rigged.glb",
     scale: 1.2,
+    images: {
+      landing: "/img/Brian-1-game.png",
+      registration: "/img/Brian-2-game.png",
+      story: "/img/Brian-3-game.png",
+    },
   },
   {
     id: 3,
     key: "npc_indian_man",
-    name: "Rajat",
-    role: "Tech Professional",
+    name: "Jody",
+    role: "Quality Engineer",
     url: "/assets/characters/indian-man-with-suit.glb",
     scale: 1.2,
+    images: {
+      landing: "/img/Jody-1-game.png",
+      registration: "/img/Jody-2-game.png",
+      story: "/img/Jody-3-game.png",
+    },
   },
 ];
 
@@ -728,7 +749,7 @@ export const TV_ATTRACT_LINE_2 = "Try it yourself. Tap the tablet.";
 // practical goal "waits for input" is actually after.
 export const TUTORIAL_LEVEL_ID = 1;
 export const TUTORIAL_SPEED_MULTIPLIER = 0.45;
-export const TUTORIAL_DISTANCE = 200; // world units the slowdown + random-pattern suppression lasts, from tutorial start
+export const TUTORIAL_DISTANCE = 80; // world units the slowdown + random-pattern suppression lasts, from tutorial start
 // Chunk 3 sits at world z=-50 at tutorial start (activeZ=10, trackLength=20
 // -> chunk i starts at 10-20*i) -- close to FRAMING.lookAheadZ (45), the
 // same "nothing spawns closer than this" fairness distance normal
@@ -736,7 +757,7 @@ export const TUTORIAL_DISTANCE = 200; // world units the slowdown + random-patte
 // familiar amount of approach time rather than appearing right on top of
 // the player. Chunks 6 and 9 (z=-110, -170) space the next two ~60 units
 // apart -- several real seconds apiece at the slowed pace.
-export const TUTORIAL_CHUNK_INDICES = [3, 6, 9];
+export const TUTORIAL_CHUNK_INDICES = [2, 3, 4];
 export const TUTORIAL_PATTERN_SEQUENCE = [
   "solo-barricade-low",
   "solo-drone-low",
