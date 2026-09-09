@@ -35,6 +35,12 @@ import {
   updateLevelResult,
   updateMainDiscount,
 } from "./services/SheetService.js";
+import {
+  createPlayerSession,
+  recordLevelResult as recordFirebaseLevelResult,
+  recordMainDiscount as recordFirebaseMainDiscount,
+  recordFinalScore as recordFirebaseFinalScore,
+} from "./services/FirebaseService.js";
 
 // --- State Machine ---
 // LANDING, REGISTRATION, HOW_TO_PLAY, STORY_BEAT, LEVEL_INTRO, PLAYING, LEVEL_COMPLETE, BOSS_BEAT, OFFER_REVEAL, VICTORY, REDEMPTION
@@ -42,6 +48,7 @@ const gameState = ref("LANDING");
 
 // --- Game Data ---
 const userData = reactive({ name: "", company: "", email: "" });
+const currentSessionId = ref("");
 // Lives here (not inside Landing/CharacterSelect) because those components
 // fully remount every time gameState cycles back to 'LANDING' (e.g. after
 // restartGame()) -- App.vue is the one thing that persists for the whole
@@ -221,6 +228,17 @@ const saveScoreToLeaderboard = () => {
   leaderboard.sort((a, b) => Number(b.score) - Number(a.score));
   leaderboard = leaderboard.slice(0, 5);
   localStorage.setItem("chargeon_leaderboard", JSON.stringify(leaderboard));
+
+  // Sync to Firebase live leaderboard and session record
+  recordFirebaseFinalScore(
+    currentSessionId.value,
+    {
+      name: userData.name,
+      email: userData.email,
+      company: userData.company,
+    },
+    gameStats.score
+  );
 };
 
 const handleCollision = (hit) => {
@@ -327,7 +345,23 @@ const handleCollision = (hit) => {
     if (gameStats.lives <= 0) {
       saveScoreToLeaderboard();
       // Update the sheet: current level was Failed
-      updateLevelResult(userData.email, gameStats.currentLevelId, "Failed", "");
+      updateLevelResult(
+        userData.email,
+        gameStats.currentLevelId,
+        "Failed",
+        "",
+        "",
+        gameStats.score
+      );
+      // Update Firebase: current level was Failed
+      recordFirebaseLevelResult(
+        currentSessionId.value,
+        gameStats.currentLevelId,
+        "Failed",
+        "",
+        "",
+        gameStats.score
+      );
       gameState.value = "GAME_OVER";
       if (gameEngine) {
         gameEngine.setMode("DEFEAT");
@@ -409,6 +443,14 @@ const handleRegistration = (data) => {
   hasLostLifeAnyLevel.value = false;
   // Send registration data to Google Sheet (fire-and-forget, non-blocking)
   submitRegistration(userData.name, userData.company, userData.email);
+  // Send registration data to Firebase Firestore (dual-sync with exact timestamp)
+  createPlayerSession({
+    name: userData.name,
+    company: userData.company,
+    email: userData.email,
+  }).then((sessionId) => {
+    currentSessionId.value = sessionId;
+  });
   gameState.value = "HOW_TO_PLAY"; // After form submit, go to game
 };
 
@@ -429,13 +471,23 @@ const advanceLevel = () => {
 
   // Track won goodie to prevent duplicates in subsequent levels
   if (wonGoodie) wonGoodies.value.push(wonGoodie);
-  // Update the sheet: this level was Passed with the specific goodie won
+  // 1. Update the sheet: this level was Passed with the specific goodie won
   updateLevelResult(
     userData.email,
     gameStats.currentLevelId,
     "Passed",
     wonGoodie,
     wonDiscount,
+    gameStats.score,
+  );
+  // 2. Update Firestore: this level was Passed with exact completion timestamp
+  recordFirebaseLevelResult(
+    currentSessionId.value,
+    gameStats.currentLevelId,
+    "Passed",
+    wonGoodie,
+    wonDiscount,
+    gameStats.score,
   );
   if (gameStats.currentLevelId === 3) {
     if (!hasLostLifeAnyLevel.value && gameEngine?.scoreSystem) {
@@ -460,6 +512,7 @@ const advanceLevel = () => {
 // This is the moment the user has earned the 15% discount — write it to the sheet.
 const handleBossBeatNext = () => {
   updateMainDiscount(userData.email);
+  recordFirebaseMainDiscount(currentSessionId.value, "15% OFF");
   gameState.value = "OFFER_REVEAL";
 };
 

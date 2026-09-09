@@ -715,34 +715,10 @@ export class Engine {
         },
       ),
       loadFBXModel(
-        "npc_male_basic",
-        "/assets/characters/male-basic-walk-30-frames-loop/source/extracted/locom_m_basicWalk_30f.fbx",
-        (scene) => {
-          scene.scale.set(0.015, 0.015, 0.015);
-          return setupModel(scene);
-        },
-      ),
-      loadFBXModel(
         "npc_male_phone",
         "/assets/characters/male-phone-walking-40-frames-loop/source/extracted/locom_m_phoneWalking_40f.fbx",
         (scene) => {
           scene.scale.set(0.015, 0.015, 0.015);
-          return setupModel(scene);
-        },
-      ),
-      loadFBXModel(
-        "npc_male_slow",
-        "/assets/characters/male-slow-walk-40-frames-loop/source/extracted/locom_m_slowWalk_40f.fbx",
-        (scene) => {
-          scene.scale.set(0.015, 0.015, 0.015);
-          return setupModel(scene);
-        },
-      ),
-      loadModel(
-        "npc_ps1_male",
-        "/assets/characters/male_character_ps1-style.glb",
-        (scene) => {
-          scene.scale.set(1.3, 1.3, 1.3); // Increased scale as requested
           return setupModel(scene);
         },
       ),

@@ -1,11 +1,12 @@
 <script setup>
-import { ref, onMounted, inject } from "vue";
+import { ref, onMounted, onUnmounted, inject } from "vue";
 import { gsap } from "gsap";
 import { Swiper, SwiperSlide } from "swiper/vue";
 import { Navigation, EffectCards } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/effect-cards";
+import { subscribeToLeaderboard } from "../services/FirebaseService.js";
 
 import {
   TV_ATTRACT_LINE_1,
@@ -75,7 +76,10 @@ const rightPanelEl = ref(null);
 const bottomBarEl = ref(null);
 const leaderboardListEl = ref(null);
 
+let unsubscribeLeaderboard = null;
+
 onMounted(() => {
+  // 1. Initial cached render from localStorage (0 latency)
   const stored = localStorage.getItem("chargeon_leaderboard");
   if (stored) {
     try {
@@ -100,6 +104,20 @@ onMounted(() => {
     }));
   }
 
+  // 2. Real-time Firestore Live Leaderboard Subscription
+  unsubscribeLeaderboard = subscribeToLeaderboard((liveTopScores) => {
+    if (liveTopScores && liveTopScores.length > 0) {
+      leaderboard.value = liveTopScores;
+      // Sync local cache
+      try {
+        localStorage.setItem(
+          "chargeon_leaderboard",
+          JSON.stringify(liveTopScores)
+        );
+      } catch (err) {}
+    }
+  });
+
   const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
   tl.from(logoEl.value, { opacity: 0, y: -16, scale: 0.85, duration: 0.5 })
     .from(topStatsEl.value, { opacity: 0, y: -12, duration: 0.4 }, "-=0.3")
@@ -107,7 +125,7 @@ onMounted(() => {
     .from(rightPanelEl.value, { opacity: 0, x: 30, duration: 0.5 }, "<")
     .from(bottomBarEl.value, { opacity: 0, y: 20, duration: 0.4 }, "-=0.2");
 
-  if (leaderboardListEl.value) {
+  if (leaderboardListEl.value && leaderboardListEl.value.children && leaderboardListEl.value.children.length > 0) {
     gsap.from(leaderboardListEl.value.children, {
       opacity: 0,
       x: -15,
@@ -116,6 +134,12 @@ onMounted(() => {
       delay: 0.65,
       ease: "power2.out",
     });
+  }
+});
+
+onUnmounted(() => {
+  if (typeof unsubscribeLeaderboard === "function") {
+    unsubscribeLeaderboard();
   }
 });
 </script>
@@ -209,9 +233,9 @@ onMounted(() => {
       </div>
       <div class="profile-container">
         <div class="top-stats" ref="topStatsEl">
-          <div class="event-title">
+          <!-- <div class="event-title">
             Dreamforce 2026
-          </div>
+          </div> -->
           <button
             v-if="musicState"
             class="music-toggle-btn"
@@ -310,7 +334,7 @@ onMounted(() => {
             }"
             :grabCursor="true"
             :speed="500"
-            :loop="true"
+            :loop="false"
             :navigation="true"
             :modules="swiperModules"
             class="character-swiper"

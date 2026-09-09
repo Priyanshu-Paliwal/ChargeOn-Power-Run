@@ -29,20 +29,25 @@
  * ================================================================
  */
 
-const SHEET_NAME = 'ChargeOn Power Run Game Data';
+const SHEET_NAME = "ChargeOn Power Run Game Data";
 
-// Column positions (1-indexed)
+// Column positions (1-indexed matching the exact Google Sheet columns)
 const COL = {
-  FULL_NAME:     1,  // A
-  COMPANY_NAME:  2,  // B
-  EMAIL:         3,  // C
-  LEVEL_1:       4,  // D
-  LEVEL_1_GOODIE:5,  // E
-  LEVEL_2:       6,  // F
-  LEVEL_2_GOODIE:7,  // G
-  LEVEL_3:       8,  // H
-  LEVEL_3_GOODIE:9,  // I
-  MAIN_DISCOUNT: 10, // J
+  FULL_NAME: 1, // A: Full Name
+  COMPANY_NAME: 2, // B: Company Name
+  EMAIL: 3, // C: Email
+  LEVEL_1: 4, // D: Level 1 (Passed / Failed)
+  LEVEL_1_GOODIE: 5, // E: Level 1 Goodie
+  LEVEL_1_DISCOUNT: 6, // F: Level 1 Discount
+  LEVEL_2: 7, // G: Level 2 (Passed / Failed)
+  LEVEL_2_GOODIE: 8, // H: Level 2 Goodie
+  LEVEL_2_DISCOUNT: 9, // I: Level 2 Discount
+  LEVEL_3: 10, // J: Level 3 (Passed / Failed)
+  LEVEL_3_GOODIE: 11, // K: Level 3 Goodie
+  MAIN_DISCOUNT: 12, // L: Main Discount (15% OFF)
+  DATE_TIME: 13, // M: Registration Date & Time
+  SCORE: 14, // N: Final Score
+  COMPLETION_TIME: 15, // O: Completion Time
 };
 
 // Helper: find the 1-indexed row number for a given email. Returns -1 if not found.
@@ -51,7 +56,10 @@ function findRowByEmail(sheet, email) {
   if (lastRow < 2) return -1; // only header row exists
   const emailCol = sheet.getRange(2, COL.EMAIL, lastRow - 1, 1).getValues();
   for (let i = 0; i < emailCol.length; i++) {
-    if ((emailCol[i][0] + '').toLowerCase().trim() === (email + '').toLowerCase().trim()) {
+    if (
+      (emailCol[i][0] + "").toLowerCase().trim() ===
+      (email + "").toLowerCase().trim()
+    ) {
       return i + 2; // +2: skip 0-index + header row
     }
   }
@@ -61,86 +69,145 @@ function findRowByEmail(sheet, email) {
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(SHEET_NAME);
 
+    // Fallback: If sheet with SHEET_NAME is not found, use the first tab
     if (!sheet) {
-      return ContentService.createTextOutput(JSON.stringify({ error: 'Sheet not found: ' + SHEET_NAME }))
-        .setMimeType(ContentService.MimeType.JSON);
+      sheet = ss.getSheets()[0];
     }
 
-    if (data.action === 'register') {
+    if (!sheet) {
+      return ContentService.createTextOutput(
+        JSON.stringify({ error: "No active sheet found" }),
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (data.action === "register") {
       const targetRow = findRowByEmail(sheet, data.email);
+      const timestamp =
+        data.registeredAt || data.timestamp || new Date().toLocaleString();
 
       if (targetRow !== -1) {
-        // Email exists: update Name & Company, and reset all progression columns to blank
-        sheet.getRange(targetRow, COL.FULL_NAME).setValue(data.name || '');
-        sheet.getRange(targetRow, COL.COMPANY_NAME).setValue(data.company || '');
-        
+        // Email exists: update Name & Company & Timestamp, and reset all progression columns
+        sheet.getRange(targetRow, COL.FULL_NAME).setValue(data.name || "");
+        sheet
+          .getRange(targetRow, COL.COMPANY_NAME)
+          .setValue(data.company || "");
+        sheet.getRange(targetRow, COL.DATE_TIME).setValue(timestamp);
+        sheet.getRange(targetRow, COL.SCORE).setValue(0);
+
         const colsToClear = [
-          COL.LEVEL_1, COL.LEVEL_1_GOODIE,
-          COL.LEVEL_2, COL.LEVEL_2_GOODIE,
-          COL.LEVEL_3, COL.LEVEL_3_GOODIE,
-          COL.MAIN_DISCOUNT
+          COL.LEVEL_1,
+          COL.LEVEL_1_GOODIE,
+          COL.LEVEL_1_DISCOUNT,
+          COL.LEVEL_2,
+          COL.LEVEL_2_GOODIE,
+          COL.LEVEL_2_DISCOUNT,
+          COL.LEVEL_3,
+          COL.LEVEL_3_GOODIE,
+          COL.MAIN_DISCOUNT,
+          COL.COMPLETION_TIME,
         ];
-        
-        colsToClear.forEach(col => {
-          sheet.getRange(targetRow, col).setValue('');
+
+        colsToClear.forEach((col) => {
+          sheet.getRange(targetRow, col).setValue("");
         });
       } else {
-        // New user: create a new row (Main Discount is blank — set only after Level 3 is cleared)
+        // New user: append 15-column row matching the exact sheet layout
         sheet.appendRow([
-          data.name || '',
-          data.company || '',
-          data.email || '',
-          '', // Level 1 - filled after level completes
-          '', // Level 1 Goodie
-          '', // Level 2
-          '', // Level 2 Goodie
-          '', // Level 3
-          '', // Level 3 Goodie
-          '', // Main Discount - intentionally blank at registration
+          data.name || "", // A: Full Name
+          data.company || "", // B: Company Name
+          data.email || "", // C: Email
+          "", // D: Level 1
+          "", // E: Level 1 Goodie
+          "", // F: Level 1 Discount
+          "", // G: Level 2
+          "", // H: Level 2 Goodie
+          "", // I: Level 2 Discount
+          "", // J: Level 3
+          "", // K: Level 3 Goodie
+          "", // L: Main Discount
+          timestamp, // M: Registration Date & Time
+          0, // N: Score
+          "", // O: Completion Time
         ]);
       }
-
-    } else if (data.action === 'updateLevel') {
-      // Find the row with matching email and update level columns
+    } else if (data.action === "updateLevel") {
       const targetRow = findRowByEmail(sheet, data.email);
 
       if (targetRow === -1) {
-        return ContentService.createTextOutput(JSON.stringify({ error: 'Email not found: ' + data.email }))
-          .setMimeType(ContentService.MimeType.JSON);
+        return ContentService.createTextOutput(
+          JSON.stringify({ error: "Email not found: " + data.email }),
+        ).setMimeType(ContentService.MimeType.JSON);
       }
 
       const level = parseInt(data.level);
-      const statusCol = level === 1 ? COL.LEVEL_1       : level === 2 ? COL.LEVEL_2       : COL.LEVEL_3;
-      const goodieCol = level === 1 ? COL.LEVEL_1_GOODIE : level === 2 ? COL.LEVEL_2_GOODIE : COL.LEVEL_3_GOODIE;
+      const timestamp = data.timestamp || new Date().toLocaleString();
 
-      sheet.getRange(targetRow, statusCol).setValue(data.status || '');
-      sheet.getRange(targetRow, goodieCol).setValue(data.goodie || '');
+      if (level === 1) {
+        sheet.getRange(targetRow, COL.LEVEL_1).setValue(data.status || "");
+        sheet
+          .getRange(targetRow, COL.LEVEL_1_GOODIE)
+          .setValue(data.goodie || "");
+        sheet
+          .getRange(targetRow, COL.LEVEL_1_DISCOUNT)
+          .setValue(data.discount || "");
+      } else if (level === 2) {
+        sheet.getRange(targetRow, COL.LEVEL_2).setValue(data.status || "");
+        sheet
+          .getRange(targetRow, COL.LEVEL_2_GOODIE)
+          .setValue(data.goodie || "");
+        sheet
+          .getRange(targetRow, COL.LEVEL_2_DISCOUNT)
+          .setValue(data.discount || "");
+      } else if (level === 3) {
+        sheet.getRange(targetRow, COL.LEVEL_3).setValue(data.status || "");
+        sheet
+          .getRange(targetRow, COL.LEVEL_3_GOODIE)
+          .setValue(data.goodie || "");
+      }
 
-    } else if (data.action === 'updateDiscount') {
-      // Called only when user completes ALL 3 levels and earns the 15% discount
+      // Update Score
+      if (data.score != null) {
+        sheet.getRange(targetRow, COL.SCORE).setValue(data.score);
+      }
+
+      // If level failed or level 3 completed, record Completion Time in Column O
+      if (data.status === "Failed" || level === 3) {
+        sheet.getRange(targetRow, COL.COMPLETION_TIME).setValue(timestamp);
+      }
+    } else if (data.action === "updateDiscount") {
+      // Called when user completes all 3 levels
       const targetRow = findRowByEmail(sheet, data.email);
 
       if (targetRow === -1) {
-        return ContentService.createTextOutput(JSON.stringify({ error: 'Email not found: ' + data.email }))
-          .setMimeType(ContentService.MimeType.JSON);
+        return ContentService.createTextOutput(
+          JSON.stringify({ error: "Email not found: " + data.email }),
+        ).setMimeType(ContentService.MimeType.JSON);
       }
 
-      sheet.getRange(targetRow, COL.MAIN_DISCOUNT).setValue(data.discount || '15% OFF');
+      const timestamp =
+        data.completedAt || data.timestamp || new Date().toLocaleString();
+      sheet
+        .getRange(targetRow, COL.MAIN_DISCOUNT)
+        .setValue(data.discount || "15% OFF");
+      sheet.getRange(targetRow, COL.COMPLETION_TIME).setValue(timestamp);
     }
 
-    return ContentService.createTextOutput(JSON.stringify({ ok: true }))
-      .setMimeType(ContentService.MimeType.JSON);
-
+    return ContentService.createTextOutput(
+      JSON.stringify({ ok: true }),
+    ).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(
+      JSON.stringify({ error: err.message }),
+    ).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
 // GET handler for health check / testing
 function doGet(e) {
-  return ContentService.createTextOutput('ChargeOn Power Run Game — Sheets API is live ✅')
-    .setMimeType(ContentService.MimeType.TEXT);
+  return ContentService.createTextOutput(
+    "ChargeOn Power Run Game — Sheets API is live ✅",
+  ).setMimeType(ContentService.MimeType.TEXT);
 }
