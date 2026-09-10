@@ -37,27 +37,18 @@ onUnmounted(() => {
 <template>
   <div class="overlay">
     <div class="card">
-      <svg
-        class="icon-header"
-        viewBox="0 0 24 24"
-        width="56"
-        height="56"
-        style="
-          margin: 0 auto 10px;
-          filter: drop-shadow(0 0 15px rgba(244, 199, 117, 0.6));
-        "
-      >
+      <svg class="icon-header" viewBox="0 0 24 24" width="56" height="56">
         <path
           d="M12 2L15 9L22 9L16 14L18 21L12 17L6 21L8 14L2 9L9 9L12 2Z"
           fill="none"
-          stroke="#F4C775"
+          stroke="#FACC15"
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
         />
-        <circle cx="12" cy="12" r="3" fill="#F4C775" />
+        <circle cx="12" cy="12" r="3" fill="#FACC15" />
       </svg>
-      <h2 class="text-navy">Show This to Our Team</h2>
+      <h2 class="title-main">SHOW THIS TO OUR TEAM</h2>
       <p class="subtitle">Here's what you earned:</p>
 
       <div class="goodies-list">
@@ -88,13 +79,15 @@ onUnmounted(() => {
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2z" />
           <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
-        Return to Start
+        RETURN TO START
       </button>
     </div>
   </div>
 </template>
 
 <style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800;900&display=swap");
+
 .overlay {
   position: fixed !important;
   z-index: 9999 !important;
@@ -104,136 +97,132 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgb(0 0 0 / 55%);
-  backdrop-filter: blur(15px) !important;
-  -webkit-backdrop-filter: blur(15px) !important;
-  font-family: "Poppins", sans-serif;
+  background: rgb(0 0 0 / 65%);
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 
 .card {
-  background: linear-gradient(
-    135deg,
-    rgb(0 0 0 / 50%) 0%,
-    rgb(0 0 0 / 5%) 100%
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow:
-    0px 4px 45px 0px rgba(0, 0, 0, 0.45),
-    inset 0 1px 2px rgb(0 0 0 / 50%);
-  padding: 25px;
-  border-radius: 12px;
+  background: rgba(12, 16, 25, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0px 4px 45px 0px rgba(0, 0, 0, 0.45);
+  padding: 35px 30px;
+  border-radius: 16px;
   text-align: center;
   color: #fff;
-  width: 400px;
+  width: 440px;
   max-width: 90%;
+  animation: floatIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@keyframes floatIn {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .icon-header {
-  margin-bottom: 15px;
+  margin: 0 auto 15px;
+  filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.3));
 }
 
-h2 {
-  font-family: "Goldman", sans-serif;
-  font-size: 1.6rem;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #f4c775;
+.title-main {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 24px;
+  font-weight: 900;
+  margin-top: 0;
+  margin-bottom: 5px;
+  letter-spacing: 0.65px;
+  color: #facc15;
+  text-transform: uppercase;
+  line-height: 1.3;
 }
 
 .subtitle {
-  color: #ccc;
-  margin-bottom: 15px;
-  font-size: 0.95rem;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+  color: #cbd5e1;
+  margin-bottom: 20px;
 }
 
 .goodies-list {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  background: rgba(8, 13, 22, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 15px 20px;
+  border-radius: 12px;
+  margin-bottom: 25px;
   text-align: left;
+  width: 100%;
 }
 
 .goodie-item {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #fff;
-  text-transform: capitalize;
-  margin: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  padding-bottom: 8px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #ffffff;
+  margin: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.goodie-item:first-child {
+  padding-top: 5px;
 }
 
 .goodie-item:last-child {
   border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
+  padding-bottom: 5px;
 }
 
 .footer-note {
-  font-weight: 600;
-  color: #fff;
-  font-size: 0.95rem;
-  margin-bottom: 20px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 13px;
+  margin-top: 0;
+  margin-bottom: 25px;
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, #6fa6e0 0%, #1561b1 100%);
-  color: #fff;
-  border: none;
-  padding: 12px 25px;
-  border-radius: 8px;
-  font-family: "Goldman", sans-serif;
-  font-weight: 400;
-  font-size: 1.2rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  cursor: pointer;
   width: 100%;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s;
+  height: 54px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 50%, #2563eb 100%);
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  box-shadow:
+    inset 0px 1px 0px 1px rgba(255, 255, 255, 0.3),
+    0px 4px 20px 0px rgba(37, 99, 235, 0.45);
+  color: #fff;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
+  transition: all 0.2s;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(180deg, #81b4e9 0%, #1a71cd 100%);
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 50%, #3b82f6 100%);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
 .btn-primary:active {
   transform: translateY(0);
-}
-
-@media (max-width: 1024px) {
-  .card {
-    padding: 15px;
-  }
-}
-
-@media (max-width: 600px) {
-  .card {
-    min-width: auto;
-    width: 90%;
-    padding: 15px;
-  }
-
-  h2 {
-    font-size: 1.4rem;
-  }
-
-  .confetti-placeholder {
-    font-size: 2rem;
-  }
-
-  .goodie-item {
-    font-size: 1rem;
-  }
 }
 </style>

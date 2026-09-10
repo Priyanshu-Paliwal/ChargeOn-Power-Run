@@ -21,26 +21,17 @@ onUnmounted(() => {
 <template>
   <div class="overlay">
     <div class="card">
-      <svg
-        class="icon-header"
-        viewBox="0 0 24 24"
-        width="56"
-        height="56"
-        style="
-          margin: 0 auto 10px;
-          filter: drop-shadow(0 0 15px rgba(244, 199, 117, 0.6));
-        "
-      >
+      <svg class="icon-header" viewBox="0 0 24 24" width="56" height="56">
         <path
           d="M8 21h8m-4-4v4m-5.4-8.6C3.9 11.2 3 9.7 3 8c0-3 2-4 2-4h14s2 1 2 4c0 1.7-.9 3.2-2.6 4.4M12 17c3 0 6-2 6-5V4H6v8c0 3 3 5 6 5z"
           fill="none"
-          stroke="#F4C775"
+          stroke="#FACC15"
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
         />
       </svg>
-      <h2 class="text-navy">Run Complete.</h2>
+      <h2 class="title-main">RUN COMPLETE.</h2>
       <p class="subtitle">54 / 54 features collected.</p>
 
       <div class="reinforce-box">
@@ -51,7 +42,7 @@ onUnmounted(() => {
       </div>
 
       <button class="btn-primary" @click="emit('next')">
-        Claim My Prizes
+        CLAIM MY PRIZES
         <svg
           class="btn-icon"
           viewBox="0 0 24 24"
@@ -73,6 +64,8 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800;900&display=swap");
+
 .overlay {
   position: fixed !important;
   z-index: 9999 !important;
@@ -82,111 +75,121 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgb(0 0 0 / 55%);
-  backdrop-filter: blur(15px) !important;
-  -webkit-backdrop-filter: blur(15px) !important;
-  font-family: "Poppins", sans-serif;
+  background: rgb(0 0 0 / 65%);
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
+
 .card {
-  background: linear-gradient(
-    135deg,
-    rgb(0 0 0 / 50%) 0%,
-    rgb(0 0 0 / 5%) 100%
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow:
-    0px 4px 45px 0px rgba(0, 0, 0, 0.45),
-    inset 0 1px 2px rgb(0 0 0 / 50%);
-  padding: 25px;
-  border-radius: 12px;
+  background: rgba(12, 16, 25, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0px 4px 45px 0px rgba(0, 0, 0, 0.45);
+  padding: 35px 30px;
+  border-radius: 16px;
   text-align: center;
   color: #fff;
-  width: 400px;
+  width: 440px;
   max-width: 90%;
+  animation: floatIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
-h2 {
-  font-family: "Goldman", sans-serif;
-  font-size: 1.8rem;
-  font-weight: 600;
+
+@keyframes floatIn {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.icon-header {
+  margin: 0 auto 10px;
+  filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.3));
+}
+
+.title-main {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 26px;
+  font-weight: 900;
+  margin-top: 0;
   margin-bottom: 5px;
-  color: #f4c775;
-}
-.subtitle {
-  font-size: 1rem;
-  color: #ccc;
-  margin-bottom: 15px;
-}
-.reinforce-box {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  text-align: left;
-}
-.reinforce-box p {
-  font-weight: 600;
-  margin: 5px 0;
-  color: #fff;
-  font-size: 0.95rem;
-}
-.reinforce-box p::before {
-  content: "✓ ";
-  color: #f4c775;
-  font-weight: bold;
-}
-.btn-primary {
-  background: linear-gradient(180deg, #6fa6e0 0%, #1561b1 100%);
-  color: #fff;
-  border: none;
-  padding: 12px 25px;
-  border-radius: 8px;
-  font-family: "Goldman", sans-serif;
-  font-weight: 400;
-  font-size: 1.2rem;
+  letter-spacing: 0.65px;
+  color: #facc15;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  cursor: pointer;
+  line-height: 1.3;
+}
+
+.subtitle {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+  color: #cbd5e1;
+  margin-bottom: 20px;
+}
+
+.reinforce-box {
+  background: rgba(8, 13, 22, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  text-align: left;
   width: 100%;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s;
+}
+
+.reinforce-box p {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  margin: 8px 0;
+  color: #ffffff;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+}
+
+.reinforce-box p::before {
+  content: "✓";
+  color: #facc15;
+  font-weight: 900;
+  margin-right: 8px;
+}
+
+.btn-primary {
+  width: 100%;
+  height: 54px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 50%, #2563eb 100%);
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  box-shadow:
+    inset 0px 1px 0px 1px rgba(255, 255, 255, 0.3),
+    0px 4px 20px 0px rgba(37, 99, 235, 0.45);
+  color: #fff;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
+  transition: all 0.2s;
 }
+
 .btn-primary:hover {
-  background: linear-gradient(180deg, #81b4e9 0%, #1a71cd 100%);
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 50%, #3b82f6 100%);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
+
 .btn-primary:active {
   transform: translateY(0);
-}
-
-@media (max-width: 1024px) {
-  .card {
-    padding: 15px;
-  }
-}
-
-@media (max-width: 600px) {
-  .card {
-    min-width: auto;
-    width: 90%;
-    padding: 15px;
-  }
-  h2 {
-    font-size: 1.5rem;
-  }
-  .subtitle {
-    font-size: 0.9rem;
-  }
-  .btn-primary {
-    font-size: 1rem;
-    padding: 10px;
-  }
 }
 </style>

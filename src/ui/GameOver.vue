@@ -3,12 +3,6 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { gsap } from "gsap";
 import { levels } from "../data/GameContent.js";
 
-// Copy note: the content script has no dedicated "Run Failed" screen
-// section at all (it covers Level Complete, Boss Beat, Victory, Redemption,
-// but never a game-over case) -- the header/body text below predates this
-// milestone and isn't sourced from the script. Flagged in
-// docs/PROCESS_TRACKER.md for a marketing pass, not rewritten here; this
-// milestone's job was the STRUCTURE (stat summary, recap, retry), not copy.
 const props = defineProps({ stats: Object });
 const emit = defineEmits(["retry"]);
 
@@ -18,7 +12,7 @@ const collectedCount = computed(
 );
 
 const displayScore = ref(0);
-const chipsEl = ref(null);
+const featuresListEl = ref(null);
 const _scoreTween = { value: 0 };
 
 const handleKeyDown = (e) => {
@@ -35,13 +29,13 @@ onMounted(() => {
     ease: "power2.out",
     onUpdate: () => (displayScore.value = Math.round(_scoreTween.value)),
   });
-  if (chipsEl.value) {
-    gsap.from(chipsEl.value.children, {
+  if (featuresListEl.value) {
+    gsap.from(featuresListEl.value.children, {
       opacity: 0,
-      y: 10,
+      x: 20,
       duration: 0.3,
-      stagger: 0.025,
-      delay: 0.3,
+      stagger: 0.05,
+      delay: 0.2,
     });
   }
 
@@ -55,70 +49,120 @@ onUnmounted(() => {
 
 <template>
   <div class="game-over-overlay">
-    <div class="game-over-card">
-      <svg class="icon-header" viewBox="0 0 24 24" width="48" height="48" style="margin: 0 auto; filter: drop-shadow(0 0 10px rgba(231,76,60,0.5));">
-        <path d="M12 2L22 20H2L12 2Z" fill="none" stroke="#e74c3c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <line x1="12" y1="9" x2="12" y2="13" stroke="#e74c3c" stroke-width="2" stroke-linecap="round"/>
-        <circle cx="12" cy="17" r="1.5" fill="#e74c3c"/>
-      </svg>
-      <h1 class="title">RUN FAILED</h1>
-      <p class="desc">
-        Too many payment blockers slowed you down. Reboot your systems and try
-        again.
-      </p>
-
-      <div class="stat-row">
-        <div class="stat">
-          <div class="stat-value">{{ displayScore }}</div>
-          <div class="stat-label">Score</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value">{{ stats?.currentLevelId || 1 }}</div>
-          <div class="stat-label">Level Reached</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value">
-            {{ collectedCount }} / {{ TOTAL_FEATURES }}
-          </div>
-          <div class="stat-label">Features Collected</div>
-        </div>
-      </div>
-
-      <div v-if="collectedCount > 0" class="recap">
-        <h3>Features Collected</h3>
-        <div class="recap-chips" ref="chipsEl">
-          <div
-            v-for="feature in stats.featuresCollected"
-            :key="feature.name"
-            class="feature-chip"
-            :class="
-              feature.category === 'Admin' ? 'admin-chip' : 'business-chip'
-            "
-          >
-            {{ feature.name }}
-          </div>
-        </div>
-      </div>
-
-      <button class="btn-primary" @click="emit('retry')">
-        <svg class="btn-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <polyline points="1 4 1 10 7 10" />
-          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+    <div class="card two-column-card">
+      <!-- LEFT COLUMN -->
+      <div class="column-left">
+        <svg class="icon-header" width="49" height="49" viewBox="0 0 49 49" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24.5" cy="24.5" r="22.9923" stroke="#DC5C53" stroke-width="3.01538"/>
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M24.2881 13.5231C23.5064 13.7103 22.8856 14.1082 22.4534 14.6991C22.2285 15.0065 14.4961 29.0903 14.3805 29.403C14.1781 29.9506 14.1576 30.6575 14.3267 31.2602C14.53 31.9842 15.1589 32.7366 15.8396 33.0699C16.575 33.4299 15.8727 33.4039 24.877 33.4039C33.8892 33.4039 33.1779 33.4305 33.9218 33.0662C35.0104 32.5331 35.6744 31.2775 35.5203 30.0437C35.4949 29.8411 35.4297 29.5549 35.3753 29.4076C35.2592 29.0937 27.5298 15.0131 27.2995 14.6959C26.7541 13.945 25.9337 13.521 24.9712 13.4925C24.6992 13.4845 24.3917 13.4982 24.2881 13.5231ZM24.4155 15.6003C24.3041 15.6555 24.1636 15.7668 24.1032 15.8476C23.975 16.0194 16.4849 29.6304 16.3123 30.0053C16.1269 30.4078 16.2089 30.8067 16.5444 31.1347C16.8583 31.4416 16.3856 31.4251 24.877 31.4251C31.5341 31.4251 32.6188 31.4156 32.8208 31.3556C33.3487 31.1988 33.6603 30.6215 33.4867 30.1215C33.4092 29.8982 25.8201 16.0743 25.6499 15.8465C25.4017 15.5141 24.8229 15.3987 24.4155 15.6003ZM24.4723 19.4281C24.2631 19.5228 23.9891 19.8223 23.9317 20.019C23.8995 20.1295 23.8874 20.974 23.8968 22.4574L23.9111 24.7267L24.0546 24.9309C24.4626 25.512 25.2914 25.512 25.6995 24.9309L25.8429 24.7266V22.359V19.9915L25.7141 19.8071C25.5065 19.5099 25.2913 19.3916 24.9293 19.3758C24.7355 19.3674 24.5629 19.3871 24.4723 19.4281ZM24.6575 27.4173C23.8759 27.6088 23.6222 28.5967 24.2168 29.1339C24.8944 29.746 25.933 29.2125 25.8566 28.2915C25.8084 27.7112 25.2172 27.2801 24.6575 27.4173Z" fill="#DC5C53"/>
         </svg>
-        TRY AGAIN
-      </button>
+        <h2 class="title-main">RUN FAILED!</h2>
+        <p class="desc">
+          Too many payment blockers slowed you down.<br/>Reboot your systems and try again
+        </p>
+
+        <div class="stats-block">
+          <div class="stat-item">
+            <div class="stat-icon">
+              <!-- Trophy Icon -->
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="#FACC15">
+                <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.002 5.002 0 0 0 11 17.9V19H7v2h10v-2h-4v-1.1a5.002 5.002 0 0 0 3.61-4.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/>
+              </svg>
+            </div>
+            <div class="stat-value">{{ displayScore }}</div>
+            <div class="stat-label">SCORE</div>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <div class="stat-icon">
+              <!-- Level Reached Icon -->
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="#3B82F6">
+                <path d="M16 4h-2V2h-4v2H8v2h8V4zm-4 8h-4v2h4v-2zm-4 4H4v2h4v-2zm12-4h-4v2h4v-2zm-4-8h-4v2h4V4z"/>
+              </svg>
+            </div>
+            <div class="stat-value">{{ stats?.currentLevelId || 1 }}</div>
+            <div class="stat-label">LEVEL REACHED</div>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <div class="stat-icon">
+              <!-- Features Icon -->
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="#A855F7">
+                <path d="M12 2l-5.5 9h11L12 2zm0 3.84L13.93 9h-3.86L12 5.84zM2 22h20l-5-9H7l-5 9zm5.35-7h9.3l3.33 6H4.02l3.33-6z"/>
+              </svg>
+            </div>
+            <div class="stat-value">{{ collectedCount }} / {{ TOTAL_FEATURES }}</div>
+            <div class="stat-label">FEATURES COLLECTED</div>
+          </div>
+        </div>
+
+        <button class="btn-primary" @click="emit('retry')">
+          RETURN TO LEADER BOARD 
+          <svg
+            class="btn-icon"
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            fill="none"
+          >
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div class="column-right">
+        <h3 class="features-heading">FEATURES COLLECTED ({{ collectedCount }})</h3>
+        
+        <div class="features-list" ref="featuresListEl" v-if="collectedCount > 0">
+          <div
+            v-for="(feature, idx) in stats.featuresCollected"
+            :key="idx"
+            class="feature-row"
+            :class="{ 'row-odd': idx % 2 === 0, 'row-even': idx % 2 !== 0 }"
+          >
+            <span>{{ feature.name }}</span>
+            <div class="check-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" fill="#10B981" />
+                <path d="M7.5 12.5L10.5 15.5L16.5 8.5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div v-else class="features-list" style="justify-content: center; align-items: center; color: #888;">
+          No features collected yet.
+        </div>
+
+        <!-- Still in the running -->
+        <div class="eligibility-box">
+          <img src="/img/run-failed-airpod-img.png" alt="Airpods" class="eligibility-img" />
+          <div class="eligibility-content">
+            <div class="eligibility-title">YOU ARE STILL ELIGIBLE FOR THE EXCLUSIVE GIFT OR AIRPODS</div>
+            <div class="eligibility-desc">
+              Post your run on LinkedIn, tag Cyntexa, and attach your booth selfie. <span class="highlight-gold">Highest engagement wins an exclusive gift!</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800;900&family=Chakra+Petch:wght@700&family=Inter:wght@700&family=Goldman&display=swap");
+
 .game-over-overlay {
   position: fixed !important;
   z-index: 9999 !important;
   transform: translateZ(0);
   width: 100%;
   height: 100%;
-  background: rgba(4, 20, 40, 0.65);
+  background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(15px) !important;
   -webkit-backdrop-filter: blur(15px) !important;
   display: flex;
@@ -126,34 +170,22 @@ onUnmounted(() => {
   align-items: center;
   padding: 20px;
   box-sizing: border-box;
-  font-family: "Poppins", sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 
-.game-over-card {
-  background: linear-gradient(
-    135deg,
-    rgb(0 0 0 / 50%) 0%,
-    rgb(0 0 0 / 5%) 100%
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow:
-    0px 4px 45px 0px rgba(0, 0, 0, 0.45),
-    inset 0 1px 2px rgb(0 0 0 / 50%);
-  padding: 25px;
-  border-radius: 12px;
-  text-align: center;
-  width: 440px;
-  max-width: 100%;
-  max-height: 100%;
-  overflow-y: auto;
-  color: #fff;
-  border-top: 5px solid #e74c3c;
-  animation: dropIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+.card.two-column-card {
+  width: 940px;
+  height: 504px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 4px solid #8E0808;
+  border-radius: 16px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  padding: 30px;
+  gap: 30px;
+  box-sizing: border-box;
+  color: #fff;
+  animation: dropIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 @keyframes dropIn {
@@ -167,173 +199,272 @@ onUnmounted(() => {
   }
 }
 
-.title {
-  font-family: "Goldman", sans-serif;
-  font-size: 1.6rem;
-  font-weight: 600;
-  color: #e74c3c;
+/* LEFT COLUMN */
+.column-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.icon-header {
   margin-bottom: 10px;
-  letter-spacing: 1px;
+}
+
+.title-main {
+  font-family: "Goldman", sans-serif;
+  font-weight: 400;
+  font-size: 28.73px;
+  color: #DC5C53;
+  margin: 0 0 10px 0;
+  text-transform: uppercase;
+  line-height: 100%;
 }
 
 .desc {
-  font-size: 0.95rem;
-  color: #ccc;
-  line-height: 1.5;
-  margin-bottom: 20px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 16px;
+  color: #E2E8F0;
+  margin: 0 0 30px 0;
+  max-width: 380px;
+  text-align: center;
 }
 
-.stat-row {
+/* STATS BLOCK */
+.stats-block {
+  width: 432px;
+  height: 97px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px;
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  padding: 14px 10px;
-  margin-bottom: 18px;
+  align-items: center;
+  margin-bottom: 30px;
+  box-sizing: border-box;
 }
 
-.stat {
+.stat-item {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.stat-icon {
+  margin-bottom: 2px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 50px;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .stat-value {
-  font-family: "Goldman", sans-serif;
-  font-weight: 800;
-  font-size: 1.3rem;
-  color: #f4c775;
+  font-family: "Chakra Petch", sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 28px;
+  letter-spacing: -0.5px;
+  color: #FFFFFF;
 }
 
 .stat-label {
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 15px;
   letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: #ccc;
-  margin-top: 2px;
-}
-
-.recap {
-  text-align: left;
-  margin-bottom: 20px;
-}
-
-.recap h3 {
-  font-family: "Goldman", sans-serif;
-  font-size: 0.85rem;
-  letter-spacing: 1px;
-  color: #f4c775;
-  margin-bottom: 10px;
+  color: #94A3B8;
   text-transform: uppercase;
 }
 
-.recap-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-height: 130px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.feature-chip {
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #fff;
-  white-space: nowrap;
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.feature-chip:hover {
-  transform: translateY(-2px);
-}
-
-.admin-chip {
-  background: linear-gradient(135deg, rgba(244, 199, 117, 0.8) 0%, rgba(200, 160, 90, 0.9) 100%);
-  color: #042c53;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-.business-chip {
-  background: linear-gradient(135deg, rgba(111, 166, 224, 0.6) 0%, rgba(21, 97, 177, 0.8) 100%);
-  border: 1px solid rgba(111, 166, 224, 0.4);
-}
-
+/* BUTTON */
 .btn-primary {
-  background: linear-gradient(180deg, #6fa6e0 0%, #1561b1 100%);
-  color: #fff;
-  border: none;
-  padding: 12px 25px;
-  border-radius: 8px;
-  font-family: "Goldman", sans-serif;
-  font-weight: 400;
-  font-size: 1.2rem;
+  width: 435px;
+  height: 54px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #2563EB 0%, #3B82F6 50%, #2563EB 100%);
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  box-shadow: inset 0px 1px 0px 1px rgba(255, 255, 255, 0.3), 0px 4px 20px 0px rgba(37, 99, 235, 0.45);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0.8px;
+  color: #FFFFFF;
   text-transform: uppercase;
-  letter-spacing: 1px;
   cursor: pointer;
-  width: 100%;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
 }
+
 .btn-primary:hover {
-  background: linear-gradient(180deg, #81b4e9 0%, #1a71cd 100%);
+  background: linear-gradient(90deg, #3B82F6 0%, #60A5FA 50%, #3B82F6 100%);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
+
 .btn-primary:active {
   transform: translateY(0);
 }
 
-@media (max-width: 1024px) {
-  .game-over-card {
-    padding: 15px;
-  }
+/* RIGHT COLUMN */
+.column-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
 }
 
-@media (max-width: 600px) {
-  .game-over-card {
-    margin: 15px;
-    padding: 15px;
-  }
-  .title {
-    font-size: 1.4rem;
-  }
-  .desc {
-    font-size: 0.9rem;
-  }
-  .stat-value {
-    font-size: 1.1rem;
-  }
-  .btn-primary {
-    padding: 10px 15px;
-    font-size: 1rem;
-  }
+.features-heading {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 16px;
+  letter-spacing: 0.65px;
+  color: #FFFFFF;
+  text-transform: uppercase;
+  margin: 0 0 15px 0;
 }
 
-@media (max-height: 600px) {
-  .desc {
-    margin-bottom: 10px;
+.features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  width: 100%;
+  overflow-y: auto;
+  margin-bottom: 20px;
+  padding-right: 5px;
+}
+
+.features-list::-webkit-scrollbar {
+  width: 6px;
+}
+.features-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.feature-row {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.row-odd {
+  background: #282929;
+  box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+}
+
+.row-even {
+  background: #6D6D6D;
+  border: 1px solid rgba(30, 58, 138, 0.4);
+  box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+}
+
+.feature-row span {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #FFFFFF;
+}
+
+.check-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ELIGIBILITY BOX */
+.eligibility-box {
+  width: 100%;
+  height: 100px;
+  border-radius: 12px;
+  background: rgba(8, 13, 22, 0.95);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  box-shadow: inset 0px 2px 4px 1px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  box-sizing: border-box;
+  gap: 15px;
+}
+
+.eligibility-img {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+}
+
+.eligibility-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.eligibility-title {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 14px;
+  letter-spacing: 0.3px;
+  color: #FACC15;
+  text-transform: uppercase;
+}
+
+.eligibility-desc {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 400;
+  font-size: 11px;
+  line-height: 14px;
+  color: #E2E8F0;
+}
+
+.highlight-gold {
+  color: #FACC15;
+  font-weight: 600;
+}
+
+@media (max-width: 800px) {
+  .card.two-column-card {
+    flex-direction: column;
+    height: auto;
+    max-height: 95vh;
+    padding: 20px;
+    gap: 20px;
+    overflow-y: auto;
   }
-  .stat-row {
-    padding: 8px;
-    margin-bottom: 10px;
+  .column-left, .column-right {
+    width: 100%;
   }
-  .recap {
-    margin-bottom: 10px;
+  .stats-block, .btn-primary {
+    width: 100%;
   }
-  .recap-chips {
-    max-height: 70px;
+  .features-list {
+    max-height: 150px;
+  }
+  .eligibility-box {
+    height: auto;
   }
 }
 </style>
-

@@ -6,13 +6,11 @@ import HowToPlay from "./ui/HowToPlay.vue";
 import StoryBeat from "./ui/StoryBeat.vue";
 import GameHUD from "./ui/GameHUD.vue";
 import LevelComplete from "./ui/LevelComplete.vue";
-import BossBeat from "./ui/BossBeat.vue";
 import OfferReveal from "./ui/OfferReveal.vue";
 import Victory from "./ui/Victory.vue";
 import Redemption from "./ui/Redemption.vue";
 import GameOver from "./ui/GameOver.vue";
 import PauseMenu from "./ui/PauseMenu.vue";
-import IdlePrompt from "./ui/IdlePrompt.vue";
 
 import { Engine } from "./game/core/Engine.js";
 import { levels } from "./data/GameContent.js";
@@ -23,8 +21,6 @@ import {
   HIT_VIGNETTE_INTENSITY,
   POWERUP_VIGNETTE_COLORS,
   POWERUP_VIGNETTE_INTENSITY,
-  IDLE_PROMPT_MS,
-  IDLE_RESET_MS,
   POWER_UPS,
 } from "./game/config/GameConfig.js";
 import { audioManager } from "./game/systems/AudioManager.js";
@@ -168,42 +164,6 @@ const handleVisibilityChange = () => {
   if (document.hidden) pauseGame();
 };
 
-// --- Idle timeout (Milestone 9, booth tablet only) ---
-// Global, not tied to any one screen -- a visitor can walk away mid-
-// Registration just as easily as mid-run. Gated to the tablet size classes
-// (the booth device) and never fires on the Lobby itself (already the
-// reset state -- see GameConfig.js's IDLE_PROMPT_MS comment).
-const showIdlePrompt = ref(false);
-let _lastActivityAt = Date.now();
-let _idleCheckHandle = null;
-
-const isBoothTablet = () => {
-  const sizeClass = viewportManager.getState()?.sizeClass;
-  return sizeClass === "tablet-portrait" || sizeClass === "tablet-landscape";
-};
-
-const recordActivity = () => {
-  _lastActivityAt = Date.now();
-  if (showIdlePrompt.value) showIdlePrompt.value = false;
-};
-
-const checkIdle = () => {
-  if (gameState.value === "LANDING" || !isBoothTablet()) {
-    if (showIdlePrompt.value) showIdlePrompt.value = false;
-    return;
-  }
-  const idleFor = Date.now() - _lastActivityAt;
-  if (!showIdlePrompt.value && idleFor >= IDLE_PROMPT_MS) {
-    showIdlePrompt.value = true;
-  } else if (
-    showIdlePrompt.value &&
-    idleFor >= IDLE_PROMPT_MS + IDLE_RESET_MS
-  ) {
-    showIdlePrompt.value = false;
-    quitToLobby();
-  }
-};
-
 const addPopup = (text, type, isExclusive) => {
   gameStats.toastFeed.push({
     id: Date.now() + Math.random(),
@@ -262,7 +222,10 @@ const handleCollision = (hit) => {
       (l) => l.id === gameStats.currentLevelId,
     );
     const nextFeature = currentLevelData.features.find(
-      (f) => !gameStats.featuresCollected.some((fc) => fc.name === f.name && fc.category === f.category),
+      (f) =>
+        !gameStats.featuresCollected.some(
+          (fc) => fc.name === f.name && fc.category === f.category,
+        ),
     );
 
     if (nextFeature) {
@@ -412,9 +375,6 @@ onMounted(() => {
 
   window.addEventListener("keydown", handleGlobalKeyDown);
   document.addEventListener("visibilitychange", handleVisibilityChange);
-  document.addEventListener("pointerdown", recordActivity);
-  document.addEventListener("keydown", recordActivity);
-  _idleCheckHandle = setInterval(checkIdle, 1000);
 
   // Attempt to play music by default on load
   audioManager.playMusic();
@@ -436,9 +396,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener("keydown", handleGlobalKeyDown);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
-  document.removeEventListener("pointerdown", recordActivity);
-  document.removeEventListener("keydown", recordActivity);
-  clearInterval(_idleCheckHandle);
   if (gameEngine) {
     gameEngine.dispose();
   }
@@ -474,6 +431,20 @@ const handleRegistration = (data) => {
 const startLevel = () => {
   gameStats.levelFeaturesCollected = 0;
   gameStats.lives = 3;
+
+  // Clean up any features collected from this specific level previously (e.g. from a failed run)
+  const currentLevelData = levels.find(
+    (l) => l.id === gameStats.currentLevelId,
+  );
+  if (currentLevelData) {
+    const levelFeatureKeys = new Set(
+      currentLevelData.features.map((f) => `${f.name}|${f.category}`),
+    );
+    gameStats.featuresCollected = gameStats.featuresCollected.filter(
+      (fc) => !levelFeatureKeys.has(`${fc.name}|${fc.category}`),
+    );
+  }
+
   gameEngine.startLevel(gameStats.currentLevelId);
   gameEngine.setMode("PLAYING");
   gameState.value = "PLAYING";
@@ -518,19 +489,16 @@ const advanceLevel = () => {
     }
 
     saveScoreToLeaderboard();
-    gameState.value = "BOSS_BEAT";
+
+    // Automatically apply the final main discount
+    updateMainDiscount(userData.email);
+    recordFirebaseMainDiscount(currentSessionId.value, "15% OFF");
+
+    gameState.value = "OFFER_REVEAL";
   } else {
     gameStats.currentLevelId++;
     startLevel();
   }
-};
-
-// Called when BossBeat (post-Level-3 cinematic) ends.
-// This is the moment the user has earned the 15% discount — write it to the sheet.
-const handleBossBeatNext = () => {
-  updateMainDiscount(userData.email);
-  recordFirebaseMainDiscount(currentSessionId.value, "15% OFF");
-  gameState.value = "OFFER_REVEAL";
 };
 
 const handleOfferRevealNext = () => {
@@ -641,11 +609,6 @@ const quitToLobby = () => {
           @retry="quitToLobby"
         />
 
-        <BossBeat
-          v-else-if="gameState === 'BOSS_BEAT'"
-          @next="handleBossBeatNext"
-        />
-
         <OfferReveal
           v-else-if="gameState === 'OFFER_REVEAL'"
           @next="handleOfferRevealNext"
@@ -671,8 +634,6 @@ const quitToLobby = () => {
         @restart-level="restartLevelFromPause"
         @quit="quitToLobby"
       />
-
-      <IdlePrompt v-if="showIdlePrompt" @dismiss="recordActivity" />
     </div>
   </div>
 </template>

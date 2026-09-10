@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { levels } from "../data/GameContent.js";
 
 const props = defineProps({
@@ -11,22 +11,48 @@ const emit = defineEmits(["next"]);
 
 const levelData = computed(() => levels.find((l) => l.id === props.levelId));
 const wonGoodie = computed(() => levelData.value?.goodie || "");
+const wonGoodieImage = computed(() => levelData.value?.goodieImage || "");
 const wonDiscount = computed(() => levelData.value?.discount || "");
+const wonDiscountImage = computed(() => levelData.value?.discountImage || "");
 
 const levelFeatures = computed(() => {
   const currentLevelData = levels.find((l) => l.id === props.levelId);
   if (!currentLevelData || !props.stats?.featuresCollected) return [];
-  const levelFeatureNames = new Set(
-    currentLevelData.features.map((f) => f.name),
+  const levelFeatureKeys = new Set(
+    currentLevelData.features.map((f) => `${f.name}|${f.category}`),
   );
   return props.stats.featuresCollected.filter((f) =>
-    levelFeatureNames.has(f.name),
+    levelFeatureKeys.has(`${f.name}|${f.category}`),
   );
 });
 
+const isCountingDown = ref(false);
+const countdown = ref(0);
+let timer = null;
+
+const handleContinue = () => {
+  if (isCountingDown.value) return;
+
+  if (props.levelId === 3) {
+    emit("next");
+    return;
+  }
+
+  isCountingDown.value = true;
+  countdown.value = 3;
+
+  timer = setInterval(() => {
+    countdown.value--;
+    if (countdown.value === 0) {
+      clearInterval(timer);
+      emit("next");
+    }
+  }, 1000);
+};
+
 const handleKeyDown = (e) => {
   if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
-    emit("next");
+    handleContinue();
     e.preventDefault();
   }
 };
@@ -37,6 +63,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("keydown", handleKeyDown);
+  if (timer) clearInterval(timer);
 });
 
 const copy = computed(() => {
@@ -63,76 +90,144 @@ const copy = computed(() => {
 </script>
 
 <template>
-  <div class="overlay">
-    <div class="card two-column-card">
+  <div class="overlay" :class="{ 'transparent-overlay': isCountingDown }">
+    <div v-if="!isCountingDown" class="card new-two-column-card">
       <!-- LEFT COLUMN -->
       <div class="column-left">
         <!-- Star with decorations -->
         <div class="star-container">
-          <!-- Decoration sparks -->
-          <div class="spark spark-1"></div>
-          <div class="spark spark-2"></div>
-          <div class="spark spark-3"></div>
-          <div class="spark spark-4"></div>
-          <div class="spark spark-5"></div>
-
-          <svg class="icon-header" viewBox="0 0 24 24" width="70" height="70">
-            <polygon
-              points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
-              fill="#F4C775"
+          <div class="star-glow-bg"></div>
+          <svg
+            width="49"
+            height="47"
+            viewBox="0 0 49 47"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            class="star-icon"
+          >
+            <path
+              d="M24.1605 0.47998L31.2005 15.84L47.8405 17.76L35.0405 29.28L38.8805 45.92L24.1605 36.96L9.44047 45.92L13.2805 29.28L0.480469 17.76L17.1205 15.84L24.1605 0.47998Z"
+              fill="url(#paint0_linear_1081_120)"
+              stroke="#FEF08A"
+              stroke-width="0.96"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M24.1602 4.31982L29.2802 16.4798L42.0802 17.7598L31.8402 27.3598L35.0402 40.1598L24.1602 33.1198L13.2802 40.1598L16.4802 27.3598L6.24023 17.7598L19.0402 16.4798L24.1602 4.31982"
+              stroke="white"
+              stroke-opacity="0.35"
+              stroke-width="0.768"
+            />
+            <defs>
+              <linearGradient
+                id="paint0_linear_1081_120"
+                x1="0.480469"
+                y1="0.47998"
+                x2="45.8816"
+                y2="47.7995"
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop stop-color="#FEF08A" />
+                <stop offset="0.45" stop-color="#FACC15" />
+                <stop offset="0.85" stop-color="#CA8A04" />
+                <stop offset="1" stop-color="#854D0E" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <svg
+            width="49"
+            height="47"
+            viewBox="0 0 49 47"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M24.1605 0.47998L31.2005 15.84L47.8405 17.76L35.0405 29.28L38.8805 45.92L24.1605 36.96L9.44047 45.92L13.2805 29.28L0.480469 17.76L17.1205 15.84L24.1605 0.47998Z"
+              fill="url(#paint0_linear_1081_120)"
+              stroke="#FEF08A"
+              stroke-width="0.96"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M24.1602 4.31982L29.2802 16.4798L42.0802 17.7598L31.8402 27.3598L35.0402 40.1598L24.1602 33.1198L13.2802 40.1598L16.4802 27.3598L6.24023 17.7598L19.0402 16.4798L24.1602 4.31982"
+              stroke="white"
+              stroke-opacity="0.35"
+              stroke-width="0.768"
+            />
+          </svg>
+          <svg
+            width="49"
+            height="47"
+            viewBox="0 0 49 47"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M24.1605 0.47998L31.2005 15.84L47.8405 17.76L35.0405 29.28L38.8805 45.92L24.1605 36.96L9.44047 45.92L13.2805 29.28L0.480469 17.76L17.1205 15.84L24.1605 0.47998Z"
+              fill="url(#paint0_linear_1081_120)"
+              stroke="#FEF08A"
+              stroke-width="0.96"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M24.1602 4.31982L29.2802 16.4798L42.0802 17.7598L31.8402 27.3598L35.0402 40.1598L24.1602 33.1198L13.2802 40.1598L16.4802 27.3598L6.24023 17.7598L19.0402 16.4798L24.1602 4.31982"
+              stroke="white"
+              stroke-opacity="0.35"
+              stroke-width="0.768"
             />
           </svg>
         </div>
 
-        <h2 class="text-gold">{{ copy.header }}</h2>
+        <h2 class="text-cleared">{{ copy.header }}</h2>
         <p class="subtitle">{{ copy.body }}</p>
 
         <!-- Reward Box -->
         <div class="prize-reveal">
+          <div class="corner top-left"></div>
+          <div class="corner top-right"></div>
+          <div class="corner bottom-left"></div>
+          <div class="corner bottom-right"></div>
+
           <div class="reward-header">
             <span class="gift-icon">🎁</span>
             REWARD UNLOCKED!
           </div>
 
           <div class="reward-items">
-            <!-- CSS Energy Bar -->
+            <!-- Energy Bar -->
             <div class="reward-item">
-              <div class="css-energy-bar">
-                <div class="wrapper-end left"></div>
-                <div class="wrapper-body">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="20"
-                    height="20"
-                    class="bar-lightning"
-                  >
-                    <polygon
-                      points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"
-                      fill="#F4C775"
-                    />
-                  </svg>
-                </div>
-                <div class="wrapper-end right"></div>
+              <div class="reward-img-container">
+                <div class="reward-glow-bg"></div>
+                <img
+                  v-if="wonGoodieImage"
+                  :src="wonGoodieImage"
+                  alt="Energy Bar"
+                  class="reward-image"
+                />
               </div>
               <span class="reward-name">{{ wonGoodie }}</span>
             </div>
 
-            <div class="reward-plus">+</div>
-
-            <!-- CSS Tag -->
+            <!-- Discount Tag -->
             <div class="reward-item">
-              <div class="css-tag">
-                <div class="tag-hole"></div>
-                <span class="tag-text">{{ parseInt(wonDiscount) }}%</span>
+              <div class="reward-img-container">
+                <div class="reward-glow-bg"></div>
+                <img
+                  v-if="wonDiscountImage"
+                  :src="wonDiscountImage"
+                  alt="Discount"
+                  class="reward-image"
+                />
+                <div v-else class="css-discount-badge">
+                  <span>{{ parseInt(wonDiscount) }}<small>%</small></span>
+                </div>
               </div>
-              <span class="reward-name"
-                >{{ wonDiscount }} OFF ON<br />ChargeOn</span
-              >
+              <span class="reward-name">{{ wonDiscount }} Off on ChargeOn</span>
             </div>
           </div>
         </div>
 
-        <button class="btn-primary" @click="emit('next')">
+        <button class="btn-primary" @click="handleContinue">
           {{ copy.button }}
           <svg
             class="btn-icon"
@@ -159,18 +254,23 @@ const copy = computed(() => {
             v-for="(feature, index) in levelFeatures"
             :key="feature.name"
             class="feature-row"
+            :class="index % 2 === 0 ? 'row-even' : 'row-odd'"
           >
             <span class="feature-text">{{ feature.name }}</span>
 
-            <!-- Green check icon -->
             <div class="check-icon">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="#4CAF50">
-                <circle cx="12" cy="12" r="10" />
-                <polyline
-                  points="7 12 10.5 15.5 17 8"
-                  fill="none"
-                  stroke="#fff"
-                  stroke-width="2.5"
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect width="20" height="20" rx="10" fill="#10B981" />
+                <path
+                  d="M5.91699 10.5835L8.25033 12.9168L14.0837 7.0835"
+                  stroke="white"
+                  stroke-width="1.75"
                   stroke-linecap="round"
                   stroke-linejoin="round"
                 />
@@ -180,7 +280,7 @@ const copy = computed(() => {
         </div>
 
         <!-- Still in the running -->
-        <div class="still-running-box">
+        <div v-if="props.levelId !== 3" class="still-running-box">
           <div class="trophy-icon">🏆</div>
           <div class="still-running-text">
             <h4>STILL IN THE RUNNING!</h4>
@@ -195,10 +295,16 @@ const copy = computed(() => {
         </div>
       </div>
     </div>
+
+    <div v-else-if="countdown > 0" class="countdown-display">
+      {{ countdown }}
+    </div>
   </div>
 </template>
 
 <style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800;900&display=swap");
+
 .overlay {
   position: fixed !important;
   z-index: 9999 !important;
@@ -211,34 +317,57 @@ const copy = computed(() => {
   background: rgb(0 0 0 / 55%);
   backdrop-filter: blur(15px) !important;
   -webkit-backdrop-filter: blur(15px) !important;
-  font-family: "Poppins", sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 
-.card {
-  background: linear-gradient(
-    135deg,
-    rgb(0 0 0 / 25%) 0%,
-    rgb(0 0 0 / 5%) 100%
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow:
-    0px 4px 45px 0px rgba(0, 0, 0, 0.45),
-    inset 0 1px 2px rgb(0 0 0 / 50%);
-  border-radius: 12px;
-  color: #fff;
+.transparent-overlay {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-.two-column-card {
-  width: 900px;
+.countdown-display {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 8rem;
+  font-family: "Goldman", sans-serif;
+  font-weight: 800;
+  color: #ffffff;
+  animation: pulse 1s infinite;
+  text-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  z-index: 20;
+}
+
+@keyframes pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+.new-two-column-card {
+  width: 940px;
+  height: 504px;
   max-width: 95%;
-  height: 550px;
   max-height: 90vh;
+  border-radius: 16px;
+  background: rgba(12, 16, 25, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: row;
   padding: 30px;
   gap: 30px;
+  box-shadow: 0px 4px 45px 0px rgba(0, 0, 0, 0.45);
 }
 
 /* LEFT COLUMN */
@@ -246,245 +375,265 @@ const copy = computed(() => {
   flex: 0.9;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  text-align: center;
-  padding-right: 15px;
+  position: relative;
+  width: 419px;
 }
 
 .star-container {
   position: relative;
-  margin-bottom: 10px;
-  width: 100px;
-  height: 100px;
+  margin-top: 10px;
+  margin-bottom: 5px;
+  width: 200px;
+  height: 80px;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  gap: 15px;
 }
 
-.icon-header {
-  filter: drop-shadow(0 0 20px rgba(244, 199, 117, 0.8));
+.star-glow-bg {
+  position: absolute;
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  filter: blur(24px);
+  z-index: 1;
+  opacity: 1;
+  background: #fbbf2487;
+}
+
+.star-icon {
   position: relative;
   z-index: 2;
+  filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5));
 }
 
-.spark {
+.star-small-left {
   position: absolute;
-  width: 6px;
-  height: 16px;
-  border-radius: 3px;
-  background: #f4c775;
-  top: 50%;
-  left: 50%;
-  transform-origin: center -30px;
-}
-.spark-1 {
-  transform: translate(-50%, -50%) rotate(-45deg);
-  background: #3b82f6;
-  height: 12px;
-}
-.spark-2 {
-  transform: translate(-50%, -50%) rotate(-20deg);
-}
-.spark-3 {
-  transform: translate(-50%, -50%) rotate(0deg);
-  background: #3b82f6;
-}
-.spark-4 {
-  transform: translate(-50%, -50%) rotate(20deg);
-}
-.spark-5 {
-  transform: translate(-50%, -50%) rotate(45deg);
-  background: #3b82f6;
-  height: 12px;
+  left: 0;
+  top: 15px;
+  transform: scale(0.7) rotate(-15deg);
 }
 
-h2 {
-  font-family: "Goldman", sans-serif;
-  font-size: 1.8rem;
-  font-weight: 600;
+.star-small-right {
+  position: absolute;
+  right: 0;
+  top: 15px;
+  transform: scale(0.7) rotate(15deg);
+}
+
+.text-cleared {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 800;
+  font-size: 27px;
+  line-height: 32px;
+  letter-spacing: 0.68px;
+  text-align: center;
+  text-transform: uppercase;
+  color: #fde047;
+  text-shadow: 0px 2px 10px rgba(250, 204, 21, 0.3);
   margin-bottom: 5px;
-  letter-spacing: 1px;
-}
-
-.text-gold {
-  color: #f4c775;
+  margin-top: 10px;
 }
 
 .subtitle {
-  color: #d1d5db;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+  color: #cbd5e1;
   margin-bottom: 25px;
-  font-size: 0.95rem;
-  line-height: 1.4;
 }
 
 /* PRIZE REVEAL BOX */
 .prize-reveal {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 20px;
+  width: 419px;
+  height: 174px;
   border-radius: 12px;
-  margin-bottom: 25px;
-  border: 2px solid rgba(244, 199, 117, 0.4);
-  box-shadow: 0 0 20px rgba(244, 199, 117, 0.1) inset;
-  width: 100%;
+  background: rgba(8, 13, 22, 0.95);
+  border: 1px solid rgba(251, 191, 36, 0.25);
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px;
+  margin-bottom: 20px;
+  max-width: 100%;
 }
-.prize-reveal::before,
-.prize-reveal::after {
-  content: "";
+
+.corner {
   position: absolute;
   width: 10px;
-  height: 2px;
-  background: #f4c775;
-  top: 15px;
+  height: 10px;
+  border: 2px solid #facc15;
 }
-.prize-reveal::before {
-  left: 15px;
-  transform: rotate(45deg);
+.corner.top-left {
+  top: -1px;
+  left: -1px;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 4px 0 0 0;
 }
-.prize-reveal::after {
-  right: 15px;
-  transform: rotate(-45deg);
+.corner.top-right {
+  top: -1px;
+  right: -1px;
+  border-left: none;
+  border-bottom: none;
+  border-radius: 0 4px 0 0;
+}
+.corner.bottom-left {
+  bottom: -1px;
+  left: -1px;
+  border-right: none;
+  border-top: none;
+  border-radius: 0 0 0 4px;
+}
+.corner.bottom-right {
+  bottom: -1px;
+  right: -1px;
+  border-left: none;
+  border-top: none;
+  border-radius: 0 0 4px 0;
 }
 
 .reward-header {
-  font-family: "Goldman", sans-serif;
-  color: #f4c775;
-  font-size: 1.1rem;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 16px;
+  letter-spacing: 0.65px;
+  text-align: center;
+  text-transform: uppercase;
+  color: #facc15;
   margin-bottom: 20px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .reward-items {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 15px;
+  justify-content: space-around;
+  width: 100%;
+  padding: 0 20px;
 }
 
 .reward-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.reward-plus {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #fff;
-  margin: 0 10px;
-}
-
-.reward-name {
-  color: #d1d5db;
-  font-size: 0.85rem;
-  text-align: center;
-  line-height: 1.2;
-}
-
-/* CSS Energy Bar */
-.css-energy-bar {
-  display: flex;
-  align-items: center;
-  height: 30px;
-  transform: rotate(-10deg);
-  margin-bottom: 5px;
-}
-.wrapper-end {
-  width: 8px;
-  height: 100%;
-  background: #f4c775;
-}
-.wrapper-end.left {
-  border-radius: 3px 0 0 3px;
-}
-.wrapper-end.right {
-  border-radius: 0 3px 3px 0;
-}
-.wrapper-body {
-  background: linear-gradient(180deg, #1a71cd 0%, #044fb4 100%);
-  height: 110%;
-  width: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
-  z-index: 2;
-  border-radius: 2px;
-}
-
-/* CSS Discount Tag */
-.css-tag {
-  width: 50px;
-  height: 60px;
-  background: linear-gradient(135deg, #1a71cd 0%, #044fb4 100%);
-  border-radius: 5px 5px 25px 25px;
+.reward-img-container {
+  width: 72px;
+  height: 72px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-  transform: rotate(15deg);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-.css-tag::before {
-  content: "";
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 20px;
-  height: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  border-radius: 50%;
-  border-bottom-color: transparent;
-  border-left-color: transparent;
-}
-.tag-hole {
-  position: absolute;
-  top: 8px;
-  width: 8px;
-  height: 8px;
-  background: #0b1423;
-  border-radius: 50%;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
-}
-.tag-text {
-  margin-top: 10px;
-  font-family: "Goldman", sans-serif;
-  font-weight: bold;
-  font-size: 1.1rem;
-  color: #fff;
 }
 
-/* CONTINUE BUTTON */
+.reward-glow-bg {
+  position: absolute;
+  width: 82px;
+  height: 82px;
+  background: #558dff;
+  border-radius: 50%;
+  filter: blur(15px);
+  z-index: 1;
+  opacity: 0.5;
+}
+
+.reward-image {
+  max-width: 100px;
+  max-height: 80px;
+  z-index: 2;
+  object-fit: contain;
+  transform: rotate(-15deg);
+}
+
+.css-discount-badge {
+  width: 50px;
+  height: 50px;
+  background: #3b82f6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  box-shadow:
+    inset 0 -4px 10px rgba(0, 0, 0, 0.3),
+    0 4px 10px rgba(0, 0, 0, 0.3);
+  border: 2px solid #60a5fa;
+  clip-path: polygon(
+    50% 0%,
+    90% 20%,
+    100% 60%,
+    75% 100%,
+    25% 100%,
+    0% 60%,
+    10% 20%
+  );
+}
+
+.css-discount-badge span {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 900;
+  color: white;
+  font-size: 22px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.css-discount-badge small {
+  font-size: 14px;
+}
+
+.reward-name {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 11px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* BUTTON */
 .btn-primary {
-  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+  width: 419px;
+  max-width: 100%;
+  height: 54px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 50%, #2563eb 100%);
+  border: 1px solid rgba(147, 197, 253, 0.3); /* #93C5FD4D */
+  box-shadow:
+    inset 0px 1px 0px 1px rgba(255, 255, 255, 0.3),
+    0px 4px 20px 0px rgba(37, 99, 235, 0.45);
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 15px 30px;
-  border-radius: 8px;
-  font-family: "Goldman", sans-serif;
-  font-weight: 500;
-  font-size: 1.1rem;
-  letter-spacing: 1px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.5px;
   cursor: pointer;
-  width: 100%;
-  box-shadow: 0 4px 15px rgba(29, 78, 216, 0.4);
-  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  margin-top: auto;
+  transition: all 0.2s;
 }
+
 .btn-primary:hover {
-  background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 50%, #3b82f6 100%);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 /* RIGHT COLUMN */
@@ -492,18 +641,18 @@ h2 {
   flex: 1.1;
   display: flex;
   flex-direction: column;
-  padding-left: 10px;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .column-right h3 {
-  font-family: "Goldman", sans-serif;
-  color: #f4c775;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 16px;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
+  color: #facc15;
   margin-top: 0;
-  margin-bottom: 15px;
-  font-size: 1.1rem;
-  letter-spacing: 0.5px;
-  text-align: left;
+  margin-bottom: 12px;
 }
 
 .recap-list {
@@ -512,106 +661,115 @@ h2 {
   flex-direction: column;
   gap: 6px;
   overflow-y: auto;
-  padding-right: 10px;
+  padding-right: 8px;
   margin-bottom: 15px;
 }
+
 .recap-list::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 .recap-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
 }
 
 .feature-row {
   display: flex;
   align-items: center;
-  padding: 10px 15px;
+  justify-content: space-between;
+  padding: 12px 16px;
   border-radius: 8px;
-  gap: 15px;
 }
 
-/* Alternating row colors */
-.feature-row:nth-child(odd) {
-  background: #0056d2; /* Bright Blue */
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-.feature-row:nth-child(even) {
-  background: rgba(0, 86, 210, 0.2); /* Transparent Dark Blue */
-  border: 1px solid rgba(0, 86, 210, 0.4);
+.row-even {
+  background: #1150c7;
+  box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+  border: 1px solid transparent;
 }
 
-.feature-icon-wrapper {
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.row-odd {
+  background: #14233e;
+  border: 1px solid rgba(30, 58, 138, 0.4); /* #1E3A8A66 */
 }
 
 .feature-text {
-  flex: 1;
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 600;
+  font-size: 13px;
   color: #fff;
-}
-
-.check-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  letter-spacing: 0.3px;
 }
 
 /* STILL IN THE RUNNING */
 .still-running-box {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(244, 199, 117, 0.3);
-  border-radius: 10px;
-  padding: 15px;
+  width: 100%;
+  height: 80px;
+  border-radius: 12px;
+  background: rgba(8, 13, 22, 0.95);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  box-shadow: inset 0px 2px 4px 1px rgba(0, 0, 0, 0.05);
+  padding: 14px;
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
 }
 
 .trophy-icon {
-  font-size: 2.5rem;
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
+  font-size: 40px;
+  filter: drop-shadow(0 2px 4px rgba(250, 204, 21, 0.4));
+}
+
+.still-running-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .still-running-text h4 {
-  font-family: "Goldman", sans-serif;
-  color: #f4c775;
-  margin: 0 0 5px 0;
-  font-size: 0.95rem;
-  letter-spacing: 0.5px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #facc15;
+  margin: 0;
 }
 
 .still-running-text p {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 16px;
+  color: #cbd5e1;
   margin: 0;
-  font-size: 0.75rem;
-  color: #d1d5db;
-  line-height: 1.4;
 }
 
 .highlight-gold {
-  color: #f4c775;
-  font-weight: 600;
+  color: #fde047;
 }
 
-@media (max-width: 1024px) {
-  .two-column-card {
-    height: auto;
+@media (max-width: 900px) {
+  .new-two-column-card {
     flex-direction: column;
-    padding: 25px;
-    gap: 20px;
+    height: auto;
+    max-height: 95vh;
+    padding: 20px;
+    overflow-y: auto;
   }
-  .column-right {
-    border-left: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding-left: 0;
-    padding-top: 20px;
+  .column-left {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  .prize-reveal {
+    width: 100%;
+  }
+  .btn-primary {
+    width: 100%;
+    margin-top: 20px;
   }
   .recap-list {
-    max-height: 250px;
+    min-height: 200px;
   }
 }
 </style>

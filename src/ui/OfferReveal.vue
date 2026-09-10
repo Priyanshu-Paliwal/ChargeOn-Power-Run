@@ -17,57 +17,83 @@ onUnmounted(() => {
 
 <template>
   <div class="overlay">
-    <div class="card">
-      <svg
-        class="icon-header"
-        viewBox="0 0 24 24"
-        width="56"
-        height="56"
-        style="
-          margin: 0 auto 10px;
-          filter: drop-shadow(0 0 15px rgba(244, 199, 117, 0.6));
-        "
-      >
-        <path
-          d="M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"
-          fill="none"
-          stroke="#F4C775"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-      <h2 class="text-gold">You've Unlocked Something Big</h2>
-
-      <div class="offer-box">
-        <h3>15% OFF</h3>
-        <p>your first year.</p>
+    <div class="card new-two-column-card">
+      <!-- LEFT COLUMN -->
+      <div class="column-left">
+        <div class="airpods-showcase">
+          <div class="glow-effect"></div>
+          <img src="/img/airpods.png" alt="AirPods" class="airpods-image" />
+        </div>
       </div>
 
-      <p class="subtitle">Talk to our team at the booth to claim it.</p>
+      <!-- RIGHT COLUMN -->
+      <div class="column-right">
+        <div class="star-container">
+          <div class="star-glow-bg"></div>
+          <svg
+            class="icon-header"
+            viewBox="0 0 24 24"
+            width="60"
+            height="60"
+          >
+            <path
+              d="M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"
+              fill="none"
+              stroke="#FACC15"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
+        <h2 class="title-main">YOU'VE UNLOCKED SOMETHING BIG</h2>
 
-      <button class="btn-primary" @click="emit('next')">
-        See My Results
-        <svg
-          class="btn-icon"
-          viewBox="0 0 24 24"
-          width="20"
-          height="20"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          fill="none"
-        >
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-          <circle cx="12" cy="12" r="3" />
-        </svg>
-      </button>
+        <div class="instructions-box">
+          <p class="to-earn">To earn this:</p>
+          <ul class="task-list">
+            <li>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="linkedin-icon"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+              Post your run on LinkedIn
+            </li>
+            <li>
+              <span class="bullet"></span>
+              Tag <strong>Cyntexa</strong>
+            </li>
+            <li>
+              <span class="bullet"></span>
+              Attach your booth selfie
+            </li>
+          </ul>
+          <div class="highlight-box">
+            <p class="highlight-gold">Highest engagement post wins an exclusive AirPods</p>
+          </div>
+        </div>
+
+        <button class="btn-primary" @click="emit('next')">
+          SEE MY RESULTS
+          <svg
+            class="btn-icon"
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            fill="none"
+          >
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800;900&display=swap");
+
 .overlay {
   position: fixed !important;
   z-index: 9999 !important;
@@ -77,130 +103,255 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgb(0 0 0 / 55%);
-  backdrop-filter: blur(15px) !important;
-  -webkit-backdrop-filter: blur(15px) !important;
-  font-family: "Poppins", sans-serif;
+  background: rgb(0 0 0 / 65%);
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 
-.card {
-  background: linear-gradient(
-    135deg,
-    rgb(0 0 0 / 50%) 0%,
-    rgb(0 0 0 / 5%) 100%
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow:
-    0px 4px 45px 0px rgba(0, 0, 0, 0.45),
-    inset 0 1px 2px rgb(0 0 0 / 50%);
-  padding: 25px;
-  border-radius: 12px;
+.new-two-column-card {
+  width: 940px;
+  height: 504px;
+  max-width: 95%;
+  max-height: 90vh;
+  border-radius: 16px;
+  background: rgba(12, 16, 25, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: row;
+  padding: 30px;
+  gap: 30px;
+  box-shadow: 0px 4px 45px 0px rgba(0, 0, 0, 0.45);
+  animation: floatIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes floatIn {
+  0% { opacity: 0; transform: translateY(30px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* LEFT COLUMN */
+.column-left {
+  flex: 0.9;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding-right: 15px;
+}
+
+/* RIGHT COLUMN */
+.column-right {
+  flex: 1.1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   text-align: center;
-  color: #fff;
-  width: 400px;
-  max-width: 90%;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  padding-left: 15px;
 }
 
-h2 {
-  font-family: "Goldman", sans-serif;
-  font-size: 1.6rem;
-  font-weight: 600;
-  margin-bottom: 10px;
+.star-container {
+  position: relative;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 25px;
+  width: 82px;
+  height: 82px;
 }
 
-.text-gold {
-  color: #f4c775;
+.star-glow-bg {
+  position: absolute;
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  filter: blur(24px);
+  z-index: 1;
+  opacity: 1;
+  background: #fbbf2487;
 }
 
-.offer-box {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 20px;
-  border-radius: 8px;
-  margin: 15px 0;
+.icon-header {
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5));
 }
 
-.offer-box h3 {
-  font-family: "Goldman", sans-serif;
-  font-size: 2.5rem;
-  color: #f4c775;
-  margin-bottom: 8px;
-}
-
-.offer-box p {
-  font-size: 1rem;
-  opacity: 0.9;
-  font-weight: 600;
-}
-
-.subtitle {
-  color: #ccc;
-  margin-bottom: 30px;
-  font-size: 1.2rem;
+.title-main {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 26px;
+  font-weight: 900;
+  margin-top: 0;
+  margin-bottom: 15px;
+  letter-spacing: 0.65px;
+  color: #FACC15;
+  text-transform: uppercase;
+  line-height: 1.3;
+  text-align: left;
+  width: 100%;
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, #6fa6e0 0%, #1561b1 100%);
+  width: 419px;
+  max-width: 100%;
+  height: 54px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #2563EB 0%, #3B82F6 50%, #2563EB 100%);
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  box-shadow: inset 0px 1px 0px 1px rgba(255, 255, 255, 0.3), 0px 4px 20px 0px rgba(37, 99, 235, 0.45);
   color: #fff;
-  border: none;
-  padding: 12px 25px;
-  border-radius: 8px;
-  font-family: "Goldman", sans-serif;
-  font-weight: 400;
-  font-size: 1.2rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.5px;
   cursor: pointer;
-  width: 100%;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
+  transition: all 0.2s;
+  margin-top: 15px;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(180deg, #81b4e9 0%, #1a71cd 100%);
+  background: linear-gradient(90deg, #3B82F6 0%, #60A5FA 50%, #3B82F6 100%);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
 .btn-primary:active {
   transform: translateY(0);
 }
 
-@media (max-width: 1024px) {
-  .card {
-    padding: 15px;
-  }
+
+
+.airpods-showcase {
+  position: relative;
+  width: 250px;
+  height: 250px;
+  margin: 0 auto;
+  border-radius: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
 }
 
-@media (max-width: 600px) {
-  .card {
-    min-width: auto;
-    width: 90%;
-    padding: 15px;
-  }
+.glow-effect {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 160px;
+  height: 160px;
+  background: #ffffff;
+  border-radius: 50%;
+  filter: blur(35px);
+  z-index: 1;
+  opacity: 0.8;
+}
 
-  h2 {
-    font-size: 1.4rem;
-  }
+.airpods-image {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  z-index: 2;
+  filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.5));
+}
 
-  .offer-box h3 {
-    font-size: 2rem;
-  }
+.instructions-box {
+  background: rgba(8, 13, 22, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  border-radius: 12px;
+  text-align: left;
+  width: 100%;
+}
 
-  .offer-box p {
-    font-size: 0.9rem;
-  }
+.to-earn {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  color: #ffffff;
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
 
+.task-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 15px 0;
+}
+
+.task-list li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #CBD5E1;
+  font-weight: 500;
+}
+
+.task-list li strong {
+  color: #ffffff;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.linkedin-icon {
+  color: #0077b5;
+  margin-right: 10px;
+}
+
+.bullet {
+  width: 6px;
+  height: 6px;
+  background: #FACC15;
+  border-radius: 50%;
+  margin: 0 15px 0 5px;
+  box-shadow: 0 0 5px rgba(250, 204, 21, 0.5);
+}
+
+.highlight-box {
+  background: rgba(250, 204, 21, 0.05);
+  border-left: 3px solid #FACC15;
+  padding: 12px 15px;
+  border-radius: 0 6px 6px 0;
+}
+
+.highlight-gold {
+  color: #FACC15;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+@media (max-width: 800px) {
+  .new-two-column-card {
+    flex-direction: column;
+    height: auto;
+    max-height: 95vh;
+    padding: 20px;
+    gap: 20px;
+    overflow-y: auto;
+  }
+  .column-left {
+    padding-right: 0;
+  }
+  .column-right {
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 20px;
+  }
   .btn-primary {
-    font-size: 1rem;
-    padding: 10px;
+    margin-top: 15px;
+    width: 100%;
   }
 }
 </style>

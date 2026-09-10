@@ -94,7 +94,8 @@ onUnmounted(() => {
         @click="emit('next')"
         title="Click or Press Enter ↵"
       >
-        START RUN <span class="key-hint">(Enter ↵)</span>
+        START RUN
+        <!-- <span class="key-hint">(Enter ↵)</span> -->
       </button>
     </div>
   </div>

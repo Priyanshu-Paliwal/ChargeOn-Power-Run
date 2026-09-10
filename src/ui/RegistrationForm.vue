@@ -307,11 +307,11 @@ const handleSubmit = async (e) => {
 }
 
 .input-group.has-error label {
-  color: #ff3622;
+  color: #ff5443;
 }
 .input-group.has-error input {
-  border-color: #ff3622;
-  background: rgba(231, 76, 60, 0.05);
+  border-color: #ff5443;
+  background: rgb(199 123 115 / 43%);
 }
 .input-group.has-error input:focus {
   box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.15);

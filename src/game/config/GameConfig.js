@@ -530,15 +530,6 @@ export const SCORE_POINTS = {
 // itself -- all clips live only in CHARACTER_ANIMATIONS_URL.
 // -----------------------------------------------------------------------
 export const CHARACTERS = [
-  // {
-  //   id: 0,
-  //   key: "male_suit",
-  //   name: "Alex Rivera",
-  //   role: "Enterprise AE",
-  //   url: "/assets/characters/male_suit.glb",
-  //   rotationOffset: -Math.PI,
-  //   scale: 1.0,
-  // },
   {
     id: 0,
     key: "lewis_character",
@@ -565,15 +556,6 @@ export const CHARACTERS = [
       story: "/img/Louise-3-game.png",
     },
   },
-  // {
-  //   id: 3,
-  //   key: "anime_wizard",
-  //   name: "Luna",
-  //   role: "Digital Wizard",
-  //   url: "/assets/characters/anime_wizard.glb",
-  //   rotationOffset: -Math.PI,
-  //   scale: 1.0,
-  // },
   {
     id: 2,
     key: "npc_businessman",
@@ -732,18 +714,6 @@ export const NEAR_MISS_SCORE_BONUS = 25;
 export const SPEED_KICK_FOV_BOOST = 6; // degrees, decays back to 0
 export const SPEED_KICK_DURATION = 0.6;
 export const SPEED_LINES_DURATION_MS = 700;
-
-// -----------------------------------------------------------------------
-// Onboarding / booth behaviour (Milestone 9). Idle timeout is explicitly
-// "(tablet only)" per the content script -- gated to the tablet-portrait/
-// tablet-landscape size classes (the booth device), not phones (a
-// visitor's OWN phone shouldn't get reset out from under them) or desktop.
-// Never applies on the Lobby itself (gameState 'LANDING') -- that's already
-// the reset state; TV attract mode (below) is the Lobby's own idle
-// treatment instead.
-// -----------------------------------------------------------------------
-export const IDLE_PROMPT_MS = 30000; // no interaction for this long -> show "Still there?"
-export const IDLE_RESET_MS = 15000; // additional idle time after the prompt -> auto-reset to Lobby
 
 // TV attract mode: shown on Landing.vue when ViewportManager's size class
 // is 'tv' (big screen, no fine pointer -- the booth's attract-mode

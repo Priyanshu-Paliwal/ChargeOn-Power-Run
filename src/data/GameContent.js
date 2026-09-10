@@ -4,7 +4,9 @@ export const levels = [
     speedMultiplier: 1.0,
     requiredCount: 22,
     goodie: "Energy Bar",
+    goodieImage: "/img/energy-bar-img.png",
     discount: "5% OFF",
+    discountImage: "/img/PercentOff-img.png",
     features: [
       { name: "Multiple Payment Gateways", category: "Admin" },
       { name: "Default Payment Gateway", category: "Admin" },
@@ -27,21 +29,23 @@ export const levels = [
       { name: "Recaptcha on Payment Links", category: "Admin" },
       { name: "Payment Gateway Environment Switching", category: "Admin" },
       { name: "Recurring Payment Summary Preview", category: "Business" },
-      { name: "Advance Payments", category: "Business" }
+      { name: "Advance Payments", category: "Business" },
     ],
     blockers: [
       { id: "b1", text: "Fragmented Processes" },
       { id: "b2", text: "Limited Flexibility" },
       { id: "b3", text: "Manual Reconciliation" },
-      { id: "b4", text: "Inefficient Tracking" }
-    ]
+      { id: "b4", text: "Inefficient Tracking" },
+    ],
   },
   {
     id: 2,
     speedMultiplier: 1.2,
     requiredCount: 22,
     goodie: "Fridge Magnet",
+    goodieImage: "/img/badges-img.png",
     discount: "10% OFF",
+    discountImage: "/img/PercentOff-img.png",
     features: [
       { name: "Unresolved Transaction", category: "Admin" },
       { name: "Error Logs", category: "Admin" },
@@ -64,21 +68,23 @@ export const levels = [
       { name: "Abort Scheduled Payment", category: "Business" },
       { name: "Email Notification", category: "Business" },
       { name: "ChargeOn Agent Assistant", category: "Business" },
-      { name: "Experience Cloud Payment Portal", category: "Business" }
+      { name: "Experience Cloud Payment Portal", category: "Business" },
     ],
     blockers: [
       { id: "b5", text: "Global Payment Complexity" },
       { id: "b6", text: "Poor Customer Experience" },
       { id: "b7", text: "Disconnected Systems" },
-      { id: "b8", text: "Chasing Manual Payments" }
-    ]
+      { id: "b8", text: "Chasing Manual Payments" },
+    ],
   },
   {
     id: 3,
     speedMultiplier: 1.4,
     requiredCount: 10,
     goodie: "Premium Tote Bag",
+    goodieImage: "/img/tote-bag-img.png",
     discount: "15% OFF",
+    discountImage: "/img/PercentOff-img.png",
     features: [
       { name: "Payment Link Customization", category: "Admin" },
       { name: "Surcharging", category: "Admin" },
@@ -89,12 +95,12 @@ export const levels = [
       { name: "Surcharging", category: "Business" },
       { name: "Transaction Reconciliation", category: "Business" },
       { name: "Mobile Experience", category: "Business" },
-      { name: "Headless 360", category: "Business" }
+      { name: "Headless 360", category: "Business" },
     ],
     blockers: [
       { id: "b9", text: "Gateway Timeout" },
       { id: "b10", text: "Functional Limits" },
-      { id: "b11", text: "Geographic Limits" }
-    ]
-  }
+      { id: "b11", text: "Geographic Limits" },
+    ],
+  },
 ];
