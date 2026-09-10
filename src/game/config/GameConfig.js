@@ -86,6 +86,33 @@ export const LOBBY_ORBIT = {
 // if sustained FPS is too low. `antialias` only takes effect at renderer
 // construction -- WebGL context can't change it live.
 // -----------------------------------------------------------------------
+// export const QUALITY_TIERS = {
+//   high: {
+//     maxPixels: 2_000_000,
+//     dprMax: 1.25,
+//     shadowMapSize: 1024,
+//     shadows: true,
+//     bloom: false,
+//     antialias: true,
+//   },
+//   medium: {
+//     maxPixels: 1_600_000,
+//     dprMax: 1.0,
+//     shadowMapSize: 1024,
+//     shadows: true,
+//     bloom: false,
+//     antialias: true,
+//   },
+//   low: {
+//     maxPixels: 1_000_000,
+//     dprMax: 1.0,
+//     shadowMapSize: 512,
+//     shadows: false,
+//     bloom: false,
+//     antialias: false,
+//   },
+// };
+
 export const QUALITY_TIERS = {
   high: {
     maxPixels: 2_000_000,

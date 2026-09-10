@@ -234,8 +234,20 @@ const speedLinesActive = ref(false);
 // is the same kind of transient engine-owned state as the power-up
 // countdown, polled the same way.
 const tutorialActive = ref(false);
+const currentFps = ref(60);
+let _fpsFrames = 0;
+let _fpsLastTime = performance.now();
 let _powerUpRaf = null;
+
 function _pollPowerUps() {
+  const now = performance.now();
+  _fpsFrames++;
+  if (now - _fpsLastTime >= 500) {
+    currentFps.value = Math.round((_fpsFrames * 1000) / (now - _fpsLastTime));
+    _fpsFrames = 0;
+    _fpsLastTime = now;
+  }
+
   const player = props.engine?.player;
   if (player) {
     const status = player.getPowerUpStatus();
@@ -322,6 +334,10 @@ onUnmounted(() => {
       </div>
 
       <div class="utility-group">
+        <div class="fps-badge" :class="{ smooth: currentFps >= 50, warning: currentFps < 50 }">
+          {{ currentFps }} FPS
+        </div>
+
         <div class="score-display" title="Score">
           <span class="score-icon">★</span>{{ displayScore }}
         </div>
@@ -943,5 +959,25 @@ onUnmounted(() => {
   font-size: 0.8rem;
   padding: 6px 12px;
   max-width: 90%;
+}
+
+.fps-badge {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #00ff88;
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+.fps-badge.warning {
+  color: #ffaa00;
+  border-color: rgba(255, 170, 0, 0.4);
 }
 </style>
