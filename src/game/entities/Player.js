@@ -482,6 +482,24 @@ export class Player {
     this.setAnimation("Idle");
   }
 
+  // Fully halts physics, jumping, sliding, jetpack, and hit reactions
+  // so cutscenes / Victory / Defeat sequences aren't interrupted or floating in air.
+  resetMovementState() {
+    this.movementState = PlayerMovementState.RUNNING;
+    this._jumpElapsed = 0;
+    this._slideTimer = 0;
+    this._slideCooldown = 0;
+    this._jetpackTimer = 0;
+    this.hasJetpack = false;
+    if (this.jetpackMesh) this.jetpackMesh.visible = false;
+    this.hasBoard = false;
+    this.setBoardPreview(false);
+    if (this.boardMesh) this.boardMesh.visible = false;
+    this.mesh.position.y = this.baseY;
+    if (this.model) this.model.position.y = 0;
+    this._cancelHitReaction();
+  }
+
   // Small public read-only getter (Milestone 8's HUD radial timer) so the
   // Vue layer polls this instead of reaching for underscore-prefixed
   // "private" fields directly. Shield has no remaining/duration pair --
@@ -506,6 +524,12 @@ export class Player {
   update(delta, enabled) {
     if (this.mixer) this.mixer.update(delta);
 
+    // If a victory, defeat, or cinematic animation sequence is playing,
+    // only advance mixer time; never let movement timers or inputs switch back to Run.
+    if (this._activeSequence) {
+      return;
+    }
+
     // Resolve state-timer transitions BEFORE processing input, so a
     // slide/jump that ends THIS frame lets a buffered action fire the same
     // frame it clears -- not one frame later, which would needlessly eat
@@ -524,7 +548,9 @@ export class Player {
         this.mesh.position.y = this.baseY;
         this.movementState = PlayerMovementState.RUNNING;
         this._jumpElapsed = 0;
-        this.setAnimation(this.hasBoard ? "Surfing" : "Run");
+        if (!this._activeSequence) {
+          this.setAnimation(this.hasBoard ? "Surfing" : "Run");
+        }
       } else {
         this.mesh.position.y =
           this.baseY +
@@ -791,7 +817,9 @@ export class Player {
   _endSlide() {
     this.movementState = PlayerMovementState.RUNNING;
     this._slideCooldown = SLIDE_RECOVERY_MS;
-    this.setAnimation(this.hasBoard ? "Surfing" : "Run");
+    if (!this._activeSequence) {
+      this.setAnimation(this.hasBoard ? "Surfing" : "Run");
+    }
   }
 
   _endJetpack() {
@@ -801,7 +829,9 @@ export class Player {
     this.movementState = PlayerMovementState.RUNNING;
     this.boardMesh.visible =
       !this.hasJetpack && (this.hasBoard || this._isBoardPreview);
-    this.setAnimation(this.hasBoard ? "Surfing" : "Run");
+    if (!this._activeSequence) {
+      this.setAnimation(this.hasBoard ? "Surfing" : "Run");
+    }
     if (this.onJetpackEnd) this.onJetpackEnd();
   }
 
@@ -940,6 +970,18 @@ export class Player {
       const action = this.animations[name];
       if (!action) {
         console.warn(`[Player] playSequence: animation "${name}" not found in animations library`);
+        if (this._activeSequence && this._activeSequence.length > 1) {
+          const fallbackIndex = (index + 1) % this._activeSequence.length;
+          if (fallbackIndex !== index) {
+            this._sequenceIndex = fallbackIndex;
+            playNext(fallbackIndex);
+            return;
+          }
+        }
+        if (this.animations["Idle"]) {
+          this.animations["Idle"].reset().play();
+          this.currentActionName = "Idle";
+        }
         return;
       }
 

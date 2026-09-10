@@ -241,7 +241,8 @@ export class Engine {
     this.world.setLevel(levelId);
     this.player.lives = 3;
     this.player._cancelHitReaction?.();
-    this.player._invulnerableTimer = 0;
+    this.player._invulnerableTimer = 1500; // 1.5s grace buffer at level start
+    this.collisionSystem?.reset?.();
     this.inputManager?.clear();
     this.player.resetToCenterLane(true);
     this.cameraRig.triggerFovKick(SPEED_KICK_FOV_BOOST, SPEED_KICK_DURATION);
@@ -1197,20 +1198,14 @@ export class Engine {
     } else if (this.mode === "VICTORY") {
       this.inputManager?.setEnabled(false);
       this.inputManager?.clear();
-      this.player.hasBoard = false;
-      this.player.setBoardPreview(false);
-      this.player.boardMesh.visible = false;
-      if (this.player.model) this.player.model.position.y = 0;
+      this.player.resetMovementState();
       this.player.resetToCenterLane(true);
       this.player.setFacing(0); // Face the camera
       this.player.playSequence(["Victory_idle", "victory_jump"], true);
     } else if (this.mode === "DEFEAT") {
       this.inputManager?.setEnabled(false);
       this.inputManager?.clear();
-      this.player.hasBoard = false;
-      this.player.setBoardPreview(false);
-      this.player.boardMesh.visible = false;
-      if (this.player.model) this.player.model.position.y = 0;
+      this.player.resetMovementState();
       this.player.resetToCenterLane(true);
       this.player.setFacing(0); // Face the camera
       this.player.playSequence(["Defeat", "Defeated"], true);

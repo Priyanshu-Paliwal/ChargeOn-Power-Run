@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, inject } from "vue";
+import { ref, onMounted, onUnmounted, inject, computed } from "vue";
 import { gsap } from "gsap";
 import { Swiper, SwiperSlide } from "swiper/vue";
 import { Navigation, EffectCards } from "swiper/modules";
@@ -50,9 +50,27 @@ const characters = ref(
 
 const swiperInstance = ref(null);
 
+const initialSlideIndex = computed(() => {
+  if (
+    props.selectedCharacterId === null ||
+    props.selectedCharacterId === undefined
+  ) {
+    return 0;
+  }
+  const idx = characters.value.findIndex(
+    (c) => c.id === props.selectedCharacterId,
+  );
+  return idx !== -1 ? idx : 0;
+});
+
 const onSwiperInit = (swiper) => {
-  swiperInstance.value = swiper; // Emit immediately on load so the 3D background matches the initial card!
-  emit("character-selected", characters.value[0].id);
+  swiperInstance.value = swiper;
+  const targetIndex = initialSlideIndex.value;
+  if (targetIndex > 0) {
+    swiper.slideTo(targetIndex, 0, false);
+  }
+  const activeChar = characters.value[targetIndex] || characters.value[0];
+  emit("character-selected", activeChar.id);
 };
 
 const onSlideChange = (swiper) => {
@@ -326,6 +344,7 @@ onUnmounted(() => {
         <h2 class="character-select-title">Select Your Character</h2>
         <div class="character-slider-container">
           <swiper
+            :initialSlide="initialSlideIndex"
             :effect="'cards'"
             :cardsEffect="{
               rotate: true,

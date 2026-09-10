@@ -63,6 +63,91 @@ const MAX_OBSTACLE_SLOTS = 3; // matches the densest authored pattern (gauntlet-
 const MAX_COIN_SLOTS = 3; // matches the densest coin trail across all patterns
 const HOVERBOARD_POST_JETPACK_DISTANCE = 70;
 
+// Diverse aerial coin flight patterns for Jetpack (lanes: 0 = Left, 1 = Center, 2 = Right)
+const SKY_COIN_PATTERNS = [
+  [0, 1, 2, 1], // Wave Right: Left -> Center -> Right -> Center
+  [2, 1, 0, 1], // Wave Left: Right -> Center -> Left -> Center
+  [1, 0, 2, 1], // Center Diverge A: Center -> Left -> Right -> Center
+  [1, 2, 0, 1], // Center Diverge B: Center -> Right -> Left -> Center
+  [0, 2, 1, 0], // Zig-Zag A: Left -> Right -> Center -> Left
+  [2, 0, 1, 2], // Zig-Zag B: Right -> Left -> Center -> Right
+  [0, 1, 2, 0], // Full Sweep Right: Left -> Center -> Right -> Left
+  [2, 1, 0, 2], // Full Sweep Left: Right -> Center -> Left -> Right
+  [1, 0, 1, 2], // Slalom A: Center -> Left -> Center -> Right
+  [1, 2, 1, 0], // Slalom B: Center -> Right -> Center -> Left
+  [0, 2, 0, 2], // Hard Cross A: Left -> Right -> Left -> Right
+  [2, 0, 2, 0], // Hard Cross B: Right -> Left -> Right -> Left
+];
+
+// Procedural radial starburst texture generator (Subway Surfers reward/pickup ray effect)
+function createSunburstTexture(config) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const cx = 256;
+  const cy = 256;
+  const maxRadius = 245;
+  const numRays = config.numRays || 18;
+
+  ctx.clearRect(0, 0, 512, 512);
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Radiating sunburst ray wedges
+  for (let i = 0; i < numRays; i++) {
+    const angle = (i * 2 * Math.PI) / numRays;
+    const halfWidth = (Math.PI / numRays) * 0.48;
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, maxRadius, angle - halfWidth, angle + halfWidth);
+    ctx.closePath();
+
+    const rayGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, maxRadius);
+    rayGrad.addColorStop(0, "rgba(255, 255, 255, 0.98)");
+    rayGrad.addColorStop(0.18, config.rayInnerColor);
+    rayGrad.addColorStop(0.65, config.rayMidColor);
+    rayGrad.addColorStop(1, config.rayOuterColor);
+
+    ctx.fillStyle = rayGrad;
+    ctx.fill();
+  }
+
+  // Central radiant glow core
+  const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, maxRadius * 0.65);
+  coreGrad.addColorStop(0, "rgba(255, 255, 255, 1.0)");
+  coreGrad.addColorStop(0.2, config.rayInnerColor);
+  coreGrad.addColorStop(0.55, config.rayMidColor);
+  coreGrad.addColorStop(1, "rgba(0, 120, 255, 0.0)");
+
+  ctx.beginPath();
+  ctx.arc(0, 0, maxRadius * 0.65, 0, Math.PI * 2);
+  ctx.fillStyle = coreGrad;
+  ctx.fill();
+
+  ctx.restore();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+// Tunable styling for the Hoverboard track pickup radiant sunburst glow
+export const HOVERBOARD_GLOW_CONFIG = {
+  size: 2, // Diameter of the radiant sunburst rays
+  numRays: 8, // Number of radiant light beams (e.g. 14, 18, 22)
+  spinSpeed: 0.05, // Speed of ray rotation
+  pulseSpeed: 2.0, // Breathing pulse speed
+  baseOpacity: 0.7, // Transparency (0.0 to 1.0)
+  lightColor: 0x00e5ff, // Point light color
+  rayInnerColor: "rgba(154, 247, 255, 0.9)", // Glowing cyan origin
+  rayMidColor: "rgba(153, 224, 255, 0.4)", // Mid-ray cyan/blue
+  rayOuterColor: "rgba(0, 140, 255, 0.0)", // Fade to 100% transparent edge
+};
+
 export class WorldStreamer {
   constructor(scene, textures, models, engine) {
     this.scene = scene;
@@ -138,6 +223,9 @@ export class WorldStreamer {
     this._jetpackFlightCompleted = false;
     this._jetpackMissed = false;
     this._distanceSinceJetpackCompleted = 0;
+    this._lastSkyCoinPatternIndex = -1;
+    this.boardGlowSprite = null;
+    this.boardGlowMat = null;
     this._boardSpawnedThisRun = false;
     this._isPopulatingInitialTrack = false;
     this._initPool();
@@ -274,10 +362,23 @@ export class WorldStreamer {
 
   spawnJetpackSkyCoins() {
     if (!this.skyCoins) return;
-    for (const coin of this.skyCoins) {
+
+    // Pick a randomized aerial flight pattern, avoiding repeating the exact same pattern back-to-back
+    let patternIndex = Math.floor(Math.random() * SKY_COIN_PATTERNS.length);
+    if (
+      SKY_COIN_PATTERNS.length > 1 &&
+      patternIndex === this._lastSkyCoinPatternIndex
+    ) {
+      patternIndex = (patternIndex + 1) % SKY_COIN_PATTERNS.length;
+    }
+    this._lastSkyCoinPatternIndex = patternIndex;
+    const pattern = SKY_COIN_PATTERNS[patternIndex];
+
+    this.skyCoins.forEach((coin, idx) => {
       const cfg = coin.cfg;
+      const lane = pattern[idx % pattern.length];
       coin.group.position.set(
-        PLAYER_PHYSICS.lanes[cfg.lane],
+        PLAYER_PHYSICS.lanes[lane],
         JETPACK_FLIGHT_HEIGHT,
         cfg.zOffset,
       );
@@ -293,7 +394,7 @@ export class WorldStreamer {
         bobOffset: coin.bobOffset,
       };
       coin.group.visible = true;
-    }
+    });
   }
 
   clearSkyCoins() {
@@ -362,8 +463,35 @@ export class WorldStreamer {
       bp.rotation.y = Math.PI / 2;
 
       // Add a glowing cyan PointLight for the pickup instance
-      const boardLight = new THREE.PointLight(0x00e5ff, 2.5, 4);
+      const boardLight = new THREE.PointLight(
+        HOVERBOARD_GLOW_CONFIG.lightColor,
+        2.0,
+        4,
+      );
       bp.add(boardLight);
+
+      // Create radiant sunburst glow sprite behind the hoverboard
+      const sunburstTex = createSunburstTexture(HOVERBOARD_GLOW_CONFIG);
+      if (sunburstTex) {
+        this.boardGlowMat = new THREE.SpriteMaterial({
+          map: sunburstTex,
+          color: 0xffffff,
+          transparent: true,
+          opacity: HOVERBOARD_GLOW_CONFIG.baseOpacity,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          depthTest: true,
+        });
+        this.boardGlowSprite = new THREE.Sprite(this.boardGlowMat);
+        this.boardGlowSprite.position.set(0, 0.3, 0);
+        this.boardGlowSprite.scale.set(
+          HOVERBOARD_GLOW_CONFIG.size,
+          HOVERBOARD_GLOW_CONFIG.size,
+          1.0,
+        );
+        this.boardGlowSprite.renderOrder = 0;
+        this.boardPickupModel.add(this.boardGlowSprite);
+      }
 
       this.boardPickupModel.add(bp);
     }
@@ -466,6 +594,22 @@ export class WorldStreamer {
         if (slot.activeType) hasContent = true;
       }
       if (hasContent) continue;
+
+      const chunk = this.trackPool[i];
+      const chunkZ = chunk ? chunk.position.z : 0;
+
+      // Safe Runway Zone:
+      // When starting a new level (or restarting), provide a clear safe runway in front of the player
+      // (approx 60 world units ahead, and anything behind/at player spawn).
+      // Populate these runway chunks with a peaceful coin trail and ZERO obstacles
+      // so the player has ~2-3 seconds to prepare, get oriented, and collect opening coins safely.
+      if (!this.tutorialActive && chunkZ > -60) {
+        if (chunkZ <= 20) {
+          // Spawn coin trail for chunks in front of camera, leave chunks behind empty
+          this._refreshChunkContent(i, true, "empty-coin-trail");
+        }
+        continue;
+      }
 
       const sceneryChance = Math.min(
         0.9,
@@ -787,6 +931,19 @@ export class WorldStreamer {
             this.powerUpMat.emissiveIntensity = pulse;
           }
         }
+      }
+
+      if (this.boardGlowSprite && this.boardGlowMat) {
+        // Smoothly rotate the radiant sunburst rays
+        this.boardGlowMat.rotation += HOVERBOARD_GLOW_CONFIG.spinSpeed * delta;
+
+        // Subtle breathing pulse
+        const pulse =
+          0.5 + 0.5 * Math.sin(time * HOVERBOARD_GLOW_CONFIG.pulseSpeed);
+        const currentSize = HOVERBOARD_GLOW_CONFIG.size * (0.92 + 0.16 * pulse);
+        this.boardGlowSprite.scale.set(currentSize, currentSize, 1.0);
+        this.boardGlowMat.opacity =
+          HOVERBOARD_GLOW_CONFIG.baseOpacity * (0.85 + 0.15 * pulse);
       }
       for (const slot of this.chunkObstacles[i]) {
         if (slot.activeType) slot.variants[slot.activeType].update(time);

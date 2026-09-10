@@ -52,6 +52,11 @@ export class CollisionSystem {
     this._track = new WeakMap(); // item -> { prevZ, wasVisible }
   }
 
+  reset() {
+    this._accumulator = 0;
+    this._track = new WeakMap();
+  }
+
   // `player` must expose `.model`, `.mesh.position`, `.writeHitboxBox3(box)`,
   // `.takeHit()`. `world` must expose `.trackPool` (array of chunk Groups
   // whose children include the pooled coin/blocker Object3Ds). `onHit(payload)`
