@@ -38,11 +38,13 @@ import {
   recordMainDiscount as recordFirebaseMainDiscount,
   recordFinalScore as recordFirebaseFinalScore,
   initRemoteConfigSync,
+  getActiveConfigEnv,
 } from "./services/FirebaseService.js";
 
 // --- State Machine ---
 // LANDING, REGISTRATION, HOW_TO_PLAY, STORY_BEAT, LEVEL_INTRO, PLAYING, LEVEL_COMPLETE, BOSS_BEAT, OFFER_REVEAL, VICTORY, REDEMPTION
 const gameState = ref("LANDING");
+const activeConfigEnv = ref(getActiveConfigEnv());
 
 // --- Game Data ---
 const userData = reactive({ name: "", company: "", email: "" });
@@ -481,12 +483,21 @@ onMounted(() => {
   document.addEventListener("keydown", startAudioOnInteract);
 
   // Initialize live remote configuration sync from Firebase Firestore
-  unsubscribeRemoteConfig = initRemoteConfigSync((updatedData) => {
-    console.log("[App] Live content synchronized from Firestore:", updatedData);
-  });
+  const setupRemoteConfig = () => {
+    activeConfigEnv.value = getActiveConfigEnv();
+    if (typeof unsubscribeRemoteConfig === "function") {
+      unsubscribeRemoteConfig();
+    }
+    unsubscribeRemoteConfig = initRemoteConfigSync((updatedData, docName) => {
+      console.log(`[App] Live content synchronized from Firestore (${docName}):`, updatedData);
+    });
+  };
+  setupRemoteConfig();
+  window.addEventListener("chargeon-env-changed", setupRemoteConfig);
 
   onUnmounted(() => {
     window.removeEventListener("keydown", handleGlobalKeyDown);
+    window.removeEventListener("chargeon-env-changed", setupRemoteConfig);
     document.removeEventListener("visibilitychange", handleVisibilityChange);
     cancelAnimationFrame(_uiGamepadFrame);
 
@@ -740,11 +751,55 @@ const quitToLobby = () => {
 
       <!-- Hidden Booth Management Modal (Shortcut: Ctrl + Shift + A or Cmd + Shift + A) -->
       <BoothAdminModal />
+
+      <!-- Floating Staging Indicator Badge (Only shown when running in Staging mode) -->
+      <div
+        v-if="activeConfigEnv === 'staging'"
+        class="staging-floating-badge"
+        title="Running in Staging Sandbox mode. Live booth games are unaffected."
+      >
+        <span class="pulse-dot"></span>
+        STAGING SANDBOX
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.staging-floating-badge {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 99990;
+  background: rgba(234, 179, 8, 0.95);
+  color: #0f172a;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  box-shadow: 0 4px 15px rgba(234, 179, 8, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.staging-floating-badge .pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #0f172a;
+  animation: pulse-badge 1.5s infinite;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.3); }
+}
+
 .app-container {
   width: 100%;
   height: 100%;

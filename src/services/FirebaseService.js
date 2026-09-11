@@ -45,10 +45,60 @@ const firebaseConfig = {
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
-const PLAYERS_COLLECTION = "chargeon_players";
-const LEADERBOARD_COLLECTION = "chargeon_leaderboard";
-const CONFIG_COLLECTION = "chargeon_config";
-const CONFIG_DOC = "game_content";
+export const PLAYERS_COLLECTION = "chargeon_players";
+export const LEADERBOARD_COLLECTION = "chargeon_leaderboard";
+export const CONFIG_COLLECTION = "chargeon_config";
+
+export const CONFIG_DOCS = {
+  PRODUCTION: "game_content",
+  STAGING: "staging_game_content",
+  DEFAULT: "default_game_content",
+};
+
+/**
+ * Returns the currently targeted remote config document name.
+ * Priority:
+ * 1. URL search param: `?env=staging` -> "staging_game_content"
+ * 2. localStorage: "chargeon_config_env" === "staging" -> "staging_game_content"
+ * 3. Default: "game_content" (Production)
+ */
+export const getActiveConfigDocName = () => {
+  if (typeof window !== "undefined") {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const envParam = urlParams.get("env")?.toLowerCase();
+      if (envParam === "staging") return CONFIG_DOCS.STAGING;
+      if (envParam === "default") return CONFIG_DOCS.DEFAULT;
+      if (envParam === "production" || envParam === "prod") return CONFIG_DOCS.PRODUCTION;
+
+      const storedEnv = localStorage.getItem("chargeon_config_env")?.toLowerCase();
+      if (storedEnv === "staging") return CONFIG_DOCS.STAGING;
+      if (storedEnv === "default") return CONFIG_DOCS.DEFAULT;
+    } catch (e) {
+      // ignore
+    }
+  }
+  return CONFIG_DOCS.PRODUCTION;
+};
+
+export const getActiveConfigEnv = () => {
+  const docName = getActiveConfigDocName();
+  if (docName === CONFIG_DOCS.STAGING) return "staging";
+  if (docName === CONFIG_DOCS.DEFAULT) return "default";
+  return "production";
+};
+
+export const setActiveConfigEnv = (env) => {
+  if (typeof localStorage !== "undefined") {
+    if (env === "staging") {
+      localStorage.setItem("chargeon_config_env", "staging");
+    } else if (env === "default") {
+      localStorage.setItem("chargeon_config_env", "default");
+    } else {
+      localStorage.setItem("chargeon_config_env", "production");
+    }
+  }
+};
 
 /**
  * Returns the collection name for a specific calendar day's leaderboard.
@@ -504,15 +554,22 @@ export const subscribeToLeaderboard = (callback, topLimit = 5) => {
 
 /**
  * Real-time listener for remote game configuration from Firestore.
+ * Listens to the active environment document (game_content or staging_game_content).
  * Automatically seeds the Firestore document if it does not exist yet.
  * Caches the latest valid configuration to localStorage for instant offline boots.
  *
  * @param {function} [onUpdateCallback] - Optional callback fired when config updates
+ * @param {string} [targetDocName] - Optional document override (defaults to active env doc)
  * @returns {function} Unsubscribe function
  */
-export const initRemoteConfigSync = (onUpdateCallback) => {
+export const initRemoteConfigSync = (onUpdateCallback, targetDocName = null) => {
   try {
-    const configDocRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC);
+    const docName = targetDocName || getActiveConfigDocName();
+    const configDocRef = doc(db, CONFIG_COLLECTION, docName);
+
+    console.log(
+      `[FirebaseService] Subscribing to remote config: ${CONFIG_COLLECTION}/${docName}`,
+    );
 
     const unsubscribe = onSnapshot(
       configDocRef,
@@ -520,7 +577,7 @@ export const initRemoteConfigSync = (onUpdateCallback) => {
         if (docSnap.exists()) {
           const remoteData = docSnap.data();
           console.log(
-            "[FirebaseService] Remote game content received from Firestore:",
+            `[FirebaseService] Remote game content received from ${docName}:`,
             remoteData,
           );
 
@@ -543,22 +600,22 @@ export const initRemoteConfigSync = (onUpdateCallback) => {
           }
 
           if (typeof onUpdateCallback === "function") {
-            onUpdateCallback(remoteData);
+            onUpdateCallback(remoteData, docName);
           }
         } else {
           // Document does not exist yet in Firestore: seed it automatically with defaults!
           console.log(
-            "[FirebaseService] Remote config document does not exist yet. Seeding defaults from GameContent.js...",
+            `[FirebaseService] Remote config document (${docName}) does not exist yet. Seeding defaults...`,
           );
           try {
             const initialPayload = getSyncableContent();
             await setDoc(configDocRef, initialPayload);
             console.log(
-              "[FirebaseService] Successfully seeded default game content to Firestore.",
+              `[FirebaseService] Successfully seeded default game content to ${docName}.`,
             );
           } catch (seedErr) {
             console.warn(
-              "[FirebaseService] Could not auto-seed remote config:",
+              `[FirebaseService] Could not auto-seed remote config (${docName}):`,
               seedErr,
             );
           }
@@ -566,7 +623,7 @@ export const initRemoteConfigSync = (onUpdateCallback) => {
       },
       (error) => {
         console.warn(
-          "[FirebaseService] Remote config listener warning (offline or permissions):",
+          `[FirebaseService] Remote config listener warning for ${docName}:`,
           error,
         );
       },
@@ -587,10 +644,12 @@ export const initRemoteConfigSync = (onUpdateCallback) => {
  * Can be called by an admin panel to save changes to the cloud.
  *
  * @param {object} payload - Partial or full game content overrides
+ * @param {string} [targetDocName] - Target document (defaults to active env doc)
  */
-export const updateRemoteGameContent = async (payload) => {
+export const updateRemoteGameContent = async (payload, targetDocName = null) => {
+  const docName = targetDocName || getActiveConfigDocName();
   try {
-    const configDocRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC);
+    const configDocRef = doc(db, CONFIG_COLLECTION, docName);
     const time = getFormattedDateTime();
     const cleanPayload = {
       ...payload,
@@ -599,14 +658,118 @@ export const updateRemoteGameContent = async (payload) => {
     };
     await setDoc(configDocRef, cleanPayload, { merge: true });
     console.log(
-      "[FirebaseService] Successfully updated remote game content in Firestore.",
+      `[FirebaseService] Successfully updated remote game content in ${docName}.`,
+    );
+    return { success: true, docName };
+  } catch (err) {
+    console.error(
+      `[FirebaseService] Failed to update remote game content in ${docName}:`,
+      err,
+    );
+    return { success: false, error: err, docName };
+  }
+};
+
+/**
+ * Promotes content from `staging_game_content` into production `game_content`.
+ * Updates all live booth screens automatically.
+ */
+export const promoteStagingToProduction = async () => {
+  try {
+    const stagingRef = doc(db, CONFIG_COLLECTION, CONFIG_DOCS.STAGING);
+    const stagingSnap = await getDoc(stagingRef);
+
+    if (!stagingSnap.exists()) {
+      return {
+        success: false,
+        error: new Error("Staging document (staging_game_content) does not exist."),
+      };
+    }
+
+    const stagingData = stagingSnap.data();
+    const time = getFormattedDateTime();
+    const prodPayload = {
+      ...stagingData,
+      promotedFromStagingAt: time.readable,
+      updatedAt: time.readable,
+      timestamp: time.timestamp,
+    };
+    delete prodPayload._description;
+
+    const prodRef = doc(db, CONFIG_COLLECTION, CONFIG_DOCS.PRODUCTION);
+    await setDoc(prodRef, prodPayload);
+
+    console.log(
+      "[FirebaseService] Successfully promoted staging content to production (game_content)!",
     );
     return { success: true };
   } catch (err) {
+    console.error("[FirebaseService] Failed to promote staging to production:", err);
+    return { success: false, error: err };
+  }
+};
+
+/**
+ * Restores content from `default_game_content` backup into a target document
+ * (defaults to production `game_content`).
+ *
+ * @param {string} [targetDocName] - Defaults to CONFIG_DOCS.PRODUCTION
+ */
+export const restoreFromDefaultBackup = async (
+  targetDocName = CONFIG_DOCS.PRODUCTION,
+) => {
+  try {
+    const defaultRef = doc(db, CONFIG_COLLECTION, CONFIG_DOCS.DEFAULT);
+    const defaultSnap = await getDoc(defaultRef);
+
+    let defaultData;
+    if (defaultSnap.exists()) {
+      defaultData = defaultSnap.data();
+    } else {
+      defaultData = getSyncableContent();
+    }
+
+    const time = getFormattedDateTime();
+    const restoredPayload = {
+      ...defaultData,
+      restoredFromDefaultAt: time.readable,
+      updatedAt: time.readable,
+      timestamp: time.timestamp,
+    };
+    delete restoredPayload._description;
+
+    const targetRef = doc(db, CONFIG_COLLECTION, targetDocName);
+    await setDoc(targetRef, restoredPayload);
+
+    console.log(
+      `[FirebaseService] Successfully restored ${targetDocName} from default backup!`,
+    );
+    return { success: true, targetDocName };
+  } catch (err) {
     console.error(
-      "[FirebaseService] Failed to update remote game content:",
+      `[FirebaseService] Failed to restore ${targetDocName} from default backup:`,
       err,
     );
     return { success: false, error: err };
+  }
+};
+
+/**
+ * Fetches the current content of any config document directly (one-time read).
+ */
+export const fetchConfigDocument = async (docName = CONFIG_DOCS.PRODUCTION) => {
+  try {
+    const docRef = doc(db, CONFIG_COLLECTION, docName);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { success: true, data: snap.data(), docName };
+    }
+    return {
+      success: false,
+      error: new Error(`Document ${docName} not found.`),
+      docName,
+    };
+  } catch (err) {
+    return { success: false, error: err, docName };
   }
 };

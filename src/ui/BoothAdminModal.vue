@@ -33,6 +33,40 @@
 
       <!-- Main Admin Dashboard (Unlocked) -->
       <div v-else class="modal-body">
+        <!-- Environment Selector Bar -->
+        <div class="env-selector-bar">
+          <div class="env-left">
+            <span class="env-label">TARGET DOC:</span>
+            <div class="env-pills">
+              <button
+                type="button"
+                class="env-pill"
+                :class="{ active: activeEnv === 'production' }"
+                @click="switchEnvironment('production')"
+              >
+                <span class="env-dot prod"></span> Live Production
+              </button>
+              <button
+                type="button"
+                class="env-pill"
+                :class="{ active: activeEnv === 'staging' }"
+                @click="switchEnvironment('staging')"
+              >
+                <span class="env-dot stg"></span> Staging Sandbox
+              </button>
+            </div>
+          </div>
+          <div class="env-right">
+            <span class="env-doc-indicator">
+              Firestore Doc: <code>{{ activeDocName }}</code>
+            </span>
+          </div>
+        </div>
+
+        <div v-if="activeEnv === 'staging'" class="env-banner staging-banner">
+          🧪 <strong>Staging Mode Active:</strong> Changes saved here only affect local/test devices listening to <code>staging_game_content</code>. Live booth screens remain untouched.
+        </div>
+
         <div class="levels-grid">
           <div
             v-for="level in editLevels"
@@ -97,16 +131,39 @@
           {{ saveMessage }}
         </div>
 
-        <div class="modal-actions">
-          <button class="btn-secondary" @click="close">Close</button>
-          <button
-            class="btn-save"
-            :disabled="isSaving"
-            @click="saveToFirestore"
-          >
-            <span v-if="isSaving">⏳ Syncing to Cloud...</span>
-            <span v-else>☁️ Save & Sync to Firebase</span>
-          </button>
+        <div class="modal-actions-container">
+          <div class="actions-left">
+            <button
+              type="button"
+              class="btn-restore"
+              :disabled="isSaving"
+              @click="handleRestoreDefault"
+              title="Reset configuration to original default_game_content backup"
+            >
+              🔄 Restore Defaults
+            </button>
+            <button
+              v-if="activeEnv === 'staging'"
+              type="button"
+              class="btn-promote"
+              :disabled="isSaving"
+              @click="handlePromoteStaging"
+              title="Publish staging configuration to live production game_content"
+            >
+              🚀 Promote to Production
+            </button>
+          </div>
+          <div class="actions-right">
+            <button class="btn-secondary" @click="close">Close</button>
+            <button
+              class="btn-save"
+              :disabled="isSaving"
+              @click="saveToFirestore"
+            >
+              <span v-if="isSaving">⏳ Syncing...</span>
+              <span v-else>☁️ Save to {{ activeEnv === 'staging' ? 'Staging' : 'Production' }}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -114,9 +171,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from "vue";
+import { ref, reactive, computed, onMounted, onUnmounted } from "vue";
 import { levels } from "../data/GameContent.js";
-import { updateRemoteGameContent } from "../services/FirebaseService.js";
+import {
+  CONFIG_DOCS,
+  getActiveConfigEnv,
+  setActiveConfigEnv,
+  updateRemoteGameContent,
+  promoteStagingToProduction,
+  restoreFromDefaultBackup,
+  fetchConfigDocument,
+} from "../services/FirebaseService.js";
 
 const isOpen = ref(false);
 const unlocked = ref(false);
@@ -125,6 +190,13 @@ const pinError = ref(false);
 const isSaving = ref(false);
 const saveMessage = ref("");
 const saveStatus = ref("success");
+
+const activeEnv = ref(getActiveConfigEnv());
+const activeDocName = computed(() => {
+  return activeEnv.value === "staging"
+    ? CONFIG_DOCS.STAGING
+    : CONFIG_DOCS.PRODUCTION;
+});
 
 const editLevels = reactive([
   { id: 1, inStock: true, goodieName: "", discount: "5%", targetDurationSeconds: 60 },
@@ -144,8 +216,43 @@ function populateFromCurrentLevels() {
   });
 }
 
+async function loadDocContent() {
+  const docName = activeDocName.value;
+  try {
+    const res = await fetchConfigDocument(docName);
+    if (res.success && res.data?.levels) {
+      const remoteLevels = res.data.levels;
+      const list = Array.isArray(remoteLevels) ? remoteLevels : Object.values(remoteLevels);
+      list.forEach((lvl) => {
+        const target = editLevels.find((e) => e.id === Number(lvl.id));
+        if (target) {
+          target.inStock = !!lvl.goodie;
+          target.goodieName = lvl.goodie || "";
+          target.discount = lvl.discount || `${target.id === 1 ? 5 : target.id === 2 ? 10 : 15}%`;
+          target.targetDurationSeconds = lvl.targetDurationSeconds || 60;
+        }
+      });
+    } else {
+      populateFromCurrentLevels();
+    }
+  } catch (err) {
+    console.warn("[BoothAdminModal] Failed to load doc content, falling back:", err);
+    populateFromCurrentLevels();
+  }
+}
+
+async function switchEnvironment(env) {
+  if (activeEnv.value === env) return;
+  activeEnv.value = env;
+  setActiveConfigEnv(env);
+  saveMessage.value = "";
+  window.dispatchEvent(new CustomEvent("chargeon-env-changed", { detail: { env } }));
+  await loadDocContent();
+}
+
 function open() {
-  populateFromCurrentLevels();
+  activeEnv.value = getActiveConfigEnv();
+  loadDocContent();
   saveMessage.value = "";
   isOpen.value = true;
 }
@@ -159,7 +266,7 @@ function checkPin() {
   if (pinInput.value === "2026" || pinInput.value === "admin" || pinInput.value === "") {
     unlocked.value = true;
     pinError.value = false;
-    populateFromCurrentLevels();
+    loadDocContent();
   } else {
     pinError.value = true;
   }
@@ -189,18 +296,69 @@ async function saveToFirestore() {
     levels: levelOverrides,
   };
 
-  const result = await updateRemoteGameContent(payload);
+  const targetDoc = activeDocName.value;
+  const result = await updateRemoteGameContent(payload, targetDoc);
   isSaving.value = false;
 
   if (result.success) {
     saveStatus.value = "success";
-    saveMessage.value = "✅ Saved to Firestore! All booth screens will update immediately.";
+    const targetLabel = activeEnv.value === "staging" ? "Staging (staging_game_content)" : "Production (game_content)";
+    saveMessage.value = `✅ Saved to ${targetLabel}! Connected screens will update immediately.`;
     setTimeout(() => {
       saveMessage.value = "";
     }, 4000);
   } else {
     saveStatus.value = "error";
     saveMessage.value = "⚠️ Could not reach Firestore. Check booth internet connection.";
+  }
+}
+
+async function handlePromoteStaging() {
+  const confirmed = window.confirm(
+    "Are you sure you want to promote all Staging settings into Live Production (game_content)?\n\nAll live booth games connected to the internet will immediately update with these settings."
+  );
+  if (!confirmed) return;
+
+  isSaving.value = true;
+  saveMessage.value = "";
+  const result = await promoteStagingToProduction();
+  isSaving.value = false;
+
+  if (result.success) {
+    saveStatus.value = "success";
+    saveMessage.value = "🚀 Staging content has been promoted to Live Production (game_content)!";
+    setTimeout(() => {
+      saveMessage.value = "";
+    }, 5000);
+  } else {
+    saveStatus.value = "error";
+    saveMessage.value = "⚠️ Promotion failed: " + (result.error?.message || "Unknown error");
+  }
+}
+
+async function handleRestoreDefault() {
+  const targetLabel = activeEnv.value === "staging" ? "Staging (staging_game_content)" : "Production (game_content)";
+  const confirmed = window.confirm(
+    `Are you sure you want to restore ${targetLabel} from the pristine default_game_content backup?\n\nThis will reset goodies, discounts, and durations back to factory defaults.`
+  );
+  if (!confirmed) return;
+
+  isSaving.value = true;
+  saveMessage.value = "";
+  const targetDoc = activeDocName.value;
+  const result = await restoreFromDefaultBackup(targetDoc);
+  isSaving.value = false;
+
+  if (result.success) {
+    saveStatus.value = "success";
+    saveMessage.value = `🔄 Successfully restored ${targetLabel} from default backup!`;
+    await loadDocContent();
+    setTimeout(() => {
+      saveMessage.value = "";
+    }, 5000);
+  } else {
+    saveStatus.value = "error";
+    saveMessage.value = "⚠️ Restore failed: " + (result.error?.message || "Unknown error");
   }
 }
 
@@ -249,11 +407,12 @@ defineExpose({
 }
 
 .booth-admin-modal {
-  width: 720px;
+  width: 620px;
   max-width: 95vw;
+  max-height: 90vh;
   background: #0f172a;
   border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 20px;
+  border-radius: 16px;
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.8),
     0 0 40px rgba(59, 130, 246, 0.2);
@@ -263,36 +422,37 @@ defineExpose({
 }
 
 .modal-header {
-  padding: 24px 28px;
+  padding: 14px 20px;
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  flex-shrink: 0;
 }
 
 .badge-tag {
   background: rgba(59, 130, 246, 0.2);
   color: #60a5fa;
   border: 1px solid rgba(96, 165, 250, 0.4);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 2px 7px;
+  border-radius: 5px;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
 
 .modal-header h2 {
-  margin: 6px 0 2px;
-  font-size: 22px;
+  margin: 4px 0 2px;
+  font-size: 18px;
   font-weight: 800;
   color: #f8fafc;
 }
 
 .subtitle {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: #94a3b8;
 }
 
@@ -300,10 +460,10 @@ defineExpose({
   background: transparent;
   border: none;
   color: #94a3b8;
-  font-size: 20px;
+  font-size: 18px;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
   transition: all 0.2s;
 }
 
@@ -313,7 +473,7 @@ defineExpose({
 }
 
 .pin-screen {
-  padding: 50px 40px;
+  padding: 40px 30px;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -321,20 +481,20 @@ defineExpose({
 }
 
 .pin-icon {
-  font-size: 44px;
-  margin-bottom: 10px;
+  font-size: 36px;
+  margin-bottom: 8px;
 }
 
 .pin-screen h3 {
-  margin: 0 0 6px;
-  font-size: 20px;
+  margin: 0 0 4px;
+  font-size: 18px;
   color: #f1f5f9;
 }
 
 .pin-screen p {
   color: #94a3b8;
-  font-size: 13px;
-  margin-bottom: 20px;
+  font-size: 12px;
+  margin-bottom: 16px;
 }
 
 .pin-input-row {
@@ -346,9 +506,9 @@ defineExpose({
   background: #1e293b;
   border: 1px solid #334155;
   color: #fff;
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-size: 15px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 14px;
   letter-spacing: 2px;
   text-align: center;
   outline: none;
@@ -359,32 +519,51 @@ defineExpose({
   border: none;
   color: #fff;
   font-weight: 700;
-  padding: 10px 20px;
-  border-radius: 10px;
+  padding: 8px 16px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
 .pin-error-msg {
   color: #f87171;
   font-size: 12px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .modal-body {
-  padding: 24px 28px;
+  padding: 14px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 .levels-grid {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
 .level-card {
   background: rgba(30, 41, 59, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  padding: 18px 20px;
+  border-radius: 10px;
+  padding: 10px 14px;
   transition: all 0.2s;
 }
 
@@ -397,12 +576,12 @@ defineExpose({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .level-pill {
   font-weight: 800;
-  font-size: 13px;
+  font-size: 12px;
   color: #38bdf8;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -411,11 +590,11 @@ defineExpose({
 .stock-toggle-box {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .stock-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.5px;
 }
@@ -431,12 +610,12 @@ defineExpose({
 .card-inputs {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .input-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
 .flex-1 {
@@ -446,12 +625,12 @@ defineExpose({
 .input-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .input-group label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -461,9 +640,9 @@ defineExpose({
   background: #1e293b;
   border: 1px solid #334155;
   color: #fff;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
@@ -479,10 +658,10 @@ defineExpose({
 }
 
 .save-status-banner {
-  margin-top: 16px;
-  padding: 10px 14px;
+  margin-top: 10px;
+  padding: 8px 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-align: center;
 }
@@ -499,13 +678,158 @@ defineExpose({
   color: #f87171;
 }
 
-.modal-actions {
+.env-selector-bar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 16px;
+}
+
+.env-left {
+  display: flex;
+  align-items: center;
   gap: 12px;
-  margin-top: 20px;
-  padding-top: 16px;
+}
+
+.env-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.env-pills {
+  display: flex;
+  gap: 8px;
+}
+
+.env-pill {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.env-pill:hover {
+  background: #273549;
+  color: #f1f5f9;
+}
+
+.env-pill.active {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: #3b82f6;
+  color: #60a5fa;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+}
+
+.env-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.env-dot.prod {
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+}
+
+.env-dot.stg {
+  background: #eab308;
+  box-shadow: 0 0 8px #eab308;
+}
+
+.env-doc-indicator {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.env-doc-indicator code {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #38bdf8;
+  font-family: monospace;
+}
+
+.env-banner {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.staging-banner {
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  color: #fef08a;
+}
+
+.modal-actions-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  bottom: 0;
+  background: #0f172a;
+  z-index: 10;
+}
+
+.actions-left,
+.actions-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-restore {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.btn-restore:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fff;
+}
+
+.btn-promote {
+  background: linear-gradient(90deg, #10b981, #059669);
+  border: none;
+  color: #fff;
+  font-weight: 800;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+  transition: all 0.2s;
+}
+
+.btn-promote:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.45);
 }
 
 .btn-secondary {
@@ -543,7 +867,9 @@ defineExpose({
   box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5);
 }
 
-.btn-save:disabled {
+.btn-save:disabled,
+.btn-restore:disabled,
+.btn-promote:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

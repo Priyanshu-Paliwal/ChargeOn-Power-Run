@@ -15,19 +15,27 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const CONFIG_COLLECTION = "chargeon_config";
-const CONFIG_DOC = "game_content";
+const DOC_PROD = "game_content";
+const DOC_STAGING = "staging_game_content";
+const DOC_DEFAULT = "default_game_content";
 
-async function checkAndSeed() {
-  console.log(`Checking Firestore doc: ${CONFIG_COLLECTION}/${CONFIG_DOC}...`);
-  const docRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC);
-  const snap = await getDoc(docRef);
+async function runSeed() {
+  console.log(`\n==============================================`);
+  console.log(`ChargeOn Remote Config Manager`);
+  console.log(`Collection: ${CONFIG_COLLECTION}`);
+  console.log(`==============================================\n`);
 
-  if (snap.exists()) {
-    console.log("Document already exists in Firestore! Current data:");
-    console.log(JSON.stringify(snap.data(), null, 2));
+  // 1. Fetch current production game_content
+  const prodRef = doc(db, CONFIG_COLLECTION, DOC_PROD);
+  const prodSnap = await getDoc(prodRef);
+
+  let baseData;
+  if (prodSnap.exists()) {
+    console.log(`[OK] Found existing production document: ${DOC_PROD}`);
+    baseData = prodSnap.data();
   } else {
-    console.log("Document does not exist. Seeding initial configuration...");
-    const initialData = {
+    console.log(`[INFO] Production document not found, generating base content...`);
+    baseData = {
       levels: {
         1: {
           id: 1,
@@ -72,12 +80,12 @@ async function checkAndSeed() {
       campaignPromo: {
         levelCompleteRunningBox: {
           title: "STILL IN THE RUNNING!",
-          desc: "Post your run on LinkedIn, tag Cyntexa, and attach your booth selfie.",
+          desc: "Post your run on LinkedIn, tag Cyntexa, use #ChargeOn and attach your booth selfie.",
           highlight: "Highest engagement wins an exclusive gift!",
         },
         gameOverEligibilityBox: {
           title: "YOU ARE STILL ELIGIBLE FOR THE EXCLUSIVE GIFT: AIRPODS PRO",
-          desc: "Post your run on LinkedIn, tag Cyntexa, and attach your booth selfie.",
+          desc: "Post your run on LinkedIn, tag Cyntexa, use #ChargeOn and attach your booth selfie.",
           highlight: "Highest engagement wins an exclusive gift!",
           image: "/img/run-failed-airpod-img.png",
         },
@@ -87,7 +95,7 @@ async function checkAndSeed() {
           tasks: [
             { text: "Post your run on LinkedIn", isLinkedIn: true },
             { text: "Attach your booth selfie", highlight: "" },
-            { text: "Tag", highlight: "Cyntexa" },
+            { text: "Tag", highlight: "Cyntexa, use #ChargeOn" },
           ],
           highlightBox: "Highest engagement post wins an exclusive AirPods Pro",
           buttonText: "SEE MY RESULTS",
@@ -96,20 +104,49 @@ async function checkAndSeed() {
       },
       updatedAt: new Date().toISOString(),
     };
-
-    await setDoc(docRef, initialData);
-    console.log(
-      "Successfully seeded chargeon_config/game_content in Firestore!",
-    );
+    await setDoc(prodRef, baseData);
+    console.log(`[CREATED] Created production document: ${DOC_PROD}`);
   }
+
+  // 2. Check / Seed default_game_content (Immutable pristine reference)
+  const defaultRef = doc(db, CONFIG_COLLECTION, DOC_DEFAULT);
+  const defaultSnap = await getDoc(defaultRef);
+  if (!defaultSnap.exists()) {
+    const defaultData = {
+      ...baseData,
+      _description: "Factory default game content backup. Do not edit directly; used to restore production.",
+      updatedAt: new Date().toISOString(),
+    };
+    await setDoc(defaultRef, defaultData);
+    console.log(`[CREATED] Created permanent backup document: ${DOC_DEFAULT}`);
+  } else {
+    console.log(`[EXISTS] Default backup document already exists: ${DOC_DEFAULT}`);
+  }
+
+  // 3. Check / Seed staging_game_content (Sandbox for local testing)
+  const stagingRef = doc(db, CONFIG_COLLECTION, DOC_STAGING);
+  const stagingSnap = await getDoc(stagingRef);
+  if (!stagingSnap.exists()) {
+    const stagingData = {
+      ...baseData,
+      _description: "Staging sandbox for testing changes locally before promoting to production.",
+      updatedAt: new Date().toISOString(),
+    };
+    await setDoc(stagingRef, stagingData);
+    console.log(`[CREATED] Created staging document: ${DOC_STAGING}`);
+  } else {
+    console.log(`[EXISTS] Staging document already exists: ${DOC_STAGING}`);
+  }
+
+  console.log(`\nAll 3 configuration documents verified in Firestore!`);
+  console.log(` - Production:  ${CONFIG_COLLECTION}/${DOC_PROD}`);
+  console.log(` - Staging:     ${CONFIG_COLLECTION}/${DOC_STAGING}`);
+  console.log(` - Default:     ${CONFIG_COLLECTION}/${DOC_DEFAULT}\n`);
 }
 
-checkAndSeed()
-  .then(() => {
-    console.log("Done.");
-    process.exit(0);
-  })
+runSeed()
+  .then(() => process.exit(0))
   .catch((err) => {
-    console.error("Firestore test error:", err);
+    console.error("Firestore seed error:", err);
     process.exit(1);
   });
