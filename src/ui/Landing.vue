@@ -320,7 +320,7 @@ onUnmounted(() => {
         </p>
 
         <div class="leaderboard">
-          <h4 class="text-dim">Top Performers</h4>
+          <h4 class="text-dim">Today's Top Performers</h4>
           <ul ref="leaderboardListEl">
             <li
               v-for="(entry, index) in leaderboard"

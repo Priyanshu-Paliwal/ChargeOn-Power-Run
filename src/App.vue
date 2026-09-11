@@ -32,6 +32,7 @@ import {
   updateMainDiscount,
 } from "./services/SheetService.js";
 import {
+  generateSessionId,
   createPlayerSession,
   recordLevelResult as recordFirebaseLevelResult,
   recordMainDiscount as recordFirebaseMainDiscount,
@@ -185,9 +186,11 @@ const addFlash = (color, intensity = 1) => {
 };
 
 const saveScoreToLeaderboard = () => {
+  const activeSessionId =
+    currentSessionId.value || generateSessionId(userData.email);
   // Sync to Firebase live leaderboard and session record
   recordFirebaseFinalScore(
-    currentSessionId.value,
+    activeSessionId,
     {
       name: userData.name,
       email: userData.email,
@@ -311,8 +314,10 @@ const handleCollision = (hit) => {
         gameStats.score,
       );
       // Update Firebase: current level was Failed
+      const activeSessionId =
+        currentSessionId.value || generateSessionId(userData.email);
       recordFirebaseLevelResult(
-        currentSessionId.value,
+        activeSessionId,
         gameStats.currentLevelId,
         "Failed",
         "",
@@ -454,19 +459,24 @@ onMounted(() => {
   };
   _uiGamepadFrame = requestAnimationFrame(pollUIGamepad);
 
-  // Attempt to play music by default on load
-  audioManager.playMusic();
-
-  // Browsers usually block autoplay before interaction. This ensures it starts
-  // the moment the user clicks or presses a key anywhere on the page.
+// Attempt to play music by default on load without waiting for interaction
+  audioManager.unlock();
+  if (isMusicPlaying.value) {
+    audioManager.playMusic();
+  }
+  // Fallback: If autoplay was blocked by the browser, play on first interaction.
+  // We check audioManager.isMusicPlaying so we don't restart it if it's already playing.
   const startAudioOnInteract = () => {
-    audioManager.unlock();
-    if (isMusicPlaying.value) {
-      audioManager.playMusic();
+    if (!audioManager.isMusicPlaying) {
+      audioManager.unlock();
+      if (isMusicPlaying.value) {
+        audioManager.playMusic();
+      }
     }
     document.removeEventListener("pointerdown", startAudioOnInteract);
     document.removeEventListener("keydown", startAudioOnInteract);
   };
+
   document.addEventListener("pointerdown", startAudioOnInteract);
   document.addEventListener("keydown", startAudioOnInteract);
 
@@ -500,7 +510,9 @@ const handleRegistration = (data) => {
   userData.name = data.name;
   userData.company = data.company;
   userData.email = data.email;
-  console.log("CRM WRITE:", userData);
+  // Compute and assign session ID synchronously immediately so it is never null or stale
+  currentSessionId.value = generateSessionId(data.email);
+  console.log("CRM WRITE:", userData, "Session ID:", currentSessionId.value);
   // Clear any goodies from a previous game session in this browser
   wonGoodies.value = [];
   hasLostLifeAnyLevel.value = false;
@@ -511,8 +523,6 @@ const handleRegistration = (data) => {
     name: userData.name,
     company: userData.company,
     email: userData.email,
-  }).then((sessionId) => {
-    currentSessionId.value = sessionId;
   });
   gameState.value = "HOW_TO_PLAY"; // After form submit, go to game
 };
@@ -558,8 +568,10 @@ const advanceLevel = () => {
     gameStats.score,
   );
   // 2. Update Firestore: this level was Passed with exact completion timestamp
+  const activeSessionId =
+    currentSessionId.value || generateSessionId(userData.email);
   recordFirebaseLevelResult(
-    currentSessionId.value,
+    activeSessionId,
     gameStats.currentLevelId,
     "Passed",
     wonGoodie,
@@ -581,7 +593,7 @@ const advanceLevel = () => {
 
     // Automatically apply the final main discount
     updateMainDiscount(userData.email);
-    recordFirebaseMainDiscount(currentSessionId.value, "15% OFF");
+    recordFirebaseMainDiscount(activeSessionId, "15% OFF");
 
     gameState.value = "OFFER_REVEAL";
   } else {
@@ -622,6 +634,7 @@ const quitToLobby = () => {
   userData.name = "";
   userData.company = "";
   userData.email = "";
+  currentSessionId.value = "";
   wonGoodies.value = [];
 
   gameStats.lives = 3;
@@ -695,6 +708,7 @@ const quitToLobby = () => {
         <GameOver
           v-else-if="gameState === 'GAME_OVER'"
           :stats="gameStats"
+          :wonGoodies="wonGoodies"
           @retry="quitToLobby"
         />
 

@@ -18,15 +18,18 @@ import {
   updateDoc,
   collection,
   query,
+  where,
   orderBy,
   limit,
   onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
+import { applyRemoteContent, getSyncableContent } from "../data/GameContent.js";
 import {
-  applyRemoteContent,
-  getSyncableContent,
-} from "../data/GameContent.js";
+  getEventFormattedDateTime,
+  getEventDateKey,
+} from "../game/config/GameConfig.js";
+import { enqueueAction } from "./OfflineSyncService.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCVOruNPmhISdKhkSIk-ql37Ea0Kj4NGzQ",
@@ -48,23 +51,20 @@ const CONFIG_COLLECTION = "chargeon_config";
 const CONFIG_DOC = "game_content";
 
 /**
- * Returns consistent local human-readable string and ISO timestamps.
+ * Returns the collection name for a specific calendar day's leaderboard.
+ * Example: "chargeon_leaderboard_2026_09_11"
+ * Isolates each day so yesterday's scores never leak into today's leaderboard.
  */
-export const getFormattedDateTime = () => {
-  const now = new Date();
-  return {
-    readable: now.toLocaleString("en-US", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    }),
-    iso: now.toISOString(),
-    timestamp: now.getTime(),
-  };
+export const getDailyLeaderboardCollection = (dateKey = getEventDateKey()) => {
+  return `chargeon_leaderboard_${dateKey.replace(/-/g, "_")}`;
+};
+
+/**
+ * Returns consistent event human-readable string and ISO timestamps
+ * explicitly in San Francisco (PDT/PST) Dreamforce timezone.
+ */
+export const getFormattedDateTime = (d = new Date()) => {
+  return getEventFormattedDateTime(d);
 };
 
 /**
@@ -80,6 +80,34 @@ export const generateSessionId = (email) => {
     .slice(0, 48);
   return sanitized;
 };
+
+/**
+ * Checks if a player session already exists for the given email.
+ * @param {string} email
+ * @returns {Promise<boolean>} True if exists, false otherwise
+ */
+export const checkEmailExists = async (email) => {
+  try {
+    const sessionId = generateSessionId(email);
+    const docRef = doc(db, PLAYERS_COLLECTION, sessionId);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists();
+  } catch (err) {
+    console.warn("[FirebaseService] Failed to check email existence:", err);
+    return false;
+  }
+};
+
+const isOnline = () =>
+  typeof navigator !== "undefined" ? navigator.onLine : true;
+
+const withTimeout = (promise, ms = 2500) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Firestore operation timed out")), ms),
+    ),
+  ]);
 
 /**
  * Creates a new player game session document in Firestore upon registration.
@@ -125,15 +153,33 @@ export const createPlayerSession = async (userData) => {
     serverCreatedAt: serverTimestamp(),
   };
 
+  // Immediate offline dispatch (never blocks or hangs UI)
+  if (!isOnline()) {
+    console.log(
+      `[FirebaseService] Device offline: enqueuing createSession for ${sessionId}`,
+    );
+    enqueueAction("firebase", "createSession", {
+      sessionId,
+      data: initialData,
+    });
+    return sessionId;
+  }
+
   try {
     const docRef = doc(db, PLAYERS_COLLECTION, sessionId);
-    await setDoc(docRef, initialData);
-    console.log(`[FirebaseService] Player session created: ${sessionId}`);
+    await withTimeout(setDoc(docRef, initialData, { merge: true }), 2500);
+    console.log(
+      `[FirebaseService] Player session created online: ${sessionId}`,
+    );
   } catch (err) {
     console.warn(
-      "[FirebaseService] Failed to create player session (non-blocking):",
-      err,
+      "[FirebaseService] Online createPlayerSession failed or timed out, enqueuing for offline sync:",
+      err.message,
     );
+    enqueueAction("firebase", "createSession", {
+      sessionId,
+      data: initialData,
+    });
   }
 
   return sessionId;
@@ -157,7 +203,12 @@ export const recordLevelResult = async (
   discount = "",
   score = 0,
 ) => {
-  if (!sessionId) return;
+  if (!sessionId) {
+    console.warn(
+      "[FirebaseService] recordLevelResult skipped: sessionId is missing",
+    );
+    return;
+  }
   const time = getFormattedDateTime();
 
   const levelData = {
@@ -184,15 +235,27 @@ export const recordLevelResult = async (
     updatePayload.endedAt = time.readable;
   }
 
+  // Immediate offline dispatch
+  if (!isOnline()) {
+    console.log(
+      `[FirebaseService] Device offline: enqueuing Level ${level} result for ${sessionId}`,
+    );
+    enqueueAction("firebase", "updateLevel", { sessionId, updatePayload });
+    return;
+  }
+
   try {
     const docRef = doc(db, PLAYERS_COLLECTION, sessionId);
-    await updateDoc(docRef, updatePayload);
-    console.log(`[FirebaseService] Level ${level} result recorded: ${status}`);
+    await withTimeout(setDoc(docRef, updatePayload, { merge: true }), 2500);
+    console.log(
+      `[FirebaseService] Level ${level} result recorded online: ${status}`,
+    );
   } catch (err) {
     console.warn(
-      `[FirebaseService] Failed to update Level ${level} result:`,
-      err,
+      `[FirebaseService] Online updateLevel failed or timed out, enqueuing:`,
+      err.message,
     );
+    enqueueAction("firebase", "updateLevel", { sessionId, updatePayload });
   }
 };
 
@@ -202,17 +265,30 @@ export const recordLevelResult = async (
 export const recordMainDiscount = async (sessionId, discount = "15% OFF") => {
   if (!sessionId) return;
   const time = getFormattedDateTime();
+  const updatePayload = {
+    mainDiscount: discount,
+    discountUnlockedAt: time.readable,
+    lastActiveAt: time.readable,
+  };
+
+  if (!isOnline()) {
+    console.log(
+      `[FirebaseService] Device offline: enqueuing main discount for ${sessionId}`,
+    );
+    enqueueAction("firebase", "updateDiscount", { sessionId, updatePayload });
+    return;
+  }
 
   try {
     const docRef = doc(db, PLAYERS_COLLECTION, sessionId);
-    await updateDoc(docRef, {
-      mainDiscount: discount,
-      discountUnlockedAt: time.readable,
-      lastActiveAt: time.readable,
-    });
-    console.log("[FirebaseService] Main discount updated in Firestore.");
+    await withTimeout(setDoc(docRef, updatePayload, { merge: true }), 2500);
+    console.log("[FirebaseService] Main discount updated in Firestore online.");
   } catch (err) {
-    console.warn("[FirebaseService] Failed to update main discount:", err);
+    console.warn(
+      "[FirebaseService] Online updateDiscount failed or timed out, enqueuing:",
+      err.message,
+    );
+    enqueueAction("firebase", "updateDiscount", { sessionId, updatePayload });
   }
 };
 
@@ -226,95 +302,204 @@ export const recordMainDiscount = async (sessionId, discount = "15% OFF") => {
 export const recordFinalScore = async (sessionId, userData, finalScore) => {
   const time = getFormattedDateTime();
   const numericScore = Number(finalScore) || 0;
+  const dateKey = time.dateKey || getEventDateKey();
 
-  // 1. Update player's session doc
-  if (sessionId) {
+  const sessionPayload = {
+    score: numericScore,
+    finalScore: numericScore,
+    completedAt: time.readable,
+    completedAtTimestamp: time.timestamp,
+    lastActiveAt: time.readable,
+  };
+
+  // Day-scoped entry ID: ALWAYS derived from the current user's email!
+  // This guarantees that one player NEVER overwrites another player's document!
+  const basePlayerId = generateSessionId(userData?.email) || sessionId;
+  const entryId = `${basePlayerId}_${dateKey.replace(/-/g, "_")}`;
+  const targetSessionId = sessionId || basePlayerId;
+
+  const leaderboardPayload = {
+    sessionId: entryId,
+    playerId: basePlayerId,
+    name: userData.name || "Anonymous",
+    company: userData.company || "",
+    score: numericScore,
+    achievedAt: time.readable,
+    timestamp: time.timestamp,
+    dateKey, // Stamped in San Francisco PDT ("YYYY-MM-DD")
+  };
+
+  if (!isOnline()) {
+    console.log(
+      `[FirebaseService] Device offline: enqueuing finalScore for ${entryId}`,
+    );
+    enqueueAction("firebase", "finalScore", {
+      sessionId: targetSessionId,
+      entryId,
+      sessionPayload,
+      leaderboardPayload,
+    });
+    return;
+  }
+
+  let sessionSucceeded = false;
+  let leaderboardSucceeded = false;
+
+  // 1. Update player's individual session document
+  if (targetSessionId) {
     try {
-      const docRef = doc(db, PLAYERS_COLLECTION, sessionId);
-      await updateDoc(docRef, {
-        score: numericScore,
-        finalScore: numericScore,
-        completedAt: time.readable,
-        completedAtTimestamp: time.timestamp,
-        lastActiveAt: time.readable,
-      });
+      const docRef = doc(db, PLAYERS_COLLECTION, targetSessionId);
+      await withTimeout(setDoc(docRef, sessionPayload, { merge: true }), 2500);
+      sessionSucceeded = true;
     } catch (err) {
       console.warn(
         "[FirebaseService] Failed to update final score on session:",
-        err,
+        err.message,
       );
     }
+  } else {
+    sessionSucceeded = true;
   }
 
-  // 2. Add entry to live leaderboard collection
+  // 2. Add entry to single chargeon_leaderboard collection
   try {
-    const entryId = sessionId || generateSessionId(userData.email);
     const leaderboardRef = doc(db, LEADERBOARD_COLLECTION, entryId);
-    await setDoc(leaderboardRef, {
-      sessionId: entryId,
-      name: userData.name || "Anonymous",
-      company: userData.company || "",
-      score: numericScore,
-      achievedAt: time.readable,
-      timestamp: time.timestamp,
-    });
-    console.log("[FirebaseService] High score posted to live leaderboard.");
+    await withTimeout(
+      setDoc(leaderboardRef, leaderboardPayload, { merge: true }),
+      2500,
+    );
+    leaderboardSucceeded = true;
+    console.log(
+      `[FirebaseService] High score posted to leaderboard (${dateKey}): ${entryId}`,
+    );
   } catch (err) {
-    console.warn("[FirebaseService] Failed to post score to leaderboard:", err);
+    console.warn(
+      "[FirebaseService] Failed to post score to leaderboard:",
+      err.message,
+    );
+  }
+
+  if (!sessionSucceeded || !leaderboardSucceeded) {
+    console.warn(
+      "[FirebaseService] Online write timed out/failed, enqueuing finalScore for offline sync",
+    );
+    enqueueAction("firebase", "finalScore", {
+      sessionId: targetSessionId,
+      entryId,
+      sessionPayload,
+      leaderboardPayload,
+    });
   }
 };
 
 /**
- * Sets up a real-time onSnapshot listener on the leaderboard collection.
- * Returns an unsubscribe function.
+ * Real-time listener for TODAY'S live leaderboard entries from the single chargeon_leaderboard collection.
+ * - Filters strictly by today's San Francisco dateKey ("YYYY-MM-DD").
+ * - Automatically refreshes at 12:00 AM Midnight in San Francisco time when the date changes,
+ *   resetting the board for the new day without requiring a game restart.
  *
  * @param {function} callback - Receives array of top scores: [{ rank, name, score, company }]
  * @param {number} topLimit - Default 5
+ * @returns {function} Unsubscribe function that cleans up both Firestore listener and midnight timer
  */
 export const subscribeToLeaderboard = (callback, topLimit = 5) => {
-  try {
-    const leaderboardCol = collection(db, LEADERBOARD_COLLECTION);
-    const q = query(leaderboardCol, orderBy("score", "desc"), limit(topLimit));
+  let activeUnsubscribe = null;
+  let activeDateKey = getEventDateKey();
 
-    return onSnapshot(
-      q,
-      (snapshot) => {
-        const results = [];
-        let rank = 1;
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          results.push({
-            rank: rank++,
-            name: data.name || "Anonymous",
-            score: data.score != null ? data.score.toString() : "0",
-            company: data.company || "",
-            achievedAt: data.achievedAt || "",
-          });
-        });
+  const startListeningForDate = (dateKey) => {
+    // Tear down any existing Firestore snapshot listener before starting a new one
+    if (typeof activeUnsubscribe === "function") {
+      activeUnsubscribe();
+      activeUnsubscribe = null;
+    }
 
-        // If fewer than topLimit entries exist, pad with clean placeholders
-        while (results.length < topLimit) {
-          results.push({
-            rank: results.length + 1,
-            name: "--",
-            score: "--",
-            company: "",
-          });
-        }
-
-        callback(results);
-      },
-      (error) => {
-        console.warn("[FirebaseService] Leaderboard listener error:", error);
-      },
+    console.log(
+      `[FirebaseService] 🎯 Subscribing to live leaderboard for date: ${dateKey} (San Francisco Time)`,
     );
-  } catch (err) {
-    console.warn(
-      "[FirebaseService] Failed to initialize leaderboard listener:",
-      err,
-    );
-    return () => {};
-  }
+
+    try {
+      const leaderboardCol = collection(db, LEADERBOARD_COLLECTION);
+      // Query single collection strictly for today's dateKey
+      const q = query(leaderboardCol, where("dateKey", "==", dateKey));
+
+      activeUnsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const allItems = [];
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            allItems.push({
+              name: data.name || "Anonymous",
+              score: Number(data.score) || 0,
+              company: data.company || "",
+              achievedAt: data.achievedAt || "",
+            });
+          });
+
+          // Client-side sort by highest score first (zero composite index required in Firestore)
+          allItems.sort((a, b) => b.score - a.score);
+
+          // Take top performers and assign rank numbers
+          const topResults = allItems.slice(0, topLimit).map((item, idx) => ({
+            rank: idx + 1,
+            name: item.name,
+            score: item.score.toString(),
+            company: item.company,
+            achievedAt: item.achievedAt,
+          }));
+
+          // If fewer than topLimit entries exist today, pad with placeholder slots
+          while (topResults.length < topLimit) {
+            topResults.push({
+              rank: topResults.length + 1,
+              name: "--",
+              score: "--",
+              company: "",
+            });
+          }
+
+          callback(topResults);
+        },
+        (error) => {
+          console.warn(
+            `[FirebaseService] Leaderboard listener error for date ${dateKey}:`,
+            error,
+          );
+        },
+      );
+    } catch (err) {
+      console.warn(
+        `[FirebaseService] Failed to initialize leaderboard listener for ${dateKey}:`,
+        err,
+      );
+    }
+  };
+
+  // 1. Start listening for today's date
+  startListeningForDate(activeDateKey);
+
+  // 2. Automatic 12:00 Midnight Refresh Detector:
+  // Runs every 10 seconds and checks if the calendar day in San Francisco has rolled over.
+  // When midnight passes, it tears down the old listener, connects to the new day,
+  // and resets the screen immediately for today's players.
+  const midnightCheckInterval = setInterval(() => {
+    const currentDateKey = getEventDateKey();
+    if (currentDateKey !== activeDateKey) {
+      console.log(
+        `[FirebaseService] 🕛 Midnight 12:00 AM passed! Rollover from ${activeDateKey} to ${currentDateKey}. Refreshing leaderboard...`,
+      );
+      activeDateKey = currentDateKey;
+      startListeningForDate(activeDateKey);
+    }
+  }, 10000);
+
+  // Return master cleanup function
+  return () => {
+    clearInterval(midnightCheckInterval);
+    if (typeof activeUnsubscribe === "function") {
+      activeUnsubscribe();
+    }
+  };
 };
 
 /**
@@ -334,7 +519,10 @@ export const initRemoteConfigSync = (onUpdateCallback) => {
       async (docSnap) => {
         if (docSnap.exists()) {
           const remoteData = docSnap.data();
-          console.log("[FirebaseService] Remote game content received from Firestore:", remoteData);
+          console.log(
+            "[FirebaseService] Remote game content received from Firestore:",
+            remoteData,
+          );
 
           // 1. Apply to in-memory reactive GameContent
           applyRemoteContent(remoteData);
@@ -342,10 +530,16 @@ export const initRemoteConfigSync = (onUpdateCallback) => {
           // 2. Cache to localStorage for instant offline access
           try {
             if (typeof localStorage !== "undefined") {
-              localStorage.setItem("chargeon_remote_config", JSON.stringify(remoteData));
+              localStorage.setItem(
+                "chargeon_remote_config",
+                JSON.stringify(remoteData),
+              );
             }
           } catch (storageErr) {
-            console.warn("[FirebaseService] Failed to cache remote config to localStorage:", storageErr);
+            console.warn(
+              "[FirebaseService] Failed to cache remote config to localStorage:",
+              storageErr,
+            );
           }
 
           if (typeof onUpdateCallback === "function") {
@@ -353,24 +547,37 @@ export const initRemoteConfigSync = (onUpdateCallback) => {
           }
         } else {
           // Document does not exist yet in Firestore: seed it automatically with defaults!
-          console.log("[FirebaseService] Remote config document does not exist yet. Seeding defaults from GameContent.js...");
+          console.log(
+            "[FirebaseService] Remote config document does not exist yet. Seeding defaults from GameContent.js...",
+          );
           try {
             const initialPayload = getSyncableContent();
             await setDoc(configDocRef, initialPayload);
-            console.log("[FirebaseService] Successfully seeded default game content to Firestore.");
+            console.log(
+              "[FirebaseService] Successfully seeded default game content to Firestore.",
+            );
           } catch (seedErr) {
-            console.warn("[FirebaseService] Could not auto-seed remote config:", seedErr);
+            console.warn(
+              "[FirebaseService] Could not auto-seed remote config:",
+              seedErr,
+            );
           }
         }
       },
       (error) => {
-        console.warn("[FirebaseService] Remote config listener warning (offline or permissions):", error);
-      }
+        console.warn(
+          "[FirebaseService] Remote config listener warning (offline or permissions):",
+          error,
+        );
+      },
     );
 
     return unsubscribe;
   } catch (err) {
-    console.warn("[FirebaseService] Failed to initialize remote config sync:", err);
+    console.warn(
+      "[FirebaseService] Failed to initialize remote config sync:",
+      err,
+    );
     return () => {};
   }
 };
@@ -391,11 +598,15 @@ export const updateRemoteGameContent = async (payload) => {
       timestamp: time.timestamp,
     };
     await setDoc(configDocRef, cleanPayload, { merge: true });
-    console.log("[FirebaseService] Successfully updated remote game content in Firestore.");
+    console.log(
+      "[FirebaseService] Successfully updated remote game content in Firestore.",
+    );
     return { success: true };
   } catch (err) {
-    console.error("[FirebaseService] Failed to update remote game content:", err);
+    console.error(
+      "[FirebaseService] Failed to update remote game content:",
+      err,
+    );
     return { success: false, error: err };
   }
 };
-

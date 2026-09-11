@@ -623,6 +623,39 @@ export const CHARACTER_CLIP_NAMES = [
 export const FEATURE_SPACING_DISTANCE = 45; // Reduced from 90 — coins appear earlier and more frequently
 
 // -----------------------------------------------------------------------
+// Event Timezone (Dreamforce San Francisco / US Pacific Time: PDT/PST)
+// Guarantees all session & sheet timestamps are in event local time
+// -----------------------------------------------------------------------
+export const EVENT_TIMEZONE = "America/Los_Angeles";
+
+export function getEventDateKey(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  // Returns "YYYY-MM-DD" explicitly in San Francisco (PDT/PST) time
+  return d.toLocaleDateString("en-CA", { timeZone: EVENT_TIMEZONE });
+}
+
+export function getEventFormattedDateTime(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  const readable = d.toLocaleString("en-US", {
+    timeZone: EVENT_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  });
+  return {
+    readable,
+    iso: d.toISOString(),
+    timestamp: d.getTime(),
+    dateKey: getEventDateKey(d),
+  };
+}
+
+// -----------------------------------------------------------------------
 // Google Sheets Integration (via Apps Script Web App)
 // Replace this URL after deploying the Apps Script (see docs/SHEETS_SETUP.md)
 // -----------------------------------------------------------------------

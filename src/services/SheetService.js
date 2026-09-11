@@ -12,16 +12,15 @@
  *   M: Date & Time        N: Score            O: Completion Time
  */
 
-import { APPS_SCRIPT_URL } from "../game/config/GameConfig.js";
+import { APPS_SCRIPT_URL, getEventFormattedDateTime } from "../game/config/GameConfig.js";
+import { enqueueAction } from "./OfflineSyncService.js";
 
 const isConfigured = () =>
   APPS_SCRIPT_URL && APPS_SCRIPT_URL !== "YOUR_APPS_SCRIPT_URL_HERE";
 
 /**
- * Sends a payload to the Apps Script Web App.
- * Uses no-cors mode because Apps Script redirects (which fetch
- * would block in cors mode). The response is opaque but the
- * script on the server side runs fine regardless.
+ * Sends a payload to the Apps Script Web App via OfflineSyncService.
+ * If offline, queues the payload in localStorage and auto-syncs when online.
  */
 const postToSheet = (payload) => {
   if (!isConfigured()) {
@@ -30,78 +29,44 @@ const postToSheet = (payload) => {
     );
     return;
   }
-  // Fire-and-forget: we don't block the game on the response.
-  fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    mode: "no-cors",
-    headers: { "Content-Type": "text/plain" }, // text/plain avoids CORS preflight
-    body: JSON.stringify(payload),
-  }).catch((err) => {
-    console.warn("[SheetService] Network error (non-blocking):", err.message);
-  });
+  enqueueAction("sheet", payload.action, payload);
 };
 
 /**
  * Called when user submits the registration form.
- * Creates a new row in the sheet with user details and registration timestamp.
- * Main Discount column is intentionally left blank here —
- * it is only written when the user completes all 3 levels.
+ * Creates a new row in the sheet with user details and registration timestamp in San Francisco PDT.
  */
 export const submitRegistration = (name, company, email) => {
-  const now = new Date();
-  const timestamp = now.toLocaleString("en-US", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
+  const time = getEventFormattedDateTime();
 
   postToSheet({
     action: "register",
     name,
     company,
     email,
-    registeredAt: timestamp,
-    timestamp,
+    registeredAt: time.readable,
+    timestamp: time.readable,
   });
 };
 
 /**
  * Called when user completes all 3 levels and reaches the Offer Reveal screen.
- * Writes '15% OFF' into the Main Discount column for this user's row with timestamp.
+ * Writes '15% OFF' into the Main Discount column for this user's row with timestamp in San Francisco PDT.
  */
 export const updateMainDiscount = (email) => {
-  const now = new Date();
-  const timestamp = now.toLocaleString("en-US", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
+  const time = getEventFormattedDateTime();
 
   postToSheet({
     action: "updateDiscount",
     email,
     discount: "15% OFF",
-    completedAt: timestamp,
-    timestamp,
+    completedAt: time.readable,
+    timestamp: time.readable,
   });
 };
 
 /**
  * Called when a level is completed or failed.
- * @param {string} email - User's email (used as unique key to find their row)
- * @param {number} level - Level number (1, 2 or 3)
- * @param {'Passed'|'Failed'} status
- * @param {string} goodie - The goodie won (empty string if failed)
- * @param {string} discount - The discount percentage (empty string if failed)
- * @param {number} score - Current score
  */
 export const updateLevelResult = (
   email,
@@ -111,16 +76,7 @@ export const updateLevelResult = (
   discount = "",
   score = 0,
 ) => {
-  const now = new Date();
-  const timestamp = now.toLocaleString("en-US", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
+  const time = getEventFormattedDateTime();
 
   postToSheet({
     action: "updateLevel",
@@ -130,6 +86,6 @@ export const updateLevelResult = (
     goodie,
     discount,
     score,
-    timestamp,
+    timestamp: time.readable,
   });
 };

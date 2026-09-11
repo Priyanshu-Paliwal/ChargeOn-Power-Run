@@ -30,6 +30,11 @@
  */
 
 const SHEET_NAME = "ChargeOn Power Run Game Data";
+const EVENT_TIMEZONE = "America/Los_Angeles"; // San Francisco / Dreamforce US Pacific Time
+
+function getFallbackTimestamp() {
+  return Utilities.formatDate(new Date(), EVENT_TIMEZONE, "MM/dd/yyyy, hh:mm:ss a 'PDT'");
+}
 
 // Column positions (1-indexed matching the exact Google Sheet columns)
 const COL = {
@@ -86,7 +91,7 @@ function doPost(e) {
     if (data.action === "register") {
       const targetRow = findRowByEmail(sheet, data.email);
       const timestamp =
-        data.registeredAt || data.timestamp || new Date().toLocaleString();
+        data.registeredAt || data.timestamp || getFallbackTimestamp();
 
       if (targetRow !== -1) {
         // Email exists: update Name & Company & Timestamp, and reset all progression columns
@@ -143,7 +148,7 @@ function doPost(e) {
       }
 
       const level = parseInt(data.level);
-      const timestamp = data.timestamp || new Date().toLocaleString();
+      const timestamp = data.timestamp || getFallbackTimestamp();
 
       if (level === 1) {
         sheet.getRange(targetRow, COL.LEVEL_1).setValue(data.status || "");
@@ -188,7 +193,7 @@ function doPost(e) {
       }
 
       const timestamp =
-        data.completedAt || data.timestamp || new Date().toLocaleString();
+        data.completedAt || data.timestamp || getFallbackTimestamp();
       sheet
         .getRange(targetRow, COL.MAIN_DISCOUNT)
         .setValue(data.discount || "15% OFF");
