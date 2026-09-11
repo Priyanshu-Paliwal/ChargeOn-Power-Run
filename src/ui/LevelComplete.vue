@@ -292,7 +292,7 @@ const copy = computed(() => {
 
         <!-- Still in the running -->
         <div v-if="props.levelId !== 3" class="still-running-box">
-          <div class="trophy-icon">:trophy:</div>
+          <div class="trophy-icon">🏆</div>
           <div class="still-running-text">
             <h4>{{ campaignPromo.levelCompleteRunningBox.title }}</h4>
             <p>

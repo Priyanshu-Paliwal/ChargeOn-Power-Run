@@ -3,8 +3,28 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { gsap } from "gsap";
 import { levels, campaignPromo } from "../data/GameContent.js";
 
-const props = defineProps({ stats: Object });
+const props = defineProps({ 
+  stats: Object,
+  wonGoodies: { type: Array, default: () => [] }
+});
 const emit = defineEmits(["retry"]);
+
+const securedReward = computed(() => {
+  if (props.wonGoodies && props.wonGoodies.length > 0) {
+    const goodieName = props.wonGoodies[props.wonGoodies.length - 1];
+    const level = levels.find((l) => l.goodie === goodieName);
+    if (level) {
+      const rawDiscount = level.discount || "5%";
+      const discount = rawDiscount.toLowerCase().includes("off") ? rawDiscount : `${rawDiscount} OFF`;
+      return {
+        name: goodieName,
+        image: level.goodieImage,
+        discount: discount
+      };
+    }
+  }
+  return null;
+});
 
 const TOTAL_FEATURES = levels.reduce((sum, l) => sum + l.requiredCount, 0);
 const collectedCount = computed(
@@ -79,6 +99,14 @@ onUnmounted(() => {
           Too many payment blockers slowed you down.<br />Reboot your systems
           and try again
         </p>
+
+        <div v-if="securedReward" class="secured-reward-inline">
+          <div class="secured-reward-content">
+            <span class="secured-label">YOU WON</span>
+            <span class="secured-name">{{ securedReward.name }} + {{ securedReward.discount }}</span>
+          </div>
+          <img :src="securedReward.image" :alt="securedReward.name" class="secured-img" />
+        </div>
 
         <div class="stats-block">
           <div class="stat-item">
@@ -387,6 +415,46 @@ onUnmounted(() => {
 
 .btn-primary:active {
   transform: translateY(0);
+}
+
+.secured-reward-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 432px;
+  height: 97px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px 24px;
+  margin-top: 10px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.secured-reward-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.secured-label {
+  font-size: 14px;
+  color: #10b981;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.secured-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.secured-img {
+  height: 60px;
+  object-fit: contain;
 }
 
 /* RIGHT COLUMN */

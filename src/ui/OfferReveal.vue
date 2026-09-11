@@ -141,19 +141,11 @@ const launchCelebration = () => {
   }, 3000);
 
   // -------------------------------------------------------------
-  // ACT 4: Shimmering Gold & Cyan Confetti Rain (3.5s - 8.5s)
+  // ACT 4: Shimmering Gold & Cyan Confetti Rain (Infinite)
   // Slow-floating feather drift gently descending across the screen
   // -------------------------------------------------------------
   addTimer(() => {
-    const rainEnd = Date.now() + 5000;
     celebrationInterval = setInterval(() => {
-      if (Date.now() > rainEnd) {
-        if (celebrationInterval) {
-          clearInterval(celebrationInterval);
-          celebrationInterval = null;
-        }
-        return;
-      }
       // Alternating gentle clouds of floating sparkles
       confetti({
         particleCount: 3,

@@ -9,19 +9,17 @@ const props = defineProps({
   },
 });
 
-// Dynamically compute the active, in-stock goodies from reactive levels.
-// If level.goodie is changed in Firebase or set to null/empty (out of stock),
-// it reflects immediately on this screen!
-const wonGoodies = computed(() => {
-  return levels
-    .map((l) => l.goodie)
-    .filter((g) => g && typeof g === "string" && g.trim().length > 0);
+// We want to show ONLY the latest/highest reward won.
+const displayGoodies = computed(() => {
+  if (props.wonGoodies.length === 0) return [];
+  return [props.wonGoodies[props.wonGoodies.length - 1]];
 });
 
-// Dynamically compute the final discount (from Level 3 or fallback 15%)
+// Dynamically compute the final discount for the highest level
 const finalDiscount = computed(() => {
-  const l3 = levels.find((l) => l.id === 3);
-  const discount = l3?.discount || "15%";
+  const levelToUse = props.wonGoodies.length > 0 ? props.wonGoodies.length : 1;
+  const level = levels.find((l) => l.id === levelToUse);
+  const discount = level?.discount || "15%";
   return discount.toLowerCase().includes("off") ? discount : `${discount} OFF`;
 });
 
@@ -71,7 +69,7 @@ onUnmounted(() => {
 
       <div class="goodies-list">
         <div
-          v-for="(goodie, idx) in wonGoodies"
+          v-for="(goodie, idx) in displayGoodies"
           :key="idx"
           class="goodie-item"
           :style="{ animationDelay: `${0.2 + idx * 0.15}s` }"
@@ -85,7 +83,7 @@ onUnmounted(() => {
           <span>{{ goodie }}</span>
         </div>
         <div
-          v-if="wonGoodies.length === 0"
+          v-if="displayGoodies.length === 0"
           class="goodie-item"
           style="animation-delay: 0.2s"
         >

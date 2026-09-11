@@ -288,9 +288,6 @@ export class InputManager {
       if ((currentState.down && !prev.down) || (currentState.square && !prev.square) || (currentState.cross && !prev.cross)) {
         this._buffered.push({ action: "slide", time: now });
       }
-      if (currentState.triangle && !prev.triangle) {
-        this._buffered.push({ action: "board", time: now });
-      }
     }
 
     this._prevGamepadState = currentState;

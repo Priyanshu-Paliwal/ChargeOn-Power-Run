@@ -334,9 +334,9 @@ onUnmounted(() => {
       </div>
 
       <div class="utility-group">
-        <div class="fps-badge" :class="{ smooth: currentFps >= 50, warning: currentFps < 50 }">
+        <!-- <div class="fps-badge" :class="{ smooth: currentFps >= 50, warning: currentFps < 50 }">
           {{ currentFps }} FPS
-        </div>
+        </div> -->
 
         <div class="score-display" title="Score">
           <span class="score-icon">★</span>{{ displayScore }}

@@ -1,6 +1,7 @@
 <script setup>
 import { reactive, ref, onMounted, onUnmounted, nextTick, computed } from "vue";
 import { CHARACTERS } from "../game/config/GameConfig.js";
+import { checkEmailExists } from "../services/FirebaseService.js";
 
 const props = defineProps({
   characterId: {
@@ -27,6 +28,9 @@ const nameInputEl = ref(null);
 const handleKeyDown = (e) => {
   if (e.key === "Escape") {
     emit("cancel");
+  } else if (e.key === "Enter") {
+    // Allow fake "Enter" keydown from gamepad to submit the form
+    handleSubmit(e);
   }
 };
 
@@ -68,6 +72,17 @@ const VALIDATORS = {
     // RFC-compliant email: no leading/trailing spaces, no #* etc., must have @domain.tld
     if (!/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(trimmed))
       return "That email doesn't look right. Check it and try again.";
+
+    // Block public domains
+    const publicDomains = [
+      "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", 
+      "live.com", "icloud.com", "aol.com", "mail.com"
+    ];
+    const domain = trimmed.split('@')[1].toLowerCase();
+    if (publicDomains.includes(domain)) {
+      return "Please enter a valid company email. Public domains are not allowed.";
+    }
+    
     return "";
   },
 };
@@ -94,13 +109,16 @@ const handleSubmit = async (e) => {
     .every(Boolean);
   if (!allValid) return;
 
-  // Real submission is still just a console.log (see App.vue's
-  // handleRegistration -- lead capture needs a real LeadService/CRM
-  // endpoint before Dreamforce, flagged in docs/IMPLEMENTATION_PLAN.md's
-  // open items). This is where that network await will go; the loading
-  // state is built and wired now against a short placeholder delay so it's
-  // already correct on the day the real call lands, not bolted on after.
   isSubmitting.value = true;
+  
+  // Check if email already exists in Firebase
+  const emailExists = await checkEmailExists(formData.email.trim());
+  if (emailExists) {
+    errors.email = "This email has already been used to play.";
+    isSubmitting.value = false;
+    return;
+  }
+
   await new Promise((resolve) => setTimeout(resolve, 400));
 
   emit("submit", {
