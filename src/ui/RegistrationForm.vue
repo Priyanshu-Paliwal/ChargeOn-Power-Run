@@ -120,7 +120,7 @@ const handleSubmit = async (e) => {
         <p>Enter your details to start the game</p>
       </div>
 
-      <form @submit="handleSubmit">
+      <form @submit="handleSubmit" novalidate>
         <div class="input-group" :class="{ 'has-error': errors.name }">
           <label>Full Name <span class="required">*</span></label>
           <input

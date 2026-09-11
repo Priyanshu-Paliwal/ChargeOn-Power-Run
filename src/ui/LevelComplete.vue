@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { levels } from "../data/GameContent.js";
+import { levels, campaignPromo } from "../data/GameContent.js";
 
 const props = defineProps({
   levelId: Number,
@@ -14,6 +14,15 @@ const wonGoodie = computed(() => levelData.value?.goodie || "");
 const wonGoodieImage = computed(() => levelData.value?.goodieImage || "");
 const wonDiscount = computed(() => levelData.value?.discount || "");
 const wonDiscountImage = computed(() => levelData.value?.discountImage || "");
+
+const formattedDiscountText = computed(() => {
+  const discount = wonDiscount.value;
+  if (!discount) return "";
+  if (discount.toLowerCase().includes("off")) {
+    return `${discount} on ChargeOn`;
+  }
+  return `${discount} Off on ChargeOn`;
+});
 
 const levelFeatures = computed(() => {
   const currentLevelData = levels.find((l) => l.id === props.levelId);
@@ -193,23 +202,25 @@ const copy = computed(() => {
             REWARD UNLOCKED!
           </div>
 
-          <div class="reward-items">
-            <!-- Energy Bar -->
-            <div class="reward-item">
+          <div
+            class="reward-items"
+            :class="{ 'single-item': !wonGoodie || !wonDiscount }"
+          >
+            <!-- Goodie Item (Hidden if goodie is null or empty) -->
+            <div v-if="wonGoodie" class="reward-item">
               <div class="reward-img-container">
                 <div class="reward-glow-bg"></div>
                 <img
                   v-if="wonGoodieImage"
                   :src="wonGoodieImage"
-                  alt="Energy Bar"
+                  :alt="wonGoodie"
                   class="reward-image"
                 />
               </div>
               <span class="reward-name">{{ wonGoodie }}</span>
             </div>
-
             <!-- Discount Tag -->
-            <div class="reward-item">
+            <div v-if="wonDiscount" class="reward-item">
               <div class="reward-img-container">
                 <div class="reward-glow-bg"></div>
                 <img
@@ -222,7 +233,7 @@ const copy = computed(() => {
                   <span>{{ parseInt(wonDiscount) }}<small>%</small></span>
                 </div>
               </div>
-              <span class="reward-name">{{ wonDiscount }} Off on ChargeOn</span>
+              <span class="reward-name">{{ formattedDiscountText }}</span>
             </div>
           </div>
         </div>
@@ -249,7 +260,7 @@ const copy = computed(() => {
       <div class="column-right">
         <h3>FEATURES COLLECTED ({{ levelFeatures.length }})</h3>
 
-        <div class="recap-list">
+        <div class="recap-list" :class="{ 'full-height': props.levelId === 3 }">
           <div
             v-for="(feature, index) in levelFeatures"
             :key="feature.name"
@@ -281,15 +292,17 @@ const copy = computed(() => {
 
         <!-- Still in the running -->
         <div v-if="props.levelId !== 3" class="still-running-box">
-          <div class="trophy-icon">🏆</div>
+          <div class="trophy-icon">:trophy:</div>
           <div class="still-running-text">
-            <h4>STILL IN THE RUNNING!</h4>
+            <h4>{{ campaignPromo.levelCompleteRunningBox.title }}</h4>
             <p>
-              Post your run on LinkedIn, tag Cyntexa, and attach your booth
-              selfie.
-              <span class="highlight-gold"
-                >Highest engagement wins an exclusive gift!</span
+              {{ campaignPromo.levelCompleteRunningBox.desc }}
+              <span
+                v-if="campaignPromo.levelCompleteRunningBox.highlight"
+                class="highlight-gold"
               >
+                {{ campaignPromo.levelCompleteRunningBox.highlight }}
+              </span>
             </p>
           </div>
         </div>
@@ -356,8 +369,8 @@ const copy = computed(() => {
 }
 
 .new-two-column-card {
-  width: 940px;
-  height: 504px;
+  width: 1000px;
+  height: 535px;
   max-width: 95%;
   max-height: 90vh;
   border-radius: 16px;
@@ -528,6 +541,10 @@ const copy = computed(() => {
   gap: 12px;
 }
 
+.reward-items.single-item {
+  justify-content: center;
+}
+
 .reward-img-container {
   width: 72px;
   height: 72px;
@@ -656,29 +673,40 @@ const copy = computed(() => {
 }
 
 .recap-list {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  max-height: 88px;
   overflow-y: auto;
-  padding-right: 8px;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
+  padding-right: 4px;
+}
+
+.recap-list.full-height {
+  max-height: none;
+  flex: 1;
+  grid-template-columns: 1fr;
 }
 
 .recap-list::-webkit-scrollbar {
   width: 4px;
 }
 .recap-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
 }
 
 .feature-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
+  width: 100%;
+  height: 40px;
   border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .row-even {
@@ -695,43 +723,52 @@ const copy = computed(() => {
 .feature-text {
   font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
   color: #fff;
   letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  margin-right: 8px;
 }
 
 /* STILL IN THE RUNNING */
 .still-running-box {
   width: 100%;
-  height: 80px;
+  flex: 1;
+  min-height: 80px;
   border-radius: 12px;
   background: rgba(8, 13, 22, 0.95);
   border: 1px solid rgba(251, 191, 36, 0.25);
   box-shadow: inset 0px 2px 4px 1px rgba(0, 0, 0, 0.05);
-  padding: 14px;
+  padding: 20px;
   display: flex;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: 15px;
+  text-align: center;
 }
 
 .trophy-icon {
-  font-size: 40px;
+  font-size: 80px;
   filter: drop-shadow(0 2px 4px rgba(250, 204, 21, 0.4));
+  margin-bottom: 10px;
 }
 
 .still-running-text {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 16px;
 }
 
 .still-running-text h4 {
   font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 800;
-  font-size: 12px;
-  line-height: 16px;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
+  font-size: 24px;
+  line-height: 22px;
   color: #facc15;
   margin: 0;
 }
@@ -739,8 +776,8 @@ const copy = computed(() => {
 .still-running-text p {
   font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 400;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 16px;
+  line-height: 20px;
   color: #cbd5e1;
   margin: 0;
 }

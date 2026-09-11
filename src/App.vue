@@ -11,6 +11,7 @@ import Victory from "./ui/Victory.vue";
 import Redemption from "./ui/Redemption.vue";
 import GameOver from "./ui/GameOver.vue";
 import PauseMenu from "./ui/PauseMenu.vue";
+import BoothAdminModal from "./ui/BoothAdminModal.vue";
 
 import { Engine } from "./game/core/Engine.js";
 import { levels } from "./data/GameContent.js";
@@ -35,6 +36,7 @@ import {
   recordLevelResult as recordFirebaseLevelResult,
   recordMainDiscount as recordFirebaseMainDiscount,
   recordFinalScore as recordFirebaseFinalScore,
+  initRemoteConfigSync,
 } from "./services/FirebaseService.js";
 
 // --- State Machine ---
@@ -83,6 +85,7 @@ const wonGoodies = ref([]);
 const hasLostLifeAnyLevel = ref(false);
 
 let gameEngine = null;
+let unsubscribeRemoteConfig = null;
 
 // --- Music State (Milestone 9: now backed by AudioManager, not a raw
 // <audio> element) --- kept the exact same shape (isMusicPlaying/toggleMusic
@@ -376,6 +379,81 @@ onMounted(() => {
   window.addEventListener("keydown", handleGlobalKeyDown);
   document.addEventListener("visibilitychange", handleVisibilityChange);
 
+  let _uiGamepadPrev = { enter: false, back: false, left: false, right: false };
+  let _uiGamepadFrame = null;
+  const pollUIGamepad = () => {
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let enterPressed = false;
+    let backPressed = false;
+    let leftPressed = false;
+    let rightPressed = false;
+
+    for (let i = 0; i < gamepads.length; i++) {
+      const gp = gamepads[i];
+      if (gp && gp.connected && gp.buttons.length > 0) {
+        const isPressed = (b) =>
+          typeof b === "object" ? b.pressed : b === 1.0;
+        if (gp.buttons[0] && isPressed(gp.buttons[0])) enterPressed = true;
+        if (gp.buttons[1] && isPressed(gp.buttons[1])) backPressed = true;
+        if (gp.buttons[14] && isPressed(gp.buttons[14])) leftPressed = true;
+        if (gp.buttons[15] && isPressed(gp.buttons[15])) rightPressed = true;
+        if (gp.axes && gp.axes[0] < -0.5) leftPressed = true;
+        if (gp.axes && gp.axes[0] > 0.5) rightPressed = true;
+        if (enterPressed || backPressed || leftPressed || rightPressed) break;
+      }
+    }
+
+    const isGameActive = gameState.value === "PLAYING" && !isPaused.value;
+
+    if (enterPressed && !_uiGamepadPrev.enter && !isGameActive) {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    }
+    if (backPressed && !_uiGamepadPrev.back && !isGameActive) {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    }
+    if (gameState.value !== "PLAYING") {
+      if (leftPressed && !_uiGamepadPrev.left) {
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "ArrowLeft",
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      }
+      if (rightPressed && !_uiGamepadPrev.right) {
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "ArrowRight",
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      }
+    }
+
+    _uiGamepadPrev = {
+      enter: enterPressed,
+      back: backPressed,
+      left: leftPressed,
+      right: rightPressed,
+    };
+    _uiGamepadFrame = requestAnimationFrame(pollUIGamepad);
+  };
+  _uiGamepadFrame = requestAnimationFrame(pollUIGamepad);
+
   // Attempt to play music by default on load
   audioManager.playMusic();
 
@@ -391,14 +469,25 @@ onMounted(() => {
   };
   document.addEventListener("pointerdown", startAudioOnInteract);
   document.addEventListener("keydown", startAudioOnInteract);
-});
 
-onUnmounted(() => {
-  window.removeEventListener("keydown", handleGlobalKeyDown);
-  document.removeEventListener("visibilitychange", handleVisibilityChange);
-  if (gameEngine) {
-    gameEngine.dispose();
-  }
+  // Initialize live remote configuration sync from Firebase Firestore
+  unsubscribeRemoteConfig = initRemoteConfigSync((updatedData) => {
+    console.log("[App] Live content synchronized from Firestore:", updatedData);
+  });
+
+  onUnmounted(() => {
+    window.removeEventListener("keydown", handleGlobalKeyDown);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    cancelAnimationFrame(_uiGamepadFrame);
+
+    if (typeof unsubscribeRemoteConfig === "function") {
+      unsubscribeRemoteConfig();
+    }
+
+    if (gameEngine) {
+      gameEngine.dispose();
+    }
+  });
 });
 
 // --- Flow Actions ---
@@ -634,6 +723,9 @@ const quitToLobby = () => {
         @restart-level="restartLevelFromPause"
         @quit="quitToLobby"
       />
+
+      <!-- Hidden Booth Management Modal (Shortcut: Ctrl + Shift + A or Cmd + Shift + A) -->
+      <BoothAdminModal />
     </div>
   </div>
 </template>

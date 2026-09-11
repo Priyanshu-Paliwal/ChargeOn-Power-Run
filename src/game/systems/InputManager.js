@@ -35,6 +35,17 @@ export class InputManager {
     this._buffered = []; // [{ action: 'jump' | 'slide' | 'board', time }]
     this._touchStart = null;
     this._lastTap = null; // { time, clientX, clientY }
+    
+    this._prevGamepadState = {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      cross: false,
+      circle: false,
+      triangle: false,
+      square: false
+    };
 
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onTouchStart = this._onTouchStart.bind(this);
@@ -50,9 +61,14 @@ export class InputManager {
   }
 
   setEnabled(enabled) {
+    const wasEnabled = this.enabled;
     this.enabled = Boolean(enabled);
     if (!this.enabled) {
       this.clear();
+    } else if (!wasEnabled) {
+      // Transitioning from false -> true. Read hardware state immediately 
+      // so we don't trigger actions from buttons held during the menu.
+      this._pollGamepads(true);
     }
   }
 
@@ -95,14 +111,6 @@ export class InputManager {
       case "s":
       case "S":
         this._buffered.push({ action: "slide", time: performance.now() });
-        break;
-      case "h":
-      case "H":
-        this._buffered.push({ action: "board", time: performance.now() });
-        break;
-      case "b":
-      case "B":
-        this._buffered.push({ action: "cycle_board", time: performance.now() });
         break;
     }
   }
@@ -219,14 +227,73 @@ export class InputManager {
     return false;
   }
 
-  // Drops buffered entries older than the buffer window that were never
-  // consumed. Call once per frame (Player.update() does this before
-  // checking consumeBuffered) so stale requests can't fire long after the
-  // player meant them.
-  prune() {
+  // Polling update called once per frame by Player.update().
+  // Checks for gamepad input, then drops buffered entries older than the
+  // buffer window that were never consumed so stale requests can't fire
+  // long after the player meant them.
+  update() {
+    this._pollGamepads();
+    
     const now = performance.now();
-    if (this._buffered.length === 0) return;
-    this._buffered = this._buffered.filter((e) => now - e.time <= INPUT_BUFFER_MS);
+    if (this._buffered.length > 0) {
+      this._buffered = this._buffered.filter((e) => now - e.time <= INPUT_BUFFER_MS);
+    }
+  }
+
+  _pollGamepads(isInitialRead = false) {
+    if (!this.enabled) return;
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : []);
+    if (!gamepads) return;
+
+    let gp = null;
+    for (let i = 0; i < gamepads.length; i++) {
+      if (gamepads[i] && gamepads[i].connected) {
+        gp = gamepads[i];
+        break; // Take the first connected gamepad
+      }
+    }
+    if (!gp) return;
+
+    this.scheme = 'gamepad';
+
+    const axes = gp.axes;
+    const buttons = gp.buttons;
+    const isPressed = (b) => typeof b === "object" ? b.pressed : b === 1.0;
+
+    const threshold = 0.5;
+    const currentState = {
+      up: (axes[1] < -threshold) || (buttons[12] && isPressed(buttons[12])),
+      down: (axes[1] > threshold) || (buttons[13] && isPressed(buttons[13])),
+      left: (axes[0] < -threshold) || (buttons[14] && isPressed(buttons[14])),
+      right: (axes[0] > threshold) || (buttons[15] && isPressed(buttons[15])),
+      cross: buttons[0] && isPressed(buttons[0]),
+      circle: buttons[1] && isPressed(buttons[1]),
+      square: buttons[2] && isPressed(buttons[2]),
+      triangle: buttons[3] && isPressed(buttons[3]),
+    };
+
+    const prev = this._prevGamepadState;
+    const now = performance.now();
+
+    if (!isInitialRead) {
+      if (currentState.left && !prev.left) {
+        this._laneRequests.push(-1);
+      }
+      if (currentState.right && !prev.right) {
+        this._laneRequests.push(1);
+      }
+      if ((currentState.up && !prev.up) || (currentState.circle && !prev.circle)) {
+        this._buffered.push({ action: "jump", time: now });
+      }
+      if ((currentState.down && !prev.down) || (currentState.square && !prev.square) || (currentState.cross && !prev.cross)) {
+        this._buffered.push({ action: "slide", time: now });
+      }
+      if (currentState.triangle && !prev.triangle) {
+        this._buffered.push({ action: "board", time: now });
+      }
+    }
+
+    this._prevGamepadState = currentState;
   }
 
   dispose() {

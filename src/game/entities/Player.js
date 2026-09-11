@@ -602,7 +602,7 @@ export class Player {
     }
 
     if (this.inputManager) {
-      this.inputManager.prune();
+      this.inputManager.update();
       if (enabled) {
         this._processInput();
       }

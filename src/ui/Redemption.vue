@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, computed } from "vue";
+import { levels } from "../data/GameContent.js";
 
 const props = defineProps({
   wonGoodies: {
@@ -8,9 +9,26 @@ const props = defineProps({
   },
 });
 
+// Dynamically compute the active, in-stock goodies from reactive levels.
+// If level.goodie is changed in Firebase or set to null/empty (out of stock),
+// it reflects immediately on this screen!
 const wonGoodies = computed(() => {
-  return [...new Set(props.wonGoodies || [])];
+  return levels
+    .map((l) => l.goodie)
+    .filter((g) => g && typeof g === "string" && g.trim().length > 0);
 });
+
+// Dynamically compute the final discount (from Level 3 or fallback 15%)
+const finalDiscount = computed(() => {
+  const l3 = levels.find((l) => l.id === 3);
+  const discount = l3?.discount || "15%";
+  return discount.toLowerCase().includes("off") ? discount : `${discount} OFF`;
+});
+
+const getGoodieImage = (name) => {
+  const level = levels.find((l) => l.goodie === name);
+  return level ? level.goodieImage : "";
+};
 
 const emit = defineEmits(["restart"]);
 
@@ -52,16 +70,31 @@ onUnmounted(() => {
       <p class="subtitle">Here's what you earned:</p>
 
       <div class="goodies-list">
-        <p v-for="(goodie, idx) in wonGoodies" :key="idx" class="goodie-item">
-          {{ goodie }}
-        </p>
-        <p v-if="wonGoodies.length === 0" class="goodie-item">
-          No prizes earned.
-        </p>
+        <div
+          v-for="(goodie, idx) in wonGoodies"
+          :key="idx"
+          class="goodie-item"
+          :style="{ animationDelay: `${0.2 + idx * 0.15}s` }"
+        >
+          <img
+            v-if="getGoodieImage(goodie)"
+            :src="getGoodieImage(goodie)"
+            :alt="goodie"
+            class="goodie-img"
+          />
+          <span>{{ goodie }}</span>
+        </div>
+        <div
+          v-if="wonGoodies.length === 0"
+          class="goodie-item"
+          style="animation-delay: 0.2s"
+        >
+          <span>No prizes earned.</span>
+        </div>
       </div>
 
       <p class="footer-note">
-        Ask about your 15% offer. Our team can tell you more.
+        Ask about your {{ finalDiscount }} offer. Our team can tell you more.
       </p>
 
       <button class="btn-primary" @click="resetGame">
@@ -160,7 +193,7 @@ onUnmounted(() => {
 .goodies-list {
   background: rgba(8, 13, 22, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 15px 20px;
+  padding: 20px 25px;
   border-radius: 12px;
   margin-bottom: 25px;
   text-align: left;
@@ -170,11 +203,41 @@ onUnmounted(() => {
 .goodie-item {
   font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 18px;
   color: #ffffff;
   margin: 0;
-  padding: 12px 0;
+  padding: 18px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  opacity: 0;
+  transform: translateX(-20px);
+  animation: slideIn 0.4s ease forwards;
+}
+
+@keyframes slideIn {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.goodie-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  animation: floatBounce 2s ease-in-out infinite alternate;
+}
+
+@keyframes floatBounce {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-3px);
+  }
 }
 
 .goodie-item:first-child {

@@ -314,7 +314,7 @@ onUnmounted(() => {
         <p class="panel-desc">
           Outrun every payment problem to unlock
           <strong
-            >exciting goodies, ChargeOn offer, & an exclusive AirPods.</strong
+            >exciting goodies, ChargeOn offer, & an exclusive AirPods Pro.</strong
           >
           Try your luck!
         </p>
