@@ -166,6 +166,11 @@ function _maxConcurrentToasts() {
 const TOAST_DURATION_MS = 500;
 const activeToasts = ref([]);
 const _pendingToasts = [];
+
+const formatChargeOn = (text) => {
+  if (!text) return "";
+  return text.replace(/ChargeOn/gi, '<span style="text-transform: none;">ChargeOn</span>');
+};
 const _toastTimeouts = new Set();
 let _consumedToastCount = 0;
 
@@ -449,8 +454,8 @@ onUnmounted(() => {
             'popup-error': popup.type === 'error',
             'popup-exclusive': popup.isExclusive,
           }"
+          v-html="formatChargeOn(popup.text)"
         >
-          {{ popup.text }}
         </div>
       </transition-group>
     </div>

@@ -397,13 +397,13 @@ onUnmounted(() => {
             />
           </svg>
         </button>
-        <button
+        <!-- <button
           class="btn-primary"
           style="margin-left: 10px; background-color: #ff3b3b; color: white"
           @click="emit('dev-start')"
         >
           DEV START
-        </button>
+        </button> -->
       </div>
     </footer>
 

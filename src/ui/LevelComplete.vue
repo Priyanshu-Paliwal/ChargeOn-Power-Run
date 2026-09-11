@@ -19,9 +19,9 @@ const formattedDiscountText = computed(() => {
   const discount = wonDiscount.value;
   if (!discount) return "";
   if (discount.toLowerCase().includes("off")) {
-    return `${discount} on ChargeOn`;
+    return `${discount} on <span style="text-transform: none;">ChargeOn</span>`;
   }
-  return `${discount} Off on ChargeOn`;
+  return `${discount} Off on <span style="text-transform: none;">ChargeOn</span>`;
 });
 
 const levelFeatures = computed(() => {
@@ -233,7 +233,7 @@ const copy = computed(() => {
                   <span>{{ parseInt(wonDiscount) }}<small>%</small></span>
                 </div>
               </div>
-              <span class="reward-name">{{ formattedDiscountText }}</span>
+              <span class="reward-name" v-html="formattedDiscountText"></span>
             </div>
           </div>
         </div>

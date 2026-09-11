@@ -100,6 +100,7 @@ onUnmounted(() => {
           and try again
         </p>
 
+        <!--
         <div v-if="securedReward" class="secured-reward-inline">
           <div class="secured-reward-content">
             <span class="secured-label">YOU WON</span>
@@ -107,6 +108,7 @@ onUnmounted(() => {
           </div>
           <img :src="securedReward.image" :alt="securedReward.name" class="secured-img" />
         </div>
+        -->
 
         <div class="stats-block">
           <div class="stat-item">
@@ -152,7 +154,7 @@ onUnmounted(() => {
         </div>
 
         <button class="btn-primary" @click="emit('retry')">
-          RETURN TO LEADER BOARD
+          {{ wonGoodies && wonGoodies.length > 0 ? 'CLAIM REWARD' : 'RETURN TO LEADER BOARD' }}
           <svg
             class="btn-icon"
             viewBox="0 0 24 24"

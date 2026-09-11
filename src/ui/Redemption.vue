@@ -9,10 +9,9 @@ const props = defineProps({
   },
 });
 
-// We want to show ONLY the latest/highest reward won.
+// We want to show ALL rewards won.
 const displayGoodies = computed(() => {
-  if (props.wonGoodies.length === 0) return [];
-  return [props.wonGoodies[props.wonGoodies.length - 1]];
+  return props.wonGoodies;
 });
 
 // Dynamically compute the final discount for the highest level
@@ -65,7 +64,7 @@ onUnmounted(() => {
         <circle cx="12" cy="12" r="3" fill="#FACC15" />
       </svg>
       <h2 class="title-main">SHOW THIS TO OUR TEAM</h2>
-      <p class="subtitle">Here's what you earned:</p>
+      <p class="subtitle">Choose one of them:</p>
 
       <div class="goodies-list">
         <div

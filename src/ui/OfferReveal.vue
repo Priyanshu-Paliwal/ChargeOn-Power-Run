@@ -1,8 +1,15 @@
 <script setup>
-import { onMounted, onUnmounted } from "vue";
-import { campaignPromo } from "../data/GameContent.js";
+import { ref, onMounted, onUnmounted, computed } from "vue";
+import { getSyncableContent } from "../data/GameContent.js";
 import { audioManager } from "../game/systems/AudioManager.js";
 import confetti from "canvas-confetti";
+
+const { campaignPromo } = getSyncableContent();
+
+const formattedTitle = computed(() => {
+  if (!campaignPromo?.offerReveal?.title) return "";
+  return campaignPromo.offerReveal.title.replace(/ChargeOn/gi, '<span style="text-transform: none;">ChargeOn</span>');
+});
 
 const emit = defineEmits(["next"]);
 
@@ -242,7 +249,7 @@ onUnmounted(() => {
             />
           </svg>
         </div>
-        <h2 class="title-main">{{ campaignPromo.offerReveal.title }}</h2>
+        <h2 class="title-main" v-html="formattedTitle"></h2>
 
         <div class="instructions-box">
           <p class="to-earn">

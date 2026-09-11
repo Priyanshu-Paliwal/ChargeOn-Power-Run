@@ -134,6 +134,19 @@ const resumeGame = () => {
 };
 
 const restartLevelFromPause = () => {
+  resumeGame();
+  startGame(true);
+};
+
+const handleGameOverNext = () => {
+  if (wonGoodies.value.length > 0) {
+    gameState.value = "REDEMPTION";
+  } else {
+    quitToLobby();
+  }
+};
+
+const restartLevel = () => {
   // Drop THIS level's already-collected features from the run-wide list --
   // handleCollision's "already have this one" dedup check is keyed across
   // the WHOLE run, not the current level, so without this a level restarted
@@ -603,7 +616,7 @@ const advanceLevel = () => {
     saveScoreToLeaderboard();
 
     // Automatically apply the final main discount
-    updateMainDiscount(userData.email);
+    // updateMainDiscount(userData.email); // Removed to prevent race condition. updateLevelResult handles this.
     recordFirebaseMainDiscount(activeSessionId, "15% OFF");
 
     gameState.value = "OFFER_REVEAL";
@@ -720,7 +733,7 @@ const quitToLobby = () => {
           v-else-if="gameState === 'GAME_OVER'"
           :stats="gameStats"
           :wonGoodies="wonGoodies"
-          @retry="quitToLobby"
+          @retry="handleGameOverNext"
         />
 
         <OfferReveal

@@ -1,9 +1,19 @@
 <script setup>
-import { onMounted, onUnmounted } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 const emit = defineEmits(["next"]);
+const step = ref(1);
+
+const handleNext = () => {
+  if (step.value === 1) {
+    step.value = 2;
+  } else {
+    emit("next");
+  }
+};
+
 const handleKeyDown = (e) => {
   if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
-    emit("next");
+    handleNext();
     e.preventDefault();
   }
 };
@@ -17,11 +27,12 @@ onUnmounted(() => {
 
 <template>
   <div class="overlay">
-    <div class="header">
+    <!-- STEP 1 HEADER -->
+    <div class="header" v-if="step === 1">
       <h2>HOW TO PLAY</h2>
     </div>
 
-    <div class="boxes-container">
+    <div class="boxes-container" v-if="step === 1">
       <!-- Box 1: Left / Right -->
       <div class="glass-box">
         <div class="icons">
@@ -88,14 +99,23 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="action-container">
+    <!-- Step 2: Controller Popup -->
+    <div v-if="step === 2" class="controller-container glass-box">
+      <img
+        src="/img/controller.png"
+        alt="Game Controller"
+        class="controller-img"
+      />
+    </div>
+
+    <!-- ACTION BUTTON -->
+    <div class="action-container" style="justify-content: center; width: 100%">
       <button
         class="btn-primary"
-        @click="emit('next')"
+        @click="handleNext"
         title="Click or Press Enter ↵"
       >
-        START RUN
-        <!-- <span class="key-hint">(Enter ↵)</span> -->
+        {{ step === 1 ? "NEXT" : "START RUN" }}
       </button>
     </div>
   </div>
@@ -267,7 +287,6 @@ onUnmounted(() => {
 
 .action-container {
   display: flex;
-  justify-content: center;
 }
 
 .btn-primary {
@@ -328,5 +347,23 @@ onUnmounted(() => {
   .glass-box p {
     font-size: 0.95rem;
   }
+}
+
+.controller-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 30px;
+  width: 100%;
+  max-width: 720px;
+  max-height: max-content;
+  margin-bottom: 30px;
+}
+
+.controller-img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  border-radius: 12px;
 }
 </style>
