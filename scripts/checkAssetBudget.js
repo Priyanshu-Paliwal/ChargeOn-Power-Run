@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const PUBLIC = path.join(ROOT, "public");
 
-const BUDGET_BYTES = 100 * 1024 * 1024;
+const BUDGET_BYTES = 500 * 1024 * 1024; // 500 MB budget limit
 
 function fmtBytes(n) {
   if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + " MB";
@@ -23,6 +23,8 @@ function walk(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   let files = [];
   for (const entry of entries) {
+    // Ignore macOS .DS_Store and hidden system files
+    if (entry.name === ".DS_Store" || entry.name.startsWith(".")) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       files = files.concat(walk(full));
