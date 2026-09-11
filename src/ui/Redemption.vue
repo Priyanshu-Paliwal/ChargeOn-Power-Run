@@ -64,7 +64,7 @@ onUnmounted(() => {
         <circle cx="12" cy="12" r="3" fill="#FACC15" />
       </svg>
       <h2 class="title-main">SHOW THIS TO OUR TEAM</h2>
-      <p class="subtitle">Choose one of them:</p>
+      <p class="subtitle">{{ displayGoodies.length > 1 ? "Choose one of them:" : "Here's what you earned:" }}</p>
 
       <div class="goodies-list">
         <div
@@ -180,7 +180,7 @@ onUnmounted(() => {
 .subtitle {
   font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 20px;
   text-align: center;
   color: #cbd5e1;
