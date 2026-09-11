@@ -205,6 +205,7 @@ export class WorldStreamer {
     this.currentLevel = 1;
     this.featuresToSpawn = [];
     this.blockersToSpawn = [];
+    this.coinSpacing = 50;
     // Paces NEW feature dealing across the level's real run length instead
     // of the bag draining in the first ~15s -- see FEATURE_SPACING_DISTANCE.
     this._distanceSinceLastFeature = 0;
@@ -527,15 +528,45 @@ export class WorldStreamer {
     }
   }
 
+  // Calculates fair coin spacing based on level targetDurationSeconds (or speedMultiplier) and requiredCount.
+  // Can be manually overridden per-level in GameContent.js via coinSpacing: <number>.
+  _calculateCoinSpacing(levelData) {
+    if (
+      typeof levelData?.coinSpacing === "number" &&
+      levelData.coinSpacing > 0
+    ) {
+      return levelData.coinSpacing;
+    }
+
+    const speedMult = levelData?.speedMultiplier ?? 1.0;
+    const targetDuration =
+      typeof levelData?.targetDurationSeconds === "number" &&
+      levelData.targetDurationSeconds > 0
+        ? levelData.targetDurationSeconds
+        : speedMult * 60;
+
+    const baseSpeed = 30 * speedMult;
+    const totalDistance = baseSpeed * targetDuration;
+    const requiredCoins = Math.max(1, levelData?.requiredCount ?? 10);
+
+    // Leave ~12% headroom for level start safe runway, tutorial/slowdown, and obstacle avoidance
+    const effectiveTrackDistance = totalDistance * 0.88;
+    const spacing = Math.round(effectiveTrackDistance / requiredCoins);
+
+    // Bounded between safe minimum (30) and maximum (450) world units
+    return Math.max(30, Math.min(450, spacing));
+  }
+
   setLevel(level) {
     this.currentLevel = level;
     const levelData = levels.find((l) => l.id === level);
     if (levelData) {
+      this.currentLevelData = levelData;
       this.levelBaseSpeed = 30 * levelData.speedMultiplier;
       // Start slow (using the same multiplier as the tutorial) to allow a smooth 5-second ramp-up
       this.speed = this.levelBaseSpeed * TUTORIAL_SPEED_MULTIPLIER;
       this._levelStartSpeedBlend = 0.0;
-      this.spawnDirector.resetForLevel();
+      this.spawnDirector.resetForLevel(levelData);
       // Milestone 6 fix for the unwinnable level: deal the level's features
       // as a shuffled bag WITHOUT replacement (not 3 copies pre-shuffled
       // together, which let the SAME name be drawn again before every
@@ -553,10 +584,11 @@ export class WorldStreamer {
       this._distanceSinceJetpackCompleted = 0;
       this._boardSpawnedThisRun = false;
       this._isPopulatingInitialTrack = false;
+      this.coinSpacing = this._calculateCoinSpacing(levelData);
       // Start "already spaced" so the very first coin trail encountered
       // can deal a feature immediately, rather than making the player run
-      // the first ~90 units with nothing to collect.
-      this._distanceSinceLastFeature = this.currentLevel === 3 ? 45 : 35;
+      // with nothing to collect.
+      this._distanceSinceLastFeature = this.coinSpacing;
 
       // Clear all existing obstacles and coins from the track to provide a safe
       // "breather" runway (a few seconds of empty track) at the start of the level.
@@ -611,9 +643,10 @@ export class WorldStreamer {
         continue;
       }
 
+      const baseDensity = this.currentLevelData?.obstacleDensity ?? 0.4;
       const sceneryChance = Math.min(
         0.9,
-        0.4 * this.spawnDirector.getDensityFactor(),
+        baseDensity * this.spawnDirector.getDensityFactor(),
       );
       this._refreshChunkContent(i, Math.random() < sceneryChance);
     }
@@ -765,7 +798,8 @@ export class WorldStreamer {
         featureData = { name: "Hoverboard", category: "PowerUp" };
         this._distanceSinceLastFeature = 0;
       } else {
-        const spacingReq = this.currentLevel === 3 ? 45 : 35;
+        const spacingReq =
+          this.coinSpacing ?? (this.currentLevel === 3 ? 45 : 35);
         if (this._distanceSinceLastFeature < spacingReq) return;
         featureData = this._nextFeature();
         if (!featureData) return; // setLevel() never called yet
@@ -1009,9 +1043,10 @@ export class WorldStreamer {
           }
 
           // Gameplay Density (obstacles and coins)
+          const baseDensity = this.currentLevelData?.obstacleDensity ?? 0.5;
           const gameplayChance = Math.min(
             0.9,
-            0.5 * this.spawnDirector.getDensityFactor(),
+            baseDensity * this.spawnDirector.getDensityFactor(),
           );
 
           let hasGameplay = Math.random() < gameplayChance;

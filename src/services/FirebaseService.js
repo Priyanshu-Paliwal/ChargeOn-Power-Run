@@ -13,6 +13,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   getFirestore,
   doc,
+  getDoc,
   setDoc,
   updateDoc,
   collection,
@@ -22,6 +23,10 @@ import {
   onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
+import {
+  applyRemoteContent,
+  getSyncableContent,
+} from "../data/GameContent.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCVOruNPmhISdKhkSIk-ql37Ea0Kj4NGzQ",
@@ -39,6 +44,8 @@ export const db = getFirestore(app);
 
 const PLAYERS_COLLECTION = "chargeon_players";
 const LEADERBOARD_COLLECTION = "chargeon_leaderboard";
+const CONFIG_COLLECTION = "chargeon_config";
+const CONFIG_DOC = "game_content";
 
 /**
  * Returns consistent local human-readable string and ISO timestamps.
@@ -309,3 +316,86 @@ export const subscribeToLeaderboard = (callback, topLimit = 5) => {
     return () => {};
   }
 };
+
+/**
+ * Real-time listener for remote game configuration from Firestore.
+ * Automatically seeds the Firestore document if it does not exist yet.
+ * Caches the latest valid configuration to localStorage for instant offline boots.
+ *
+ * @param {function} [onUpdateCallback] - Optional callback fired when config updates
+ * @returns {function} Unsubscribe function
+ */
+export const initRemoteConfigSync = (onUpdateCallback) => {
+  try {
+    const configDocRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC);
+
+    const unsubscribe = onSnapshot(
+      configDocRef,
+      async (docSnap) => {
+        if (docSnap.exists()) {
+          const remoteData = docSnap.data();
+          console.log("[FirebaseService] Remote game content received from Firestore:", remoteData);
+
+          // 1. Apply to in-memory reactive GameContent
+          applyRemoteContent(remoteData);
+
+          // 2. Cache to localStorage for instant offline access
+          try {
+            if (typeof localStorage !== "undefined") {
+              localStorage.setItem("chargeon_remote_config", JSON.stringify(remoteData));
+            }
+          } catch (storageErr) {
+            console.warn("[FirebaseService] Failed to cache remote config to localStorage:", storageErr);
+          }
+
+          if (typeof onUpdateCallback === "function") {
+            onUpdateCallback(remoteData);
+          }
+        } else {
+          // Document does not exist yet in Firestore: seed it automatically with defaults!
+          console.log("[FirebaseService] Remote config document does not exist yet. Seeding defaults from GameContent.js...");
+          try {
+            const initialPayload = getSyncableContent();
+            await setDoc(configDocRef, initialPayload);
+            console.log("[FirebaseService] Successfully seeded default game content to Firestore.");
+          } catch (seedErr) {
+            console.warn("[FirebaseService] Could not auto-seed remote config:", seedErr);
+          }
+        }
+      },
+      (error) => {
+        console.warn("[FirebaseService] Remote config listener warning (offline or permissions):", error);
+      }
+    );
+
+    return unsubscribe;
+  } catch (err) {
+    console.warn("[FirebaseService] Failed to initialize remote config sync:", err);
+    return () => {};
+  }
+};
+
+/**
+ * Updates remote game configuration in Firestore.
+ * Can be called by an admin panel to save changes to the cloud.
+ *
+ * @param {object} payload - Partial or full game content overrides
+ */
+export const updateRemoteGameContent = async (payload) => {
+  try {
+    const configDocRef = doc(db, CONFIG_COLLECTION, CONFIG_DOC);
+    const time = getFormattedDateTime();
+    const cleanPayload = {
+      ...payload,
+      updatedAt: time.readable,
+      timestamp: time.timestamp,
+    };
+    await setDoc(configDocRef, cleanPayload, { merge: true });
+    console.log("[FirebaseService] Successfully updated remote game content in Firestore.");
+    return { success: true };
+  } catch (err) {
+    console.error("[FirebaseService] Failed to update remote game content:", err);
+    return { success: false, error: err };
+  }
+};
+

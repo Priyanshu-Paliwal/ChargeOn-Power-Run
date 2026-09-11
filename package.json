@@ -20,6 +20,7 @@
     "audio:generate": "node scripts/generateAudioAssets.js"
   },
   "dependencies": {
+    "canvas-confetti": "^1.9.4",
     "firebase": "^12.18.0",
     "gsap": "^3.12.5",
     "lil-gui": "^0.21.0",

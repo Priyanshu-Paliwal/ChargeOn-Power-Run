@@ -1,17 +1,217 @@
 <script setup>
 import { onMounted, onUnmounted } from "vue";
+import { campaignPromo } from "../data/GameContent.js";
+import { audioManager } from "../game/systems/AudioManager.js";
+import confetti from "canvas-confetti";
+
 const emit = defineEmits(["next"]);
+
+let celebrationInterval = null;
+let ambientInterval = null;
+const timers = [];
+
+const addTimer = (fn, delay) => {
+  const id = setTimeout(fn, delay);
+  timers.push(id);
+  return id;
+};
+
+const clearAllCelebration = () => {
+  timers.forEach((t) => clearTimeout(t));
+  timers.length = 0;
+  if (celebrationInterval) {
+    clearInterval(celebrationInterval);
+    celebrationInterval = null;
+  }
+  if (ambientInterval) {
+    clearInterval(ambientInterval);
+    ambientInterval = null;
+  }
+};
+
+const launchCelebration = () => {
+  clearAllCelebration();
+
+  // Vibrant celebration palette: Cyan, Gold, Blue, Emerald, Neon Pink, Purple, White
+  const fullPalette = [
+    "#00E5FF",
+    "#FACC15",
+    "#3B82F6",
+    "#10B981",
+    "#EC4899",
+    "#A855F7",
+    "#FFFFFF",
+  ];
+  const goldPalette = ["#FACC15", "#FFD700", "#FFE57F", "#FFFFFF", "#00E5FF"];
+
+  // Victory audio chime
+  try {
+    audioManager.playSFX("levelComplete");
+  } catch (e) {
+    // Audio context may require prior interaction
+  }
+
+  // -------------------------------------------------------------
+  // ACT 1: The Grand Opening Blast (0ms)
+  // Two high-power corner party poppers crossing overhead
+  // -------------------------------------------------------------
+  confetti({
+    particleCount: 80,
+    angle: 60,
+    spread: 70,
+    origin: { x: 0.04, y: 0.85 },
+    colors: fullPalette,
+    zIndex: 10001,
+    startVelocity: 58,
+  });
+
+  confetti({
+    particleCount: 80,
+    angle: 120,
+    spread: 70,
+    origin: { x: 0.96, y: 0.85 },
+    colors: fullPalette,
+    zIndex: 10001,
+    startVelocity: 58,
+  });
+
+  // Center golden starburst directly over the card
+  addTimer(() => {
+    confetti({
+      particleCount: 90,
+      spread: 110,
+      origin: { x: 0.5, y: 0.32 },
+      colors: goldPalette,
+      zIndex: 10001,
+      startVelocity: 40,
+      scalar: 1.2,
+    });
+  }, 350);
+
+  // -------------------------------------------------------------
+  // ACT 2: The Cascading Wave / Roman Candle Sweeps (1.2s - 2.6s)
+  // Sweeps across the screen from left to right like stadium fireworks
+  // -------------------------------------------------------------
+  const wavePoints = [
+    { x: 0.18, angle: 70, delay: 1200 },
+    { x: 0.38, angle: 80, delay: 1550 },
+    { x: 0.62, angle: 100, delay: 1900 },
+    { x: 0.82, angle: 110, delay: 2250 },
+  ];
+
+  wavePoints.forEach((pt) => {
+    addTimer(() => {
+      confetti({
+        particleCount: 45,
+        angle: pt.angle,
+        spread: 55,
+        origin: { x: pt.x, y: 0.8 },
+        colors: fullPalette,
+        zIndex: 10001,
+        startVelocity: 50,
+      });
+    }, pt.delay);
+  });
+
+  // -------------------------------------------------------------
+  // ACT 3: Grand Mid-Show Dual Super-Burst (3.0s)
+  // Massive synchronized burst meeting high in the sky
+  // -------------------------------------------------------------
+  addTimer(() => {
+    confetti({
+      particleCount: 70,
+      angle: 55,
+      spread: 80,
+      origin: { x: 0.08, y: 0.7 },
+      colors: goldPalette,
+      zIndex: 10001,
+      startVelocity: 52,
+      scalar: 1.1,
+    });
+    confetti({
+      particleCount: 70,
+      angle: 125,
+      spread: 80,
+      origin: { x: 0.92, y: 0.7 },
+      colors: goldPalette,
+      zIndex: 10001,
+      startVelocity: 52,
+      scalar: 1.1,
+    });
+  }, 3000);
+
+  // -------------------------------------------------------------
+  // ACT 4: Shimmering Gold & Cyan Confetti Rain (3.5s - 8.5s)
+  // Slow-floating feather drift gently descending across the screen
+  // -------------------------------------------------------------
+  addTimer(() => {
+    const rainEnd = Date.now() + 5000;
+    celebrationInterval = setInterval(() => {
+      if (Date.now() > rainEnd) {
+        if (celebrationInterval) {
+          clearInterval(celebrationInterval);
+          celebrationInterval = null;
+        }
+        return;
+      }
+      // Alternating gentle clouds of floating sparkles
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 60,
+        origin: { x: 0.02, y: 0.3 },
+        colors: fullPalette,
+        zIndex: 10001,
+        startVelocity: 24,
+        gravity: 0.65,
+        ticks: 250,
+        scalar: 0.9,
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 60,
+        origin: { x: 0.98, y: 0.3 },
+        colors: fullPalette,
+        zIndex: 10001,
+        startVelocity: 24,
+        gravity: 0.65,
+        ticks: 250,
+        scalar: 0.9,
+      });
+      // Soft drift from top
+      confetti({
+        particleCount: 2,
+        angle: 90,
+        spread: 90,
+        origin: { x: Math.random() * 0.8 + 0.1, y: -0.05 },
+        colors: goldPalette,
+        zIndex: 10001,
+        startVelocity: 15,
+        gravity: 0.6,
+        ticks: 300,
+        scalar: 1.0,
+      });
+    }, 240);
+  }, 3500);
+};
+
 const handleKeyDown = (e) => {
   if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
     emit("next");
     e.preventDefault();
   }
 };
+
 onMounted(() => {
   window.addEventListener("keydown", handleKeyDown);
+  launchCelebration();
 });
+
 onUnmounted(() => {
   window.removeEventListener("keydown", handleKeyDown);
+  clearAllCelebration();
+  confetti.reset();
 });
 </script>
 
@@ -22,7 +222,11 @@ onUnmounted(() => {
       <div class="column-left">
         <div class="airpods-showcase">
           <div class="glow-effect"></div>
-          <img src="/img/airpods.png" alt="AirPods" class="airpods-image" />
+          <img
+            :src="campaignPromo.offerReveal.image || '/img/airpods.png'"
+            alt="AirPods"
+            class="airpods-image"
+          />
         </div>
       </div>
 
@@ -46,31 +250,43 @@ onUnmounted(() => {
             />
           </svg>
         </div>
-        <h2 class="title-main">YOU'VE UNLOCKED SOMETHING BIG</h2>
+        <h2 class="title-main">{{ campaignPromo.offerReveal.title }}</h2>
 
         <div class="instructions-box">
-          <p class="to-earn">To earn this:</p>
+          <p class="to-earn">
+            {{ campaignPromo.offerReveal.instructionsHeader }}
+          </p>
           <ul class="task-list">
-            <li>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="linkedin-icon"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
-              Post your run on LinkedIn
-            </li>
-            <li>
-              <span class="bullet"></span>
-              Tag <strong>Cyntexa</strong>
-            </li>
-            <li>
-              <span class="bullet"></span>
-              Attach your booth selfie
+            <li
+              v-for="(task, idx) in campaignPromo.offerReveal.tasks"
+              :key="idx"
+            >
+              <svg
+                v-if="task.isLinkedIn"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="currentColor"
+                class="linkedin-icon"
+              >
+                <path
+                  d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"
+                />
+              </svg>
+              <span v-else class="bullet"></span>
+              {{ task.text }}
+              <strong v-if="task.highlight">{{ task.highlight }}</strong>
             </li>
           </ul>
           <div class="highlight-box">
-            <p class="highlight-gold">Highest engagement post wins an exclusive AirPods</p>
+            <p class="highlight-gold">
+              {{ campaignPromo.offerReveal.highlightBox }}
+            </p>
           </div>
         </div>
 
         <button class="btn-primary" @click="emit('next')">
-          SEE MY RESULTS
+          {{ campaignPromo.offerReveal.buttonText || "SEE MY RESULTS" }}
           <svg
             class="btn-icon"
             viewBox="0 0 24 24"
@@ -191,6 +407,7 @@ onUnmounted(() => {
   line-height: 1.3;
   text-align: left;
   width: 100%;
+  text-shadow: 0 0 25px rgba(250, 204, 21, 0.35);
 }
 
 .btn-primary {
@@ -223,8 +440,6 @@ onUnmounted(() => {
 .btn-primary:active {
   transform: translateY(0);
 }
-
-
 
 .airpods-showcase {
   position: relative;

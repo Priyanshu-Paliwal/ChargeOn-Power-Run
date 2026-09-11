@@ -53,9 +53,10 @@ export class SpawnDirector {
     this._distanceTraveled = 0;
   }
 
-  resetForLevel() {
+  resetForLevel(levelData = null) {
     this._distanceTraveled = 0;
     this._recentIds = [];
+    this._levelData = levelData;
   }
 
   // Call once per frame with however far the world moved this frame
@@ -73,9 +74,12 @@ export class SpawnDirector {
   // In-level speed, ramping from the level's own base up toward
   // base * speedRampMultiplier as the player travels through the level.
   getRampedSpeed(levelBaseSpeed) {
+    const rampMult =
+      this._levelData?.speedRampMultiplier ??
+      DIFFICULTY_RAMP.speedRampMultiplier;
     return (
       levelBaseSpeed *
-      (1 + (DIFFICULTY_RAMP.speedRampMultiplier - 1) * this._rampT())
+      (1 + (rampMult - 1) * this._rampT())
     );
   }
 
@@ -85,16 +89,19 @@ export class SpawnDirector {
   // having content everywhere would remove the pacing "breather" chunks
   // are meant to provide, at ANY point in a level).
   getDensityFactor() {
-    return 1 + (DIFFICULTY_RAMP.densityRampMultiplier - 1) * this._rampT();
+    const densityMult =
+      this._levelData?.densityRampMultiplier ??
+      DIFFICULTY_RAMP.densityRampMultiplier;
+    return 1 + (densityMult - 1) * this._rampT();
   }
 
   // 1 at level start (only the simplest solo patterns eligible), ramping
-  // to 4 (everything, including the 3-obstacle gauntlet) as the level
-  // progresses -- this is the other half of "density ramps with distance":
-  // not just how OFTEN a chunk has content, but how demanding that content
-  // is allowed to be.
+  // up as the level progresses -- capped cleanly by this level's maxPatternDifficulty
+  // from GameContent.js (e.g. Level 1 capped to 1 so only solo obstacles ever spawn).
   getMaxDifficulty() {
-    return Math.floor(1 + 3 * this._rampT());
+    const levelCap = this._levelData?.maxPatternDifficulty ?? 4;
+    const ramped = Math.floor(1 + 3 * this._rampT());
+    return Math.min(levelCap, Math.max(1, ramped));
   }
 
   // The plan's "minimum reaction distance" guarantee -- nothing spawns
